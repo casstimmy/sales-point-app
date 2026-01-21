@@ -112,6 +112,38 @@ export default async function handler(req, res) {
     return res.status(200).json(responseData);
   } catch (error) {
     console.error("Login error:", error);
+    // Allow demo login when MongoDB is unavailable
+    console.log("⚠️ MongoDB unavailable, checking demo credentials");
+    
+    // Demo credentials for testing
+    const demoStaff = {
+      "staff_1": { name: "Demo Cashier", pin: "0000", role: "staff" },
+      "staff_2": { name: "Demo Manager", pin: "0000", role: "manager" },
+    };
+    
+    if (demoStaff[staffId] && demoStaff[staffId].pin === pin) {
+      const responseData = {
+        message: "Login successful (Demo Mode)",
+        staff: {
+          _id: staffId,
+          name: demoStaff[staffId].name,
+          username: staffId,
+          role: demoStaff[staffId].role,
+          locationId: location || "default",
+          locationName: "Main Store",
+        },
+        store: {
+          _id: null,
+          name: "Default Store",
+        },
+        location: {
+          _id: location || "default",
+          name: "Main Store",
+        },
+      };
+      return res.status(200).json(responseData);
+    }
+    
     return res.status(500).json({
       message: "Something went wrong",
       error: error.message,
