@@ -1,9 +1,11 @@
 /**
  * API Endpoint: GET /api/staff/list
  * 
- * Fetches all active staff members
+ * Fetches all active staff members from database
  * Query params:
  * - location: Filter by location name
+ * 
+ * Returns: { success: true, count: X, data: [staff...] }
  */
 
 import { mongooseConnect } from "../../../lib/mongoose";
@@ -15,66 +17,65 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Step 1: Connect to MongoDB
+    console.log("👤 Staff API: Starting request...");
     await mongooseConnect();
+    console.log("✅ Staff API: Connected to MongoDB");
 
     const { location } = req.query;
-    let query = {};
 
-    // Start with empty query, MongoDB is now available
-    // Try to filter by isActive if it exists
-    const { location: locFilter } = req.query;
-    
-    // Build query dynamically
-    if (locFilter) {
-      query.locationName = locFilter;
+    // Step 2: Build query
+    let query = {};
+    if (location) {
+      query.locationName = location;
+      console.log(`📍 Staff API: Filtering by location: ${location}`);
     }
 
-    // First try with isActive filter
-    let staff = await Staff.find({ ...query, isActive: true })
-      .select("_id name username role locationName")
+    // Step 3: Fetch all staff first (without isActive filter)
+    console.log("📥 Staff API: Fetching staff from database...");
+    const allStaff = await Staff.find(query)
+      .select("_id name username role locationName isActive")
       .lean();
 
-    // If no results with isActive filter, try without it (in case field doesn't exist)
-    if (staff.length === 0) {
-      console.log("ℹ️ No staff found with isActive filter, trying without filter");
-      staff = await Staff.find(query)
-        .select("_id name username role locationName")
-        .lean();
-    }
+    console.log(`📊 Staff API: Found ${allStaff.length} total staff records`);
 
-    console.log(`✅ Fetched ${staff.length} staff members from database`);
+    // Step 4: Filter for active staff (isActive must be true or undefined)
+    const activeStaff = allStaff.filter(s => s.isActive !== false);
+    console.log(`✅ Staff API: ${activeStaff.length} active staff members`);
 
     return res.status(200).json({
       success: true,
-      count: staff.length,
-      data: staff,
+      count: activeStaff.length,
+      data: activeStaff,
     });
   } catch (err) {
-    console.error("Error fetching staff:", err);
-    console.error("Error details:", {
+    console.error("❌ Staff API Error:", {
       message: err.message,
       code: err.code,
       name: err.name,
     });
-    
+
     // Return default demo staff when MongoDB is unavailable
-    console.log("⚠️ MongoDB unavailable, returning default demo staff");
+    console.log("⚠️ MongoDB unavailable, returning demo staff as fallback");
     const defaultStaff = [
       {
-        _id: "staff_1",
+        _id: "demo_staff_1",
         name: "Demo Cashier",
         username: "cashier",
         role: "staff",
         locationName: "Main Store",
+        isActive: true,
       },
       {
-        _id: "staff_2",
+        _id: "demo_staff_2",
         name: "Demo Manager",
         username: "manager",
         role: "manager",
         locationName: "Main Store",
+        isActive: true,
       },
     ];
+    
     return res.status(200).json({
       success: true,
       count: defaultStaff.length,
@@ -82,3 +83,4 @@ export default async function handler(req, res) {
     });
   }
 }
+

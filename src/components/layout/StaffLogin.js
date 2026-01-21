@@ -79,14 +79,20 @@ export default function StaffLogin() {
     const fetchData = async () => {
       try {
         setLoadingData(true);
-        console.log("🔄 Fetching stores, locations, and staff data...");
+        console.log("🔄 [LOGIN] Starting data fetch...");
         
+        // Step 1: Fetch store and locations
+        console.log("🔄 [LOGIN] Fetching store and locations...");
         const response = await fetch("/api/store/init-locations");
+        console.log(`📡 [LOGIN] Store API response status: ${response.status}`);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log("📦 [LOGIN] Store API response data:", data);
           
           // Store is returned as an object with locations array
           if (data.store) {
+            console.log(`✅ [LOGIN] Store found: "${data.store.storeName}"`);
             const storeObj = {
               _id: data.store._id,
               name: data.store.storeName || data.store.companyName || "Default Store",
@@ -97,6 +103,7 @@ export default function StaffLogin() {
             // Set locations from store
             if (Array.isArray(data.store.locations)) {
               const activeLocations = data.store.locations.filter(loc => loc.isActive !== false);
+              console.log(`✅ [LOGIN] Found ${activeLocations.length} active locations:`, activeLocations.map(l => l.name));
               setLocations(activeLocations);
               // Cache locations for offline use
               localStorage.setItem('cachedLocations', JSON.stringify(activeLocations));
@@ -106,19 +113,30 @@ export default function StaffLogin() {
               }
             }
           }
+        } else {
+          console.error(`❌ [LOGIN] Store API error: ${response.status}`);
         }
         
-        // Fetch staff (only active staff)
+        // Step 2: Fetch staff members
+        console.log("🔄 [LOGIN] Fetching staff members...");
         const staffResponse = await fetch("/api/staff/list");
+        console.log(`📡 [LOGIN] Staff API response status: ${staffResponse.status}`);
+        
         if (staffResponse.ok) {
           const staffData = await staffResponse.json();
+          console.log("📦 [LOGIN] Staff API response data:", staffData);
+          
           // API returns { success: true, count: X, data: [...] }
           const staffList = staffData.data || staffData || [];
           const staffArray = Array.isArray(staffList) ? staffList : [];
+          console.log(`✅ [LOGIN] Found ${staffArray.length} staff members:`, staffArray.map(s => ({ name: s.name, role: s.role })));
+          
           setStaff(staffArray);
           // Cache staff for offline use
           localStorage.setItem('cachedStaff', JSON.stringify(staffArray));
-          console.log(`✅ Loaded ${staffArray.length} staff members`);
+          console.log(`✅ [LOGIN] Cached ${staffArray.length} staff members`);
+        } else {
+          console.error(`❌ [LOGIN] Staff API error: ${staffResponse.status}`);
         }
 
         // Pre-cache categories for offline use
