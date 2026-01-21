@@ -18,16 +18,27 @@ export default async function handler(req, res) {
     await mongooseConnect();
 
     const { location } = req.query;
-    let query = { isActive: true };
+    let query = {};
 
-    // Filter by location if provided
+    // Build query dynamically
     if (location) {
       query.locationName = location;
     }
 
-    const staff = await Staff.find(query)
+    // First try with isActive filter
+    let staff = await Staff.find({ ...query, isActive: true })
       .select("_id name username role locationName")
       .lean();
+
+    // If no results with isActive filter, try without it (in case field doesn't exist)
+    if (staff.length === 0) {
+      console.log("ℹ️ No staff found with isActive filter, trying without filter");
+      staff = await Staff.find(query)
+        .select("_id name username role locationName")
+        .lean();
+    }
+
+    console.log(`✅ Fetched ${staff.length} staff members from database`);
 
     return res.status(200).json({
       success: true,
@@ -36,6 +47,12 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("Error fetching staff:", err);
+    console.error("Error details:", {
+      message: err.message,
+      code: err.code,
+      name: err.name,
+    });
+    
     // Return default demo staff when MongoDB is unavailable
     console.log("⚠️ MongoDB unavailable, returning default demo staff");
     const defaultStaff = [

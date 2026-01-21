@@ -37,7 +37,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ message: "Staff member not found" });
     }
 
-    if (!staffMember.isActive) {
+    // Check if staff is inactive (if field exists)
+    if (staffMember.isActive === false) {
       return res.status(401).json({ message: "Staff account is inactive" });
     }
 
