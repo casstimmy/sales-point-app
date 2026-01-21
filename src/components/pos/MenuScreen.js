@@ -599,7 +599,7 @@ export default function MenuScreen() {
                 </div>
               ) : (
                 <div className="text-sm text-neutral-400 py-3 text-center">
-                  No products match "{searchTerm}"
+                  No products match &quot;{searchTerm}&quot;
                 </div>
               );
             })()}

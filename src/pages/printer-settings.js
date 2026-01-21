@@ -147,7 +147,7 @@ export default function PrinterSettings() {
             <p className="text-sm text-purple-900 mb-3">For USB (Direct) Connection:</p>
             <ol className="text-sm text-purple-900 space-y-1 list-decimal list-inside mb-3">
               <li>Connect Xprinter to USB port</li>
-              <li>Install Xprinter driver and ensure it's running</li>
+              <li>Install Xprinter driver and ensure it&apos;s running</li>
               <li>Select <strong>🔌 USB</strong> mode below</li>
               <li>Click <strong>Refresh</strong> to check if printer is detected</li>
             </ol>
@@ -156,7 +156,7 @@ export default function PrinterSettings() {
               <p className="font-semibold text-purple-900 mb-2">❌ If printer still not detected:</p>
               <ul className="text-purple-800 space-y-1 list-disc list-inside">
                 <li>Restart Xprinter driver application</li>
-                <li>Check Windows Devices for "Xprinter" (right-click &gt; Printers)</li>
+                <li>Check Windows Devices for &quot;Xprinter&quot; (right-click &gt; Printers)</li>
                 <li>Ensure Print Spooler service is running (Services app)</li>
                 <li>Try disconnecting and reconnecting the USB cable</li>
                 <li>Check Device Manager for any yellow warning icons</li>

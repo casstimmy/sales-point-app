@@ -218,7 +218,7 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
                 <p className="text-blue-900 text-sm font-semibold mb-3">📋 To Enable Payment Methods:</p>
                 <ol className="text-blue-800 text-sm list-decimal list-inside space-y-2">
                   <li>Go to <span className="bg-blue-100 px-2 py-1 rounded">Settings → Location Tenders & Categories</span></li>
-                  <li>Select <span className="font-medium">"{location?.name}"</span> from the location dropdown</li>
+                  <li>Select <span className="font-medium">&quot;{location?.name}&quot;</span> from the location dropdown</li>
                   <li>Check the payment methods you want to enable (Cash, Card, Mobile Money, etc.)</li>
                   <li>Return to POS and try processing a transaction again</li>
                 </ol>

@@ -54,7 +54,7 @@ export default function ThankYouNote({
         {/* Custom Message */}
         {receiptMessage && (
           <p className="text-lg italic mb-8 leading-relaxed whitespace-pre-line opacity-95">
-            "{receiptMessage}"
+            &quot;{receiptMessage}&quot;
           </p>
         )}
 

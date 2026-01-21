@@ -142,7 +142,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
               <p className="font-semibold text-base">{error}</p>
               {error.includes("already open") && (
                 <p className="text-sm mt-2 text-red-600">
-                  The till for this location is already open. Click "Continue" to proceed with the existing till session.
+                  The till for this location is already open. Click &quot;Continue&quot; to proceed with the existing till session.
                 </p>
               )}
             </div>
