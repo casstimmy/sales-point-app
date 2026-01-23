@@ -71,23 +71,51 @@ export default async function handler(req, res) {
     }
 
     // Fetch store information
-    const storeData = await Store.findOne().lean();
+    const storeData = await Store.findOne();  // Don't use .lean() to preserve ObjectIds
     let locationData = null;
     let storeName = "Default Store";
+    
+    console.log("🔍 Login: Searching for location...");
+    console.log("   Location ID from request:", location);
+    console.log("   Store exists:", !!storeData);
+    console.log("   Store locations count:", storeData?.locations?.length || 0);
     
     if (storeData) {
       storeName = storeData.storeName || storeData.companyName || "Default Store";
       
       // Find location by ID if provided
       if (location && storeData.locations && Array.isArray(storeData.locations)) {
+        console.log("   Available location IDs:", storeData.locations.map(l => ({
+          _id: l._id?.toString(),
+          name: l.name,
+        })));
+        
         locationData = storeData.locations.find(
-          (l) => l._id.toString() === location || l.name === location
+          (l) => {
+            const idMatch = l._id?.toString() === location?.toString();
+            const nameMatch = l.name === location;
+            console.log(`   Checking location "${l.name}": ID match=${idMatch}, Name match=${nameMatch}`);
+            return idMatch || nameMatch;
+          }
         );
+        
+        if (locationData) {
+          console.log(`✅ Found location: "${locationData.name}"`);
+        } else {
+          console.log(`❌ Location not found with ID/name: ${location}`);
+        }
       } else if (storeData.locations && storeData.locations.length > 0) {
         // Use first location if none specified
         locationData = storeData.locations[0];
+        console.log(`✅ Using first location: "${locationData.name}"`);
       }
     }
+
+    // Ensure location data is always returned properly
+    const finalLocationData = locationData || {
+      _id: location || "default",
+      name: "Main Store",
+    };
 
     const responseData = {
       message: "Login successful",
@@ -96,18 +124,27 @@ export default async function handler(req, res) {
         name: staffMember.name,
         username: staffMember.username,
         role: staffMember.role,
-        locationId: location || locationData?._id,
-        locationName: locationData?.name || staffMember.locationName || "Main Store",
+        locationId: finalLocationData?._id,
+        locationName: finalLocationData?.name || staffMember.locationName || "Main Store",
       },
       store: {
         _id: storeData?._id,
         name: storeName,
       },
-      location: locationData || {
-        _id: location,
-        name: "Main Store",
+      location: {
+        _id: finalLocationData?._id,
+        name: finalLocationData?.name,
+        address: finalLocationData?.address || "",
+        phone: finalLocationData?.phone || "",
+        email: finalLocationData?.email || "",
       },
     };
+
+    console.log("✅ Login response prepared:", {
+      staff: responseData.staff.name,
+      location: responseData.location?.name,
+      locationId: responseData.location?._id?.toString(),
+    });
 
     return res.status(200).json(responseData);
   } catch (error) {
