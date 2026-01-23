@@ -1,4 +1,4 @@
-// models/Transactions.js
+// models/Transactions.js - Merged from inventory & current app
 
 import mongoose from "mongoose";
 
@@ -6,12 +6,14 @@ const itemSchema = new mongoose.Schema(
   {
     productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
     name: String,
-    salePriceIncTax: Number,
-    qty: Number,
+    price: Number, // Price from POS (for backward compatibility)
+    quantity: Number, // Quantity from POS
+    salePriceIncTax: Number, // Standardized field for reports
+    qty: Number, // Standardized field for reports
   },
-   {
+  {
     _id: false,
-    strict: true, // <-- just to enforce schema mapping
+    strict: false, // Allow additional fields from POS
   }
 );
 
@@ -28,26 +30,44 @@ const TransactionSchema = new mongoose.Schema({
     amount: Number,                             // Amount paid with this tender
   }],
   
+  // Transaction amounts
   amountPaid: Number, // Total amount paid (sum of all tenderPayments if split, or amount for single tender)
   total: Number,
-  staff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
-  location: String,
-  device: String,
-  tableName: String,
+  change: Number,
   discount: Number,
   discountReason: String,
+  
+  // References
+  staff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
+  location: String, // Store location as string (location name or 'online')
+  
+  // Device & Table info
+  device: String,
+  tableName: String,
+  
+  // Customer info
   customerName: String,
-  transactionType: { type: String, enum: ["pos"], default: "pos" }, // Only POS transactions
+  
+  // Transaction classification
+  transactionType: { 
+    type: String, 
+    enum: ["pos"], 
+    default: "pos" 
+  }, // Only POS transactions
+  
   status: { 
     type: String, 
     enum: ["held", "completed", "refunded"], 
     default: "completed" 
   },
-  change: Number,
+  
+  // Items purchased
   items: {
     type: [itemSchema],
     default: [],
   },
+  
+  // Refund information
   refundReason: String,
   refundBy: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
   refundedAt: Date,
@@ -55,22 +75,26 @@ const TransactionSchema = new mongoose.Schema({
   // Track which till this transaction belongs to
   tillId: { type: mongoose.Schema.Types.ObjectId, ref: "Till" },
   
+  // Timestamps
   createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
 });
 
-// Index for faster lookups by tender type and status
+// Indexes for faster lookups
+// Index for single tender (legacy)
 TransactionSchema.index({ tenderType: 1, status: 1 });
-// Index for faster lookups by tenders (for split payments)
+// Index for split payments
 TransactionSchema.index({ "tenderPayments.tenderId": 1, status: 1 });
-// Index for faster lookups by till
+// Index for till reconciliation
 TransactionSchema.index({ tillId: 1 });
-// Index for getting all transactions from a location on a date
+// Index for location-based reporting
 TransactionSchema.index({ location: 1, createdAt: -1 });
+// Index for staff performance
+TransactionSchema.index({ staff: 1, createdAt: -1 });
 
-// Force refresh the model to avoid schema mismatch in development
+// Avoid re-registering the model in development
 delete mongoose.models.Transaction;
 const Transaction = mongoose.model("Transaction", TransactionSchema);
 
-
-
+export default Transaction;
 export { Transaction };

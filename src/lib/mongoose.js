@@ -49,3 +49,6 @@ export async function mongooseConnect() {
     throw error;
   }
 }
+
+// Default export for compatibility
+export default mongooseConnect;

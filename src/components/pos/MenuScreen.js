@@ -12,9 +12,9 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBaby,
-  faCroissant,
   faCookie,
-  faDrumstick,
+  faBreadSlice,
+  faUtensils,
   faSpray,
   faLipstick,
   faSnowflake,
@@ -43,9 +43,9 @@ const CATEGORY_COLORS = {
 };
 
 const CATEGORY_ICONS = {
-  'Bakery': faCroissant,
+  'Bakery': faBreadSlice,
   'Drinks': faWineGlass,
-  'Food': faDrumstick,
+  'Food': faUtensils,
   'Hotel': faBook,
   'Wine': faWineGlass,
 };
