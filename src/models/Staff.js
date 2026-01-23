@@ -64,7 +64,7 @@ const StaffSchema = new Schema(
   { timestamps: true }
 );
 
-export default models.Staff || mongoose.model("Staff", StaffSchema);
+const StaffModel = models.Staff || mongoose.model("Staff", StaffSchema);
 
-export const Staff =
-  models.Staff || mongoose.model("Staff", StaffSchema);
+export default StaffModel;
+export const Staff = StaffModel;
