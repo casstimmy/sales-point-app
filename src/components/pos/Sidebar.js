@@ -152,12 +152,24 @@ export default function Sidebar({ isOpen, onToggle }) {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-gradient-to-b from-neutral-50 to-neutral-100">
       {/* Logo Section */}
-      <div className="p-5 bg-white border-b-2 border-primary-200 shadow-sm">
+      <div className="p-4 bg-white border-b-2 border-primary-200 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="text-3xl font-bold text-primary-600">📦</div>
-          <div className="hidden md:block">
+          <img 
+            src="/images/st-micheals-logo.png" 
+            alt="Store Logo" 
+            className="w-10 h-10 object-contain rounded-lg"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+          <div className="w-10 h-10 bg-primary-600 rounded-lg items-center justify-center hidden text-white font-bold text-lg">
+            SP
+          </div>
+          <div className="hidden md:block flex-1">
             <div className="text-base font-bold text-neutral-900">SalesPOS</div>
-            <div className="text-sm text-primary-600 font-semibold">POS System</div>
+            <div className="text-sm text-primary-600 font-semibold">Point of Sale</div>
           </div>
         </div>
       </div>
@@ -169,7 +181,8 @@ export default function Sidebar({ isOpen, onToggle }) {
             {/* Section Header */}
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center gap-3 px-5 py-4 hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-neutral-800 hover:text-primary-700 text-lg"
+              className="w-full flex items-center gap-3 px-5 py-4 hover:bg-primary-50 active:bg-primary-100 active:scale-[0.99] transition-all text-left font-semibold text-neutral-800 hover:text-primary-700 text-lg"
+              style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
             >
               <FontAwesomeIcon icon={section.icon} className="w-6 h-6 text-primary-600" />
               <span className="hidden md:inline text-base font-semibold text-neutral-800 flex-1">
@@ -195,7 +208,8 @@ export default function Sidebar({ isOpen, onToggle }) {
                       }
                     }}
                     disabled={(item.label === 'Close Till' || item.label === 'Adjust Float') && !till}
-                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left text-base font-semibold text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-3 px-5 py-4 hover:bg-primary-100 active:bg-primary-200 active:scale-[0.99] border-l-4 border-transparent hover:border-primary-500 text-left text-base font-semibold text-neutral-700 hover:text-primary-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                   >
                     <FontAwesomeIcon icon={item.icon} className="w-5 h-5 text-primary-500" />
                     <span className="hidden md:inline text-base">{item.label}</span>
@@ -234,7 +248,8 @@ export default function Sidebar({ isOpen, onToggle }) {
         <button
           onClick={handleManualSync}
           disabled={isSyncing || !isOnline}
-          className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base text-base font-bold shadow-md hover:shadow-lg"
+          className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-primary-600 text-white rounded-xl hover:bg-primary-700 active:bg-primary-800 active:scale-[0.98] disabled:bg-neutral-400 disabled:cursor-not-allowed transition-all text-base font-bold shadow-md hover:shadow-lg"
+          style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
           <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
           {isSyncing ? 'Syncing...' : 'Sync Transactions'}

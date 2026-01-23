@@ -123,6 +123,131 @@ textarea {
 /* Button Reset */
 button {
   @apply font-semibold cursor-pointer transition-all;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Touch-optimized button base styles */
+.btn {
+  @apply inline-flex items-center justify-center gap-2 font-semibold rounded-lg transition-all duration-150;
+  @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+  @apply active:scale-95 active:brightness-90;
+  min-height: 44px;
+  min-width: 44px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+
+/* Primary Button */
+.btn-primary {
+  @apply btn bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  @apply active:bg-primary-800;
+}
+
+/* Secondary Button */
+.btn-secondary {
+  @apply btn bg-secondary-500 text-white hover:bg-secondary-600 focus:ring-secondary-500;
+  @apply active:bg-secondary-700;
+}
+
+/* Success Button */
+.btn-success {
+  @apply btn bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+  @apply active:bg-green-800;
+}
+
+/* Danger Button */
+.btn-danger {
+  @apply btn bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  @apply active:bg-red-800;
+}
+
+/* Warning Button */
+.btn-warning {
+  @apply btn bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-500;
+  @apply active:bg-amber-700;
+}
+
+/* Ghost/Outline Button */
+.btn-ghost {
+  @apply btn bg-transparent text-neutral-700 border border-neutral-300 hover:bg-neutral-100 focus:ring-neutral-400;
+  @apply active:bg-neutral-200;
+}
+
+/* Size variants */
+.btn-sm {
+  @apply px-3 py-2 text-sm;
+  min-height: 36px;
+}
+
+.btn-md {
+  @apply px-4 py-3 text-base;
+  min-height: 44px;
+}
+
+.btn-lg {
+  @apply px-6 py-4 text-lg;
+  min-height: 52px;
+}
+
+.btn-xl {
+  @apply px-8 py-5 text-xl;
+  min-height: 60px;
+}
+
+/* POS-specific button styles */
+.pos-action-btn {
+  @apply flex flex-col items-center justify-center gap-1 p-3 rounded-lg font-medium transition-all;
+  @apply hover:scale-105 active:scale-95;
+  min-height: 60px;
+  min-width: 60px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Numeric keypad button */
+.keypad-btn {
+  @apply flex items-center justify-center font-bold text-2xl rounded-lg transition-all;
+  @apply hover:brightness-105 active:scale-95 active:brightness-90;
+  min-height: 56px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Product grid card */
+.product-card {
+  @apply bg-white rounded-xl border border-neutral-200 p-3 transition-all cursor-pointer;
+  @apply hover:shadow-lg hover:border-primary-300 hover:scale-[1.02];
+  @apply active:scale-[0.98] active:shadow-md;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Category button */
+.category-btn {
+  @apply flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all;
+  @apply hover:scale-105 active:scale-95;
+  min-height: 52px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Tender/Payment method button */
+.tender-btn {
+  @apply flex flex-col items-center justify-center p-4 rounded-xl font-semibold transition-all;
+  @apply hover:scale-105 active:scale-95;
+  min-height: 80px;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* Disabled state for all buttons */
+button:disabled,
+.btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+  transform: none !important;
 }
 
 /* Scrollbar Styling */

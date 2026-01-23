@@ -77,7 +77,8 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
           {/* Hamburger - Visible on all screens */}
           <button
             onClick={onToggleSidebar}
-            className="p-3 hover:bg-white/20 rounded-lg transition-colors duration-base touch-manipulation min-h-12 min-w-12"
+            className="p-3 hover:bg-white/20 active:bg-white/30 active:scale-95 rounded-xl transition-all min-h-12 min-w-12"
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
             title="Toggle menu"
           >
             <FontAwesomeIcon icon={faBars} className="w-6 h-6" />
@@ -117,14 +118,16 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
             )}
           </div>
           <button
-            className="p-3 hover:bg-white/20 rounded-lg transition-colors duration-base touch-manipulation min-h-12 min-w-12"
+            className="p-3 hover:bg-white/20 active:bg-white/30 active:scale-95 rounded-xl transition-all min-h-12 min-w-12"
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
             title="Search products"
           >
             <FontAwesomeIcon icon={faSearch} className="w-6 h-6" />
           </button>
           <button
             onClick={onLogout}
-            className="p-3 hover:bg-white/20 rounded-lg transition-colors duration-base touch-manipulation min-h-12 min-w-12"
+            className="p-3 hover:bg-white/20 active:bg-white/30 active:scale-95 rounded-xl transition-all min-h-12 min-w-12"
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
             title="Logout or switch user"
           >
             <FontAwesomeIcon icon={faSignOutAlt} className="w-6 h-6" />
