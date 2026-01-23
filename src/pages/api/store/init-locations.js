@@ -8,8 +8,13 @@ export default async function handler(req, res) {
 
   try {
     console.log("\n\n========== STORE API REQUEST ==========");
-    console.log("MongoDB URI:", process.env.MONGODB_URI?.substring(0, 50) + "...");
+    console.log("MongoDB URI exists:", !!process.env.MONGODB_URI);
     
+    if (!process.env.MONGODB_URI) {
+      throw new Error("MONGODB_URI environment variable is not set");
+    }
+    
+    console.log("Connecting to MongoDB...");
     await mongooseConnect();
     console.log("✅ Connected to MongoDB");
 
@@ -43,10 +48,11 @@ export default async function handler(req, res) {
     console.error("\n\n❌❌❌ ERROR ❌❌❌");
     console.error("Message:", err.message);
     console.error("Stack:", err.stack);
+    console.error("Full error:", err);
     return res.status(500).json({ 
       success: false, 
       error: err.message,
-      stack: err.stack 
+      stack: process.env.NODE_ENV === "development" ? err.stack : undefined
     });
   }
 }
