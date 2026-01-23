@@ -39,14 +39,15 @@ export default async function handler(req, res) {
 
         return {
           _id: till._id,
+          staffId: till.staffId,
           staffName: till.staffName,
           locationName: location?.name || "Unknown Location",
+          locationId: till.locationId,
           openedAt: till.openedAt,
           totalSales: till.totalSales || 0,
           transactionCount: till.transactionCount || 0,
           openingBalance: till.openingBalance || 0,
           storeId: till.storeId,
-          locationId: till.locationId,
           status: till.status,
         };
       })

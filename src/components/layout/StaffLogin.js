@@ -486,7 +486,7 @@ export default function StaffLogin() {
       )}
 
       {/* Top Header Bar */}
-      <div className="bg-cyan-700 px-6 py-4 flex items-center justify-between border-b-4 border-cyan-800">
+      <div className="bg-cyan-700 px-6 py-4 flex items-center justify-between border-b-4 border-cyan-800 flex-shrink-0">
         {/* Clock In/Out Button */}
         <button className="px-6 py-2 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 transition flex items-center gap-2">
           <FontAwesomeIcon icon={faClock} />
@@ -527,8 +527,8 @@ export default function StaffLogin() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Side - Store/Location/Staff Selection */}
-        <div className="flex-1 p-8 overflow-y-auto">
+        {/* Left Side - Store/Location/Staff Selection - SCROLLABLE */}
+        <div className="flex-1 overflow-y-auto p-8 bg-gradient-to-b from-cyan-600 to-cyan-700">
           {/* Active Open Tills Alert */}
           {activeTills && activeTills.length > 0 && (
             <div className="mb-6 bg-yellow-400 bg-opacity-90 border-l-4 border-yellow-600 p-4 rounded-lg">

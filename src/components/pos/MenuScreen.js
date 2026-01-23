@@ -25,6 +25,7 @@ import {
   faSyncAlt,
   faWifi,
   faX,
+  faSearch,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
@@ -445,7 +446,7 @@ export default function MenuScreen() {
     <div className="flex flex-col h-full bg-neutral-50 overflow-hidden">
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border-b border-red-200 px-3 py-2 flex items-center justify-between">
+        <div className="bg-red-50 border-b border-red-200 px-3 py-2 flex items-center justify-between flex-shrink-0">
           <span className="text-sm text-red-700">{error}</span>
           <button
             onClick={() => setError(null)}
@@ -457,7 +458,7 @@ export default function MenuScreen() {
       )}
       
       {/* Sync Button + Status Bar */}
-      <div className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
+      <div className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           {/* Online Status */}
           <div className={`flex items-center gap-1 px-3 py-2 rounded-lg ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
@@ -489,18 +490,24 @@ export default function MenuScreen() {
         </button>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white border-b border-neutral-200 px-4 py-3">
-        <input
-          type="text"
-          placeholder="🔍 Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-4 py-3 text-lg border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-        />
+      {/* Search Bar - Redesigned */}
+      <div className="bg-white border-b-2 border-primary-200 px-4 py-4 flex-shrink-0 shadow-sm">
+        <div className="relative">
+          <FontAwesomeIcon 
+            icon={faSearch} 
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500"
+          />
+          <input
+            type="text"
+            placeholder="Search products or categories..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-3 text-base border-2 border-neutral-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all font-medium"
+          />
+        </div>
       </div>
 
-      {/* Integrated Categories + Products Flow */}
+      {/* Categories + Products - SCROLLABLE SECTION */}
       <div className="flex-1 overflow-y-auto p-2">
         {/* Category Grid */}
         <div className="mb-3">
