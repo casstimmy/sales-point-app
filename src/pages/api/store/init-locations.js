@@ -1,128 +1,52 @@
-/**
- * API Endpoint: GET /api/store/init-locations
- * 
- * Fetches store information with locations for login
- * Response format: { store: { _id, storeName, locations: [] } }
- */
-
 import { mongooseConnect } from "@/src/lib/mongoose";
 import Store from "@/src/models/Store";
-import mongoose from "mongoose";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res.status(405).json({ message: "Method not allowed" });
   }
 
   try {
-    console.log("🏪 Store API: Starting request...");
-    console.log("   MongoDB URI exists:", !!process.env.MONGODB_URI);
-    console.log("   MongoDB URI (first 50 chars):", process.env.MONGODB_URI?.substring(0, 50) || "NOT SET");
+    console.log("\n\n========== STORE API REQUEST ==========");
+    console.log("MongoDB URI:", process.env.MONGODB_URI?.substring(0, 50) + "...");
     
     await mongooseConnect();
-    console.log("✅ Store API: Connected to MongoDB");
-    console.log("   Mongoose connection state:", mongoose.connection.readyState);
+    console.log("✅ Connected to MongoDB");
 
-    console.log("📥 Store API: Fetching store from database...");
-    const store = await Store.findOne({});  // Empty query to get first document
-
+    console.log("📥 Querying Store collection...");
+    const store = await Store.findOne({});
+    
+    console.log("\n📦 STORE FETCHED:");
+    console.log("Store object:", JSON.stringify(store, null, 2));
+    
     if (!store) {
-      console.log("⚠️ Store API: No store found - checking collection...");
+      console.log("\n❌ Store is NULL");
       const count = await Store.countDocuments();
-      console.log(`   Total stores in collection: ${count}`);
-      
-      if (count === 0) {
-        console.log("⚠️ Store collection is EMPTY - returning demo data");
-      } else {
-        console.log("❌ ERROR: Store collection has data but query returned null!");
-      }
-    } else {
-      console.log(`✅ Store API: Found store "${store.storeName || store.companyName}"`);
-      console.log(`📍 Store API: Found ${store.locations?.length || 0} locations`);
-      if (store.locations && store.locations.length > 0) {
-        console.log("   Location details:", store.locations.map(l => ({ 
-          _id: l._id?.toString(), 
-          name: l.name, 
-          isActive: l.isActive 
-        })));
-      }
+      console.log(`Store collection has ${count} documents`);
+      return res.status(200).json({ success: false, message: "No store found", count });
     }
 
-    if (!store || !store.locations || store.locations.length === 0) {
-      // Return default store and location if none found
-      console.log("📦 Store API: Returning default store configuration (FALLBACK MODE)");
-      return res.status(200).json({
-        success: true,
-        store: {
-          _id: null,
-          storeName: "Default Store",
-          locations: [
-            {
-              _id: "default",
-              name: "Main Store",
-              address: "",
-              phone: "",
-              isActive: true,
-            },
-          ],
-        },
-      });
-    }
-
-    // Convert to object and filter locations
-    const storeObj = store.toObject ? store.toObject() : store;
-    
-    // Filter out inactive locations, ensure all fields are present
-    const activeLocations = (storeObj.locations || [])
-      .filter(loc => loc.isActive !== false)
-      .map(loc => ({
-        _id: loc._id,
-        name: loc.name,
-        address: loc.address || "",
-        phone: loc.phone || "",
-        email: loc.email || "",
-        code: loc.code || "",
-        isActive: loc.isActive,
-        tenders: loc.tenders || [],
-        categories: loc.categories || [],
-      }));
-    
-    console.log(`✅ Store API: Returning ${activeLocations.length} ACTUAL locations from database (${(storeObj.locations || []).length - activeLocations.length} inactive)`);
+    console.log("\n✅ Store found!");
+    console.log("Store name:", store.storeName);
+    console.log("Locations count:", store.locations?.length || 0);
+    console.log("Locations:", JSON.stringify(store.locations, null, 2));
 
     return res.status(200).json({
       success: true,
       store: {
-        _id: storeObj._id,
-        storeName: storeObj.storeName || storeObj.companyName || "Default Store",
-        locations: activeLocations,
+        _id: store._id,
+        storeName: store.storeName,
+        locations: store.locations || [],
       },
     });
   } catch (err) {
-    console.error("❌ Store API Error:", {
-      message: err.message,
-      code: err.code,
-      name: err.name,
-      stack: err.stack,
-    });
-    console.error("   Full error:", err);
-    
-    // Return default store/locations even if MongoDB is unavailable
-    console.log("⚠️ MongoDB ERROR - returning default store configuration (FALLBACK MODE)");
-    return res.status(200).json({
-      success: true,
-      store: {
-        _id: null,
-        storeName: "Default Store",
-        locations: [
-          {
-            _id: "default",
-            name: "Main Store",
-            address: "",
-            phone: "",
-            isActive: true,
-          },
-        ],
-      },
+    console.error("\n\n❌❌❌ ERROR ❌❌❌");
+    console.error("Message:", err.message);
+    console.error("Stack:", err.stack);
+    return res.status(500).json({ 
+      success: false, 
+      error: err.message,
+      stack: err.stack 
     });
   }
 }
