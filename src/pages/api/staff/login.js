@@ -1,6 +1,6 @@
-import { mongooseConnect } from "@/src/lib/mongoose";
-import { Staff } from "@/src/models/Staff";
-import Store from "@/src/models/Store";
+import { mongooseConnect } from "@/lib/mongoose";
+import { Staff } from "@/models/Staff";
+import Store from "@/models/Store";
 import bcrypt from "bcryptjs";
 
 export default async function handler(req, res) {
@@ -71,26 +71,27 @@ export default async function handler(req, res) {
     }
 
     // Fetch store information
-    const storeData = await Store.findOne();  // Don't use .lean() to preserve ObjectIds
+    const storeData = await Store.findOne({});  // Empty query to get first document
+    const storeObj = storeData ? (storeData.toObject ? storeData.toObject() : storeData) : null;
     let locationData = null;
     let storeName = "Default Store";
     
     console.log("🔍 Login: Searching for location...");
     console.log("   Location ID from request:", location);
-    console.log("   Store exists:", !!storeData);
-    console.log("   Store locations count:", storeData?.locations?.length || 0);
+    console.log("   Store exists:", !!storeObj);
+    console.log("   Store locations count:", storeObj?.locations?.length || 0);
     
-    if (storeData) {
-      storeName = storeData.storeName || storeData.companyName || "Default Store";
+    if (storeObj) {
+      storeName = storeObj.storeName || storeObj.companyName || "Default Store";
       
       // Find location by ID if provided
-      if (location && storeData.locations && Array.isArray(storeData.locations)) {
-        console.log("   Available location IDs:", storeData.locations.map(l => ({
+      if (location && storeObj.locations && Array.isArray(storeObj.locations)) {
+        console.log("   Available location IDs:", storeObj.locations.map(l => ({
           _id: l._id?.toString(),
           name: l.name,
         })));
         
-        locationData = storeData.locations.find(
+        locationData = storeObj.locations.find(
           (l) => {
             const idMatch = l._id?.toString() === location?.toString();
             const nameMatch = l.name === location;
@@ -104,9 +105,9 @@ export default async function handler(req, res) {
         } else {
           console.log(`❌ Location not found with ID/name: ${location}`);
         }
-      } else if (storeData.locations && storeData.locations.length > 0) {
+      } else if (storeObj.locations && storeObj.locations.length > 0) {
         // Use first location if none specified
-        locationData = storeData.locations[0];
+        locationData = storeObj.locations[0];
         console.log(`✅ Using first location: "${locationData.name}"`);
       }
     }
@@ -128,7 +129,7 @@ export default async function handler(req, res) {
         locationName: finalLocationData?.name || staffMember.locationName || "Main Store",
       },
       store: {
-        _id: storeData?._id,
+        _id: storeObj?._id,
         name: storeName,
       },
       location: {

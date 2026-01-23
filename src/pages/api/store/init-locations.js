@@ -5,8 +5,8 @@
  * Response format: { store: { _id, storeName, locations: [] } }
  */
 
-import { mongooseConnect } from "../../../lib/mongoose";
-import Store from "../../../models/Store";
+import { mongooseConnect } from "@/lib/mongoose";
+import Store from "@/models/Store";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {
@@ -22,10 +22,9 @@ export default async function handler(req, res) {
     await mongooseConnect();
     console.log("✅ Store API: Connected to MongoDB");
     console.log("   Mongoose connection state:", mongoose.connection.readyState);
-    console.log("   Available collections:", Object.keys(mongoose.connection.collections));
 
     console.log("📥 Store API: Fetching store from database...");
-    const store = await Store.findOne();  // Remove .lean() to preserve ObjectIds
+    const store = await Store.findOne({});  // Empty query to get first document
 
     if (!store) {
       console.log("⚠️ Store API: No store found - checking collection...");
@@ -34,6 +33,8 @@ export default async function handler(req, res) {
       
       if (count === 0) {
         console.log("⚠️ Store collection is EMPTY - returning demo data");
+      } else {
+        console.log("❌ ERROR: Store collection has data but query returned null!");
       }
     } else {
       console.log(`✅ Store API: Found store "${store.storeName || store.companyName}"`);
@@ -68,8 +69,11 @@ export default async function handler(req, res) {
       });
     }
 
+    // Convert to object and filter locations
+    const storeObj = store.toObject ? store.toObject() : store;
+    
     // Filter out inactive locations, ensure all fields are present
-    const activeLocations = store.locations
+    const activeLocations = (storeObj.locations || [])
       .filter(loc => loc.isActive !== false)
       .map(loc => ({
         _id: loc._id,
@@ -83,13 +87,13 @@ export default async function handler(req, res) {
         categories: loc.categories || [],
       }));
     
-    console.log(`✅ Store API: Returning ${activeLocations.length} ACTUAL locations from database (${store.locations.length - activeLocations.length} inactive)`);
+    console.log(`✅ Store API: Returning ${activeLocations.length} ACTUAL locations from database (${(storeObj.locations || []).length - activeLocations.length} inactive)`);
 
     return res.status(200).json({
       success: true,
       store: {
-        _id: store._id,
-        storeName: store.storeName || store.companyName || "Default Store",
+        _id: storeObj._id,
+        storeName: storeObj.storeName || storeObj.companyName || "Default Store",
         locations: activeLocations,
       },
     });
