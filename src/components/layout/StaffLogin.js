@@ -488,12 +488,9 @@ export default function StaffLogin() {
       {/* Top Header Bar */}
       <div className="bg-cyan-700 px-6 py-4 flex items-center justify-between border-b-4 border-cyan-800">
         {/* Clock In/Out Button */}
-        <button 
-          className="px-6 py-3 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 active:bg-cyan-500 active:scale-95 transition-all flex items-center gap-2 min-h-12"
-          style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-        >
+        <button className="px-6 py-2 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 transition flex items-center gap-2">
           <FontAwesomeIcon icon={faClock} />
-          <span className="hidden sm:inline">CLOCK IN / OUT</span>
+          CLOCK IN / OUT
         </button>
 
         {/* Center Logo */}
@@ -513,21 +510,17 @@ export default function StaffLogin() {
         </div>
 
         {/* Right Buttons */}
-        <div className="flex items-center gap-3">
-          <button 
-            className="px-6 py-3 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 active:bg-cyan-500 active:scale-95 transition-all flex items-center gap-2 min-h-12"
-            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-          >
+        <div className="flex items-center gap-4">
+          <button className="px-6 py-2 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 transition flex items-center gap-2">
             <FontAwesomeIcon icon={faQuestionCircle} />
-            <span className="hidden sm:inline">HELP & SUPPORT</span>
+            HELP & SUPPORT
           </button>
           <button
             onClick={() => router.push("/")}
-            className="px-6 py-3 bg-red-600 text-white rounded-full font-semibold hover:bg-red-700 active:bg-red-800 active:scale-95 transition-all flex items-center gap-2 min-h-12"
-            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+            className="px-6 py-2 bg-red-600 text-white rounded-full font-semibold hover:bg-red-700 transition flex items-center gap-2"
           >
             <FontAwesomeIcon icon={faPowerOff} />
-            <span className="hidden sm:inline">EXIT</span>
+            EXIT
           </button>
         </div>
       </div>
@@ -600,12 +593,11 @@ export default function StaffLogin() {
                           setSelectedLocation("");
                           setSelectedStaff("");
                         }}
-                        className={`py-4 px-3 rounded-xl font-bold text-sm transition-all transform active:scale-95 min-h-14 ${
+                        className={`py-4 px-3 rounded-lg font-bold text-sm transition transform hover:scale-105 ${
                           selectedStore === store._id
                             ? "bg-cyan-900 text-white ring-4 ring-yellow-400"
-                            : "bg-cyan-800 text-white hover:bg-cyan-700 active:bg-cyan-600"
+                            : "bg-cyan-800 text-white hover:bg-cyan-700"
                         }`}
-                        style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                       >
                         {store.name}
                       </button>
@@ -652,12 +644,11 @@ export default function StaffLogin() {
                         <button
                           key={member._id}
                           onClick={() => setSelectedStaff(member._id)}
-                          className={`p-4 rounded-xl text-left font-semibold transition-all active:scale-[0.98] min-h-16 ${
+                          className={`p-4 rounded-lg text-left font-semibold transition ${
                             selectedStaff === member._id
                               ? "bg-yellow-400 text-cyan-900 ring-4 ring-yellow-300"
-                              : "bg-cyan-800 text-white hover:bg-cyan-700 active:bg-cyan-600"
+                              : "bg-cyan-800 text-white hover:bg-cyan-700"
                           }`}
-                          style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                         >
                           <div className="font-bold">{member.name}</div>
                           <div className="text-xs opacity-80">@{member.username}</div>
@@ -707,8 +698,7 @@ export default function StaffLogin() {
               <button
                 key={num}
                 onClick={() => handlePinClick(num.toString())}
-                className="py-6 bg-cyan-800 hover:bg-cyan-600 active:bg-cyan-500 text-white font-bold text-2xl rounded-xl transition-all active:scale-95 min-h-16 shadow-md"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                className="py-6 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-2xl rounded-lg transition active:scale-95"
               >
                 {num}
               </button>
@@ -717,15 +707,13 @@ export default function StaffLogin() {
             {/* 0 and Backspace */}
             <button
               onClick={() => handlePinClick("0")}
-              className="col-span-2 py-6 bg-cyan-800 hover:bg-cyan-600 active:bg-cyan-500 text-white font-bold text-2xl rounded-xl transition-all active:scale-95 min-h-16 shadow-md"
-              style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+              className="col-span-2 py-6 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-2xl rounded-lg transition active:scale-95"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
-              className="py-6 bg-red-600 hover:bg-red-500 active:bg-red-400 text-white font-bold text-xl rounded-xl transition-all active:scale-95 min-h-16 shadow-md"
-              style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+              className="py-6 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
             >
               ⌫
             </button>
@@ -742,12 +730,11 @@ export default function StaffLogin() {
           <button
             onClick={handleLogin}
             disabled={loading || pin.length !== 4 || !selectedStore || !selectedLocation || !selectedStaff}
-            className={`w-full py-4 font-bold text-lg rounded-xl transition-all min-h-14 shadow-lg ${
+            className={`w-full py-4 font-bold text-lg rounded-lg transition ${
               pin.length === 4 && selectedStore && selectedLocation && selectedStaff && !loading
-                ? "bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 active:scale-[0.98] text-white"
+                ? "bg-cyan-400 hover:bg-cyan-300 text-cyan-900"
                 : "bg-gray-400 text-gray-600 cursor-not-allowed"
             }`}
-            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
           >
             {loading ? "LOGGING IN..." : "LOGIN"}
           </button>

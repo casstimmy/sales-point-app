@@ -482,8 +482,7 @@ export default function MenuScreen() {
         <button
           onClick={handleManualSync}
           disabled={isSyncing || !isOnline}
-          className="flex items-center gap-2 px-4 py-3 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 active:bg-primary-800 active:scale-95 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-all min-h-12"
-          style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+          className="flex items-center gap-2 px-4 py-3 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-12"
         >
           <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
           {isSyncing ? 'Syncing...' : 'Sync Products'}
@@ -509,23 +508,21 @@ export default function MenuScreen() {
           {loadingCategories ? (
             <div className="text-sm text-neutral-400 text-center py-4">Loading categories...</div>
           ) : (
-            <div className="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2 auto-rows-max">
+            <div className="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5 auto-rows-max">
               {categories.map(category => {
                 const color = CATEGORY_COLORS[category.name] || 'from-neutral-500 to-neutral-600';
                 const icon = CATEGORY_ICONS[category.name] || faBook;
-                const isSelected = selectedCategory?._id === category._id || selectedCategory?.id === category.id;
                 
                 return (
                   <button
                     key={category._id || category.id}
                     onClick={() => setSelectedCategory(category)}
-                    className={`relative h-28 rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-all duration-base active:scale-95 ${
-                      isSelected ? 'ring-4 ring-yellow-400 shadow-xl scale-105' : ''
+                    className={`relative h-28 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-base transform hover:scale-105 touch-manipulation ${
+                      selectedCategory?._id === category._id || selectedCategory?.id === category.id ? 'ring-4 ring-primary-500' : ''
                     }`}
-                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                   >
                     {/* Background Gradient */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${color} ${isSelected ? 'opacity-100' : 'opacity-90'}`} />
+                    <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-90`} />
 
                     {/* Content */}
                     <div className="relative h-full flex flex-col items-center justify-center text-white text-center p-3">
@@ -564,8 +561,7 @@ export default function MenuScreen() {
                         category: product.category,
                         quantity: 1,
                       })}
-                      className="relative h-48 p-3 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 active:from-green-200 active:to-green-300 rounded-xl border-2 border-green-300 transition-all active:scale-95 shadow-md hover:shadow-lg flex flex-col items-center justify-center text-center overflow-hidden"
-                      style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                      className="relative h-48 p-3 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border-2 border-green-300 transition-all duration-base transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
                     >
                       {/* Product Image */}
                       <div className="w-24 h-24 bg-white rounded border border-green-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-2">
@@ -635,8 +631,7 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative h-48 p-3 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 active:from-blue-200 active:to-blue-300 rounded-xl border-2 border-blue-300 transition-all active:scale-95 shadow-md hover:shadow-lg flex flex-col items-center justify-center text-center overflow-hidden"
-                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                    className="relative h-48 p-3 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border-2 border-blue-300 transition-all transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
                   >
                     {/* Product Image */}
                     <div className="w-24 h-24 bg-white rounded border border-blue-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-2">

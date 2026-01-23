@@ -457,24 +457,18 @@ export default function CartPanel() {
             <div className="grid grid-cols-3 gap-3">
               <button 
                 onClick={handlePrintCart}
-                className="px-2 py-3 text-sm font-bold bg-neutral-200 hover:bg-neutral-300 active:bg-neutral-400 active:scale-95 text-neutral-900 rounded-xl transition-all flex flex-col items-center gap-1 min-h-20"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-              >
+                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20">
                 <FontAwesomeIcon icon={faPrint} className="w-5 h-5" />
                 <span>PRINT</span>
               </button>
-              <button 
-                className="px-2 py-3 text-sm font-bold bg-neutral-200 hover:bg-neutral-300 active:bg-neutral-400 active:scale-95 text-neutral-900 rounded-xl transition-all flex flex-col items-center gap-1 min-h-20"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
-              >
+              <button className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20">
                 <FontAwesomeIcon icon={faMoneyBill} className="w-5 h-5" />
                 <span>PETTY</span>
                 <span>CASH</span>
               </button>
               <button 
                 onClick={() => setShowAdjustFloatModal(true)}
-                className="px-2 py-3 text-sm font-bold bg-neutral-200 hover:bg-neutral-300 active:bg-neutral-400 active:scale-95 text-neutral-900 rounded-xl transition-all flex flex-col items-center gap-1 min-h-20"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20"
               >
                 <FontAwesomeIcon icon={faGripVertical} className="w-5 h-5" />
                 <span>ADJUST</span>
@@ -486,24 +480,21 @@ export default function CartPanel() {
             <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={deleteCart}
-                className="px-3 py-4 text-lg font-bold bg-red-600 hover:bg-red-700 active:bg-red-800 active:scale-95 text-white rounded-xl transition-all flex flex-col items-center gap-2 min-h-24"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                className="px-3 py-4 text-lg font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-2 min-h-24"
               >
                 <FontAwesomeIcon icon={faTrashAlt} className="w-6 h-6" />
                 <span>DELETE</span>
               </button>
               <button
                 onClick={holdOrder}
-                className="px-3 py-4 text-lg font-bold bg-primary-600 hover:bg-primary-700 active:bg-primary-800 active:scale-95 text-white rounded-xl transition-all flex flex-col items-center gap-2 min-h-24"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                className="px-3 py-4 text-lg font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-2 min-h-24"
               >
                 <FontAwesomeIcon icon={faClock} className="w-6 h-6" />
                 <span>HOLD</span>
               </button>
               <button
                 onClick={handlePayment}
-                className="px-3 py-4 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 active:scale-95 text-white rounded-xl transition-all flex flex-col items-center gap-2 min-h-24"
-                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                className="px-3 py-4 text-lg font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-2 min-h-24"
               >
                 <FontAwesomeIcon icon={faMoneyBill} className="w-6 h-6" />
                 <span>PAY</span>
