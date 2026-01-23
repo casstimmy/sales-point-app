@@ -5,9 +5,9 @@
  * Receives individual offline transactions and stores them in the database
  */
 
-import { mongooseConnect } from '../../../lib/mongoose';
-import { Transaction } from '../../../models/Transactions';
-import Till from '../../../models/Till';
+import { mongooseConnect } from '@/src/lib/mongoose';
+import { Transaction } from '@/src/models/Transactions';
+import Till from '@/src/models/Till';
 
 export default async function handler(req, res) {
   // Support GET for health check and POST for creating transactions

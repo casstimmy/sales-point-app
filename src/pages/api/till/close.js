@@ -1,9 +1,9 @@
 // pages/api/till/close.js
-import { mongooseConnect } from "../../../lib/mongoose";
-import Till from "../../../models/Till";
-import { Transaction } from "../../../models/Transactions";
-import EndOfDayReport from "../../../models/EndOfDayReport";
-import Tender from "../../../models/Tender";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Till from "@/src/models/Till";
+import { Transaction } from "@/src/models/Transactions";
+import EndOfDayReport from "@/src/models/EndOfDayReport";
+import Tender from "@/src/models/Tender";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {

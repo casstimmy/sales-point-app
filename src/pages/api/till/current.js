@@ -1,6 +1,6 @@
 // pages/api/till/current.js
-import { mongooseConnect } from "../../../lib/mongoose";
-import Till from "../../../models/Till";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Till from "@/src/models/Till";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {

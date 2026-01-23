@@ -1,7 +1,7 @@
 // pages/api/till/[tillId].js
-import { mongooseConnect } from "../../../lib/mongoose";
-import Till from "../../../models/Till";
-import { Transaction } from "../../../models/Transactions";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Till from "@/src/models/Till";
+import { Transaction } from "@/src/models/Transactions";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {

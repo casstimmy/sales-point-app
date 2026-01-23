@@ -5,9 +5,9 @@
  * Called during auto-sync when client comes back online
  */
 
-import { mongooseConnect } from '../../../lib/mongoose';
-import { Transaction } from '../../../models/Transactions';
-import Till from '../../../models/Till';
+import { mongooseConnect } from '@/src/lib/mongoose';
+import { Transaction } from '@/src/models/Transactions';
+import Till from '@/src/models/Till';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

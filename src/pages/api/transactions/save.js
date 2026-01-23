@@ -6,9 +6,9 @@
  * Falls back to sync if response fails on client side
  */
 
-import { mongooseConnect } from '../../../lib/mongoose';
-import { Transaction } from '../../../models/Transactions';
-import Till from '../../../models/Till';
+import { mongooseConnect } from '@/src/lib/mongoose';
+import { Transaction } from '@/src/models/Transactions';
+import Till from '@/src/models/Till';
 
 export default async function handler(req, res) {
   // Only POST method allowed

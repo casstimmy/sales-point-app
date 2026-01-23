@@ -15,8 +15,8 @@
  * }
  */
 
-import { mongooseConnect } from "../../../lib/mongoose";
-import Store from "../../../models/Store";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Store from "@/src/models/Store";
 
 export default async function handler(req, res) {
   // Only allow GET requests

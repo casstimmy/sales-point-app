@@ -1,7 +1,7 @@
 // pages/api/till/open.js
-import { mongooseConnect } from "../../../lib/mongoose";
-import Till from "../../../models/Till";
-import Store from "../../../models/Store";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Till from "@/src/models/Till";
+import Store from "@/src/models/Store";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {

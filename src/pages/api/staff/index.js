@@ -6,8 +6,8 @@
  * - location: Filter by location name
  */
 
-import { mongooseConnect } from "../../../lib/mongoose";
-import { Staff } from "../../../models/Staff";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import { Staff } from "@/src/models/Staff";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {

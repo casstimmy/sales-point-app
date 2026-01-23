@@ -1,7 +1,7 @@
 // pages/api/till/diagnose.js
 // Diagnostic endpoint to check till database state
-import { mongooseConnect } from "../../../lib/mongoose";
-import Till from "../../../models/Till";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Till from "@/src/models/Till";
 
 export default async function handler(req, res) {
   try {

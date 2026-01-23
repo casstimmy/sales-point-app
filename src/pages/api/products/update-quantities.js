@@ -5,8 +5,8 @@
  * Called after transaction is saved to reduce inventory
  */
 
-import { mongooseConnect } from '../../../lib/mongoose';
-import { default as Product } from '../../../models/Product';
+import { mongooseConnect } from '@/src/lib/mongoose';
+import { default as Product } from '@/src/models/Product';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

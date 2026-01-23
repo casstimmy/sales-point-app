@@ -5,8 +5,8 @@
  * Adds additional cash to the starting float without creating a transaction.
  */
 
-import Till from "../../../../models/Till";
-import { mongooseConnect } from "../../../../lib/mongoose";
+import Till from "@/src/models/Till";
+import { mongooseConnect } from "@/src/lib/mongoose";
 
 export default async function handler(req, res) {
   // Only allow PUT requests

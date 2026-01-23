@@ -10,8 +10,8 @@
  * }
  */
 
-import { mongooseConnect } from "../../../lib/mongoose";
-import { Category } from "../../../models/Category";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import { Category } from "@/src/models/Category";
 
 export default async function handler(req, res) {
   // Only allow POST
