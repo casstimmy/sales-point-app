@@ -1,6 +1,6 @@
-import { mongooseConnect } from "@/lib/mongoose";
-import { Staff } from "@/models/Staff";
-import Store from "@/models/Store";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import { Staff } from "@/src/models/Staff";
+import Store from "@/src/models/Store";
 import bcrypt from "bcryptjs";
 
 export default async function handler(req, res) {

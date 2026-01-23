@@ -9,32 +9,52 @@ const StaffSchema = new Schema(
       trim: true,
     },
 
-    username: {
-      type: String,
-      unique: true,
-      required: true,
-      lowercase: true,
-      trim: true,
-    },
-
     password: {
       type: String,
       required: true,
     },
 
-    pin: {
-      type: String,
-      default: "0000", // Default 4-digit PIN
-    },
-
     role: {
       type: String,
-      enum: ["staff", "manager", "admin"],
       default: "staff",
     },
 
-    locationId: { type: Schema.Types.ObjectId },
+    location: {
+      type: String,
+      default: "",
+    },
+
+    accountName: {
+      type: String,
+      default: "",
+    },
+
+    accountNumber: {
+      type: String,
+      default: "",
+    },
+
+    bankName: {
+      type: String,
+      default: "",
+    },
+
+    salary: {
+      type: Number,
+      default: 0,
+    },
+
+    penalty: [
+      {
+        reason: String,
+        amount: Number,
+        date: { type: Date, default: Date.now },
+      },
+    ],
+
+       locationId: { type: Schema.Types.ObjectId },
     locationName: String,
+
 
     isActive: {
       type: Boolean,
@@ -43,6 +63,8 @@ const StaffSchema = new Schema(
   },
   { timestamps: true }
 );
+
+export default models.Staff || mongoose.model("Staff", StaffSchema);
 
 export const Staff =
   models.Staff || mongoose.model("Staff", StaffSchema);

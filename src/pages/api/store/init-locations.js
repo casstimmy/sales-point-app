@@ -5,8 +5,8 @@
  * Response format: { store: { _id, storeName, locations: [] } }
  */
 
-import { mongooseConnect } from "@/lib/mongoose";
-import Store from "@/models/Store";
+import { mongooseConnect } from "@/src/lib/mongoose";
+import Store from "@/src/models/Store";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {
