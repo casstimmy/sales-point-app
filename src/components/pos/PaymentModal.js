@@ -199,14 +199,8 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
   }
 
   if (error || availableTenders.length === 0) {
-    // Auto-redirect to login if no payment methods configured
-    if (!loading && !error && availableTenders.length === 0) {
-      if (typeof window !== 'undefined') {
-        setTimeout(() => {
-          window.location.href = '/staff-login';
-        }, 1500);
-      }
-    }
+    // NOTE: Do NOT auto-redirect - let user close modal and handle login through Layout
+    // The Layout component will show StaffLogin when staff is null
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

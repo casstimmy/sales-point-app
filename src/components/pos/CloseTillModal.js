@@ -298,9 +298,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
       logout(); // Clear staff and location from context
       onClose();
       
-      // Redirect to login page after context is cleared
+      // Redirect to home - Layout will show login screen when staff is null
       console.log("🔄 Redirecting to login...");
-      router.push("/staff-login").then(() => {
+      router.push("/").then(() => {
         console.log("✅ Redirected to login");
       }).catch(err => {
         console.error("❌ Redirect error:", err);

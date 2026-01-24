@@ -284,7 +284,7 @@ export function CartProvider({ children }) {
     }));
 
     console.log('✅ Cart cleared after payment');
-  }, [state.activeCart, state.isOnline]);
+  }, [state.activeCart]);
 
   // =========================================================================
   // CART CALCULATIONS
