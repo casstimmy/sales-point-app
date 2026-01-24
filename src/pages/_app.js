@@ -1,9 +1,24 @@
 import "../styles/globals.css";
 import Head from "next/head";
+import { useEffect } from "react";
 import Layout from "@/src/components/layout/Layout";
 import { StaffProvider } from "@/src/context/StaffContext";
 
 export default function App({ Component, pageProps }) {
+  // Register service worker for offline support
+  useEffect(() => {
+    if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => {
+          console.log('✅ Service Worker registered:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('❌ Service Worker registration failed:', error);
+        });
+    }
+  }, []);
+
   return (
     <StaffProvider>
       <Head>
@@ -11,7 +26,14 @@ export default function App({ Component, pageProps }) {
         <meta name="robots" content="noindex" />
         <meta name="googlebot" content="noindex" />
         <meta name="google" content="notranslate" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#0891b2" />
+        
+        {/* PWA Manifest */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="POS" />
 
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />

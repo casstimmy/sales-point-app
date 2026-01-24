@@ -215,6 +215,47 @@ export function CartProvider({ children }) {
     }));
   }, []);
 
+  // Set customer with optional promotion
+  const setCustomer = useCallback((customer, promotion = null) => {
+    setState(prev => {
+      const newCart = {
+        ...prev.activeCart,
+        customer: customer,
+      };
+
+      // Apply promotion discount if provided
+      if (promotion && promotion.active) {
+        if (promotion.discountType === 'PERCENTAGE') {
+          newCart.discountPercent = promotion.discountValue;
+          newCart.appliedPromotion = promotion;
+        } else if (promotion.discountType === 'FIXED') {
+          // For fixed discounts, we'll store it separately
+          newCart.discountAmount = promotion.discountValue;
+          newCart.appliedPromotion = promotion;
+        }
+      }
+
+      return {
+        ...prev,
+        activeCart: newCart,
+      };
+    });
+  }, []);
+
+  // Clear customer from cart
+  const clearCustomer = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      activeCart: {
+        ...prev.activeCart,
+        customer: null,
+        discountPercent: 0,
+        discountAmount: 0,
+        appliedPromotion: null,
+      },
+    }));
+  }, []);
+
   // =========================================================================
   // ORDER OPERATIONS
   // =========================================================================
@@ -332,6 +373,8 @@ export function CartProvider({ children }) {
     setItemDiscount,
     setItemNotes,
     setCartDiscount,
+    setCustomer,
+    clearCustomer,
     deleteCart,
 
     // Order operations

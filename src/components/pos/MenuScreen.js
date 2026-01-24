@@ -616,6 +616,21 @@ export default function MenuScreen() {
                           <div className="text-2xl">📦</div>
                         )}
                       </div>
+
+                      {/* Product Info - Below Image */}
+                      <div className="flex flex-col items-center justify-center flex-1 min-h-0">
+                        <div className="text-sm font-bold text-gray-900 leading-tight line-clamp-2 mb-0.5">
+                          {product.name}
+                        </div>
+                        <div className="text-lg font-bold text-green-700 mb-0.5">
+                          ₦{product.salePriceIncTax?.toLocaleString() || '0'}
+                        </div>
+                        {product.quantity > 0 && (
+                          <div className="text-xs text-gray-700 font-semibold">
+                            Stock: {product.quantity}
+                          </div>
+                        )}
+                      </div>
                     </button>
                   ))}
                 </div>

@@ -6,7 +6,7 @@
  * - Filter by customer type (REGULAR, VIP, NEW, INACTIVE, BULK_BUYER, ONLINE)
  * - Add new customer
  * - View customer details
- * - Assign customer to current transaction
+ * - Assign customer to current transaction with applicable promotions
  */
 
 import React, { useState, useEffect } from 'react';
@@ -19,6 +19,8 @@ import {
   faMapPin,
   faTag,
   faX,
+  faCheck,
+  faPercent,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 
@@ -34,8 +36,9 @@ const CUSTOMER_TYPE_COLORS = {
 };
 
 export default function CustomersScreen() {
-  const { activeCart } = useCart();
+  const { activeCart, setCustomer, clearCustomer } = useCart();
   const [customers, setCustomers] = useState([]);
+  const [promotions, setPromotions] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedType, setSelectedType] = useState('');
   const [loading, setLoading] = useState(true);
@@ -49,9 +52,10 @@ export default function CustomersScreen() {
   });
   const [adding, setAdding] = useState(false);
 
-  // Fetch customers on mount
+  // Fetch customers and promotions on mount
   useEffect(() => {
     fetchCustomers();
+    fetchPromotions();
   }, []);
 
   const fetchCustomers = async () => {
@@ -70,6 +74,58 @@ export default function CustomersScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchPromotions = async () => {
+    try {
+      const response = await fetch('/api/promotions');
+      if (response.ok) {
+        const data = await response.json();
+        setPromotions(data.promotions || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch promotions:', error);
+    }
+  };
+
+  // Find applicable promotion for a customer type
+  const findApplicablePromotion = (customerType) => {
+    if (!promotions || promotions.length === 0) return null;
+
+    // Find active promotions that target this customer type
+    const applicablePromos = promotions.filter(promo => {
+      if (!promo.active) return false;
+      if (!promo.targetCustomerTypes?.includes(customerType)) return false;
+      
+      // Check if promotion is within date range (if not indefinite)
+      if (!promo.indefinite) {
+        const now = new Date();
+        const start = new Date(promo.startDate);
+        const end = new Date(promo.endDate);
+        if (now < start || now > end) return false;
+      }
+      
+      return true;
+    });
+
+    // Return highest priority (lowest number) or first match
+    if (applicablePromos.length === 0) return null;
+    return applicablePromos.sort((a, b) => (a.priority || 0) - (b.priority || 0))[0];
+  };
+
+  // Handle customer selection
+  const handleSelectCustomer = (customer) => {
+    const promotion = findApplicablePromotion(customer.type);
+    setCustomer(customer, promotion);
+    
+    if (promotion) {
+      console.log(`✅ Applied promotion "${promotion.name}" for ${customer.type} customer`);
+    }
+  };
+
+  // Handle customer deselection
+  const handleDeselectCustomer = () => {
+    clearCustomer();
   };
 
   const handleAddCustomer = async () => {
@@ -241,6 +297,35 @@ export default function CustomersScreen() {
         </div>
       )}
 
+      {/* Currently Selected Customer Banner */}
+      {activeCart.customer && (
+        <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FontAwesomeIcon icon={faCheck} className="w-5 h-5" />
+            <div>
+              <span className="font-bold">{activeCart.customer.name}</span>
+              <span className="ml-2 text-green-100">({activeCart.customer.type})</span>
+              {activeCart.appliedPromotion && (
+                <span className="ml-3 bg-white/20 px-2 py-1 rounded text-sm">
+                  <FontAwesomeIcon icon={faPercent} className="w-3 h-3 mr-1" />
+                  {activeCart.appliedPromotion.name}: 
+                  {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
+                    ? ` ${activeCart.appliedPromotion.discountValue}% off`
+                    : ` ₦${activeCart.appliedPromotion.discountValue} off`
+                  }
+                </span>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={handleDeselectCustomer}
+            className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-semibold transition-colors active:scale-95"
+          >
+            Remove
+          </button>
+        </div>
+      )}
+
       {/* Customers List */}
       <div className="flex-1 overflow-y-auto">
         {loading ? (
@@ -264,57 +349,94 @@ export default function CustomersScreen() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-            {filteredCustomers.map(customer => (
-              <div
-                key={customer._id}
-                className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow p-4"
-              >
-                {/* Customer Type Badge */}
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-base line-clamp-1">
-                      {customer.name}
-                    </h3>
-                  </div>
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-semibold border ${
-                      CUSTOMER_TYPE_COLORS[customer.type] || 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {customer.type}
-                  </span>
-                </div>
-
-                {/* Contact Info */}
-                <div className="space-y-2 text-sm text-gray-600 mb-4">
-                  {customer.phone && (
+            {filteredCustomers.map(customer => {
+              const isSelected = activeCart.customer?._id === customer._id;
+              const applicablePromo = findApplicablePromotion(customer.type);
+              
+              return (
+                <div
+                  key={customer._id}
+                  onClick={() => !isSelected && handleSelectCustomer(customer)}
+                  className={`rounded-lg border-2 shadow-sm hover:shadow-md transition-all p-4 cursor-pointer active:scale-[0.98] ${
+                    isSelected 
+                      ? 'bg-green-50 border-green-500' 
+                      : 'bg-white border-gray-200 hover:border-cyan-400'
+                  }`}
+                >
+                  {/* Customer Type Badge & Selection Status */}
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faPhone} className="w-4 h-4 text-blue-500" />
-                      <span className="font-mono">{customer.phone}</span>
+                      {isSelected && (
+                        <div className="bg-green-500 text-white p-1 rounded-full">
+                          <FontAwesomeIcon icon={faCheck} className="w-3 h-3" />
+                        </div>
+                      )}
+                      <h3 className={`font-bold text-base line-clamp-1 ${isSelected ? 'text-green-800' : 'text-gray-900'}`}>
+                        {customer.name}
+                      </h3>
+                    </div>
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-semibold border ${
+                        CUSTOMER_TYPE_COLORS[customer.type] || 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {customer.type}
+                    </span>
+                  </div>
+
+                  {/* Applicable Promotion Badge */}
+                  {applicablePromo && (
+                    <div className="bg-gradient-to-r from-purple-100 to-pink-100 border border-purple-300 rounded-lg px-3 py-2 mb-3">
+                      <div className="flex items-center gap-2 text-purple-800">
+                        <FontAwesomeIcon icon={faPercent} className="w-4 h-4" />
+                        <span className="text-sm font-semibold">{applicablePromo.name}</span>
+                      </div>
+                      <div className="text-xs text-purple-600 mt-1">
+                        {applicablePromo.valueType === 'DISCOUNT' ? '🔽' : '🔼'}
+                        {applicablePromo.discountType === 'PERCENTAGE' 
+                          ? ` ${applicablePromo.discountValue}%`
+                          : ` ₦${applicablePromo.discountValue}`
+                        } {applicablePromo.valueType === 'DISCOUNT' ? 'discount' : 'markup'}
+                      </div>
                     </div>
                   )}
-                  {customer.email && (
-                    <div className="flex items-center gap-2">
-                      <FontAwesomeIcon icon={faEnvelope} className="w-4 h-4 text-blue-500" />
-                      <span className="truncate text-xs">{customer.email}</span>
-                    </div>
+
+                  {/* Contact Info */}
+                  <div className="space-y-2 text-sm text-gray-600 mb-3">
+                    {customer.phone && (
+                      <div className="flex items-center gap-2">
+                        <FontAwesomeIcon icon={faPhone} className="w-4 h-4 text-blue-500" />
+                        <span className="font-mono">{customer.phone}</span>
+                      </div>
+                    )}
+                    {customer.email && (
+                      <div className="flex items-center gap-2">
+                        <FontAwesomeIcon icon={faEnvelope} className="w-4 h-4 text-blue-500" />
+                        <span className="truncate text-xs">{customer.email}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Select Button */}
+                  {!isSelected && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleSelectCustomer(customer); }}
+                      className="w-full py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-semibold rounded-lg text-sm transition-colors active:scale-[0.98]"
+                    >
+                      Select Customer
+                    </button>
                   )}
-                  {customer.address && (
-                    <div className="flex items-start gap-2">
-                      <FontAwesomeIcon icon={faMapPin} className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                      <span className="text-xs line-clamp-2">{customer.address}</span>
-                    </div>
+                  {isSelected && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeselectCustomer(); }}
+                      className="w-full py-2 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-lg text-sm transition-colors active:scale-[0.98]"
+                    >
+                      Remove from Transaction
+                    </button>
                   )}
                 </div>
-
-                {/* Join Date */}
-                {customer.createdAt && (
-                  <div className="text-xs text-gray-400 border-t border-gray-200 pt-2">
-                    Joined: {new Date(customer.createdAt).toLocaleDateString()}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
