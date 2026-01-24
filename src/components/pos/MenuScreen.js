@@ -68,7 +68,7 @@ export default function MenuScreen() {
   const [isOnline, setIsOnline] = useState(true); // Track online status
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
   const imageObserver = useRef(null);
-  const { addItem } = useCart();
+  const { addItem, activeCart } = useCart();
   const { location } = useStaff(); // Get store location
 
   // Initialize offline sync on mount
@@ -473,6 +473,39 @@ export default function MenuScreen() {
           >
             ✕
           </button>
+        </div>
+      )}
+      
+      {/* Customer/Promotion Indicator Banner */}
+      {activeCart.customer && (
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 shadow-md">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">👤</span>
+            <div>
+              <div className="font-bold text-lg">
+                {activeCart.customer.name}
+                <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-sm">
+                  {activeCart.customer.type || 'Customer'}
+                </span>
+              </div>
+              {activeCart.appliedPromotion && (
+                <div className="text-purple-100 text-sm flex items-center gap-2">
+                  <span>🎁</span>
+                  <span className="font-semibold">{activeCart.appliedPromotion.name}</span>
+                  <span className="bg-white/20 px-2 py-0.5 rounded font-bold">
+                    {activeCart.appliedPromotion.valueType === 'MARKUP' ? '+' : '-'}
+                    {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
+                      ? `${activeCart.appliedPromotion.discountValue}%`
+                      : `₦${activeCart.appliedPromotion.discountValue}`
+                    }
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="text-right text-sm text-purple-100">
+            Promotion Active
+          </div>
         </div>
       )}
       

@@ -81,7 +81,12 @@ export default function CustomersScreen() {
       const response = await fetch('/api/promotions');
       if (response.ok) {
         const data = await response.json();
-        setPromotions(data.promotions || []);
+        console.log('📢 Promotions API response:', data);
+        const promoList = data.data || data.promotions || [];
+        console.log('📢 Promotions loaded:', promoList.length, promoList);
+        setPromotions(promoList);
+      } else {
+        console.error('❌ Failed to fetch promotions:', response.status);
       }
     } catch (error) {
       console.error('Failed to fetch promotions:', error);
@@ -90,10 +95,17 @@ export default function CustomersScreen() {
 
   // Find applicable promotion for a customer type
   const findApplicablePromotion = (customerType) => {
-    if (!promotions || promotions.length === 0) return null;
+    console.log('🔍 Finding promotion for customer type:', customerType);
+    console.log('🔍 Available promotions:', promotions);
+    
+    if (!promotions || promotions.length === 0) {
+      console.log('⚠️ No promotions available');
+      return null;
+    }
 
     // Find active promotions that target this customer type
     const applicablePromos = promotions.filter(promo => {
+      console.log('🔍 Checking promo:', promo.name, 'active:', promo.active, 'targets:', promo.targetCustomerTypes);
       if (!promo.active) return false;
       if (!promo.targetCustomerTypes?.includes(customerType)) return false;
       
@@ -108,6 +120,7 @@ export default function CustomersScreen() {
       return true;
     });
 
+    console.log('✅ Applicable promotions:', applicablePromos);
     // Return highest priority (lowest number) or first match
     if (applicablePromos.length === 0) return null;
     return applicablePromos.sort((a, b) => (a.priority || 0) - (b.priority || 0))[0];
