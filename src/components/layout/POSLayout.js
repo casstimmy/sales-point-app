@@ -23,6 +23,15 @@ export default function POSLayout({ children }) {
   const [activeTab, setActiveTab] = useState("MENU");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Check authentication - redirect to login if not logged in
+  useEffect(() => {
+    if (!staff) {
+      console.log("⚠️ No staff logged in - redirecting to login page");
+      router.push("/");
+      return;
+    }
+  }, [staff, router]);
+
   // Fetch store and till data from database
   useEffect(() => {
     const fetchStoreData = async () => {
@@ -36,9 +45,9 @@ export default function POSLayout({ children }) {
         console.error("Failed to fetch store data:", err);
         // Use defaults if API fails
         setStoreData({
-          name: "IBILE 1 SALES",
-          tillId: "TILL 1",
-          location: "Lagos",
+          name: "Store Name",
+          tillId: "Till_001",
+          location: "Store Location",
         });
       } finally {
         setLoading(false);
@@ -58,6 +67,19 @@ export default function POSLayout({ children }) {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  // Show loading screen if not staff is not set yet
+  if (!staff && loading === false) {
+    return (
+      <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
+        <div className="text-center space-y-4">
+          <div className="text-3xl mb-2">🔐</div>
+          <div className="text-neutral-800 font-semibold text-lg">Not Logged In</div>
+          <div className="text-neutral-500 text-sm">Redirecting to login page...</div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

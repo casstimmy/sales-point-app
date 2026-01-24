@@ -47,8 +47,8 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
   };
 
   // Get store and staff info from props or defaults
-  const storeName = storeData?.name || 'IBILE 1 SALES';
-  const storeLocation = storeData?.location || 'Lagos';
+  const storeName = storeData?.name || 'STORE NAME';
+  const storeLocation = storeData?.location || 'STORE LOCATION';
   const staffName = staffData?.name || 'Staff';
   const staffRole = staffData?.role || 'Attendant';
   const locationName = staffData?.location?.name || staffData?.locationName || storeLocation;

@@ -33,8 +33,8 @@ export default async function handler(req, res) {
     if (!store) {
       // Return default values if no store found
       return res.status(200).json({
-        name: 'IBILE 1 SALES',
-        location: 'Lagos',
+        name: 'STORE NAME',
+        location: 'STORE LOCATION',
         address: '',
         phone: '',
         currency: 'NGN',
@@ -46,8 +46,8 @@ export default async function handler(req, res) {
     const location = store.locations?.[0] || { name: 'Main Store', address: '' };
 
     const storeData = {
-      name: store.storeName || store.companyName || 'IBILE 1 SALES',
-      location: location.name || 'Lagos',
+      name: store.storeName || store.companyName || 'STORE NAME',
+      location: location.name || 'STORE LOCATION',
       address: location.address || '',
       phone: location.phone || store.storePhone || '',
       currency: store.currency || 'NGN',

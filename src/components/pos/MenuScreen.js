@@ -492,18 +492,27 @@ export default function MenuScreen() {
 
       {/* Search Bar - Redesigned */}
       <div className="bg-white border-b-2 border-primary-200 px-4 py-4 flex-shrink-0 shadow-sm">
-        <div className="relative">
-          <FontAwesomeIcon 
-            icon={faSearch} 
-            className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500"
-          />
-          <input
-            type="text"
-            placeholder="Search products or categories..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 text-base border-2 border-neutral-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all font-medium"
-          />
+        <div className="relative flex gap-2">
+          <div className="relative flex-1">
+            <FontAwesomeIcon 
+              icon={faSearch} 
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500"
+            />
+            <input
+              type="text"
+              placeholder="Search products or categories..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 text-base border-2 border-neutral-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all font-medium"
+            />
+          </div>
+          <button
+            onClick={() => setSearchTerm(searchTerm)}
+            className="px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors duration-base flex items-center gap-2"
+          >
+            <FontAwesomeIcon icon={faSearch} className="w-5 h-5" />
+            <span className="hidden md:inline">Search</span>
+          </button>
         </div>
       </div>
 
@@ -557,7 +566,7 @@ export default function MenuScreen() {
               );
               
               return searchResults.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-max">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 auto-rows-max">
                   {searchResults.map(product => (
                     <button
                       key={product._id || product.id}
@@ -568,10 +577,10 @@ export default function MenuScreen() {
                         category: product.category,
                         quantity: 1,
                       })}
-                      className="relative h-48 p-3 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border-2 border-green-300 transition-all duration-base transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
+                      className="relative h-36 p-2 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border-2 border-green-300 transition-all duration-base transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
                     >
                       {/* Product Image */}
-                      <div className="w-24 h-24 bg-white rounded border border-green-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-2">
+                      <div className="w-20 h-20 bg-white rounded border border-green-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-1">
                         {!isOnline && (
                           <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 z-20">
                             <div className="text-center">
@@ -627,7 +636,7 @@ export default function MenuScreen() {
               );
               
               return filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 auto-rows-max">
+              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 auto-rows-max">
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
@@ -638,10 +647,10 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative h-48 p-3 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border-2 border-blue-300 transition-all transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
+                    className="relative h-36 p-2 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border-2 border-blue-300 transition-all transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
                   >
                     {/* Product Image */}
-                    <div className="w-24 h-24 bg-white rounded border border-blue-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-2">
+                    <div className="w-20 h-20 bg-white rounded border border-blue-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-1">
                       {/* Offline Placeholder */}
                       {!isOnline && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
@@ -676,15 +685,15 @@ export default function MenuScreen() {
                     </div>
 
                     {/* Product Info - Below Image */}
-                    <div className="flex flex-col items-center justify-center flex-1">
-                      <div className="text-base font-bold text-gray-900 leading-tight line-clamp-2 mb-1">
+                    <div className="flex flex-col items-center justify-center flex-1 min-h-0">
+                      <div className="text-sm font-bold text-gray-900 leading-tight line-clamp-2 mb-0.5">
                         {product.name}
                       </div>
-                      <div className="text-xl font-bold text-blue-700 mb-1">
+                      <div className="text-lg font-bold text-blue-700 mb-0.5">
                         ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                       </div>
                       {product.quantity > 0 && (
-                        <div className="text-sm text-gray-700 font-semibold">
+                        <div className="text-xs text-gray-700 font-semibold">
                           Stock: {product.quantity}
                         </div>
                       )}

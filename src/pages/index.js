@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import MenuScreen from '../components/pos/MenuScreen';
+import CustomersScreen from '../components/pos/CustomersScreen';
 import OrdersScreen from '../components/pos/OrdersScreen';
 
 export default function POSPage({ activeTab, onTabChange }) {
@@ -20,15 +21,7 @@ export default function POSPage({ activeTab, onTabChange }) {
       case 'MENU':
         return <MenuScreen />;
       case 'CUSTOMERS':
-        return (
-          <div className="flex-1 flex items-center justify-center text-gray-400 text-center bg-gray-50">
-            <div>
-              <div className="text-4xl mb-2">👥</div>
-              <div>Customer Management Coming Soon</div>
-              <div className="text-sm mt-2">Select MENU to start adding items</div>
-            </div>
-          </div>
-        );
+        return <CustomersScreen />;
       case 'ORDERS':
         return <OrdersScreen />;
       default:

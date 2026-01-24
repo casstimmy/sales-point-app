@@ -22,55 +22,45 @@ import { useCart } from '../../context/CartContext';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
-// Mock orders data
-const MOCK_ORDERS = [
-  {
-    id: 'order_1',
-    time: '22/12/2025 21:43',
-    customer: 'IBILE 1 SALES',
-    staffMember: 'STAFF 001',
-    tenderType: 'CASH',
-    total: 590,
-    status: 'COMPLETE',
-    items: [
-      { id: 1, name: 'Product A', price: 300, quantity: 1 },
-      { id: 2, name: 'Product B', price: 290, quantity: 1 },
-    ],
-  },
-  {
-    id: 'order_2',
-    time: '22/12/2025 21:42',
-    customer: 'IBILE 1 SALES',
-    staffMember: 'STAFF 001',
-    tenderType: 'HYDROGEN_POS',
-    total: 500,
-    status: 'COMPLETE',
-    items: [{ id: 3, name: 'Product C', price: 500, quantity: 1 }],
-  },
-  {
-    id: 'order_3',
-    time: '22/12/2025 21:42',
-    customer: 'IBILE 1 SALES',
-    staffMember: 'STAFF 001',
-    tenderType: 'CASH',
-    total: 200,
-    status: 'COMPLETE',
-    items: [{ id: 4, name: 'Product D', price: 200, quantity: 1 }],
-  },
-];
-
 export default function OrdersScreen() {
-  const [activeStatus, setActiveStatus] = useState('COMPLETE');
+  const [activeStatus, setActiveStatus] = useState('HELD');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [filteredOrders, setFilteredOrders] = useState(MOCK_ORDERS);
-  const { isOnline, lastSyncTime, resumeOrder } = useCart();
+  const [filteredOrders, setFilteredOrders] = useState([]);
+  const { isOnline, lastSyncTime, resumeOrder, orders } = useCart();
 
   // Filter orders by status
   useEffect(() => {
-    const filtered = MOCK_ORDERS.filter(order => order.status === activeStatus);
+    if (!orders || orders.length === 0) {
+      setFilteredOrders([]);
+      return;
+    }
+
+    // Format orders from CartContext to display format
+    let filtered = orders
+      .filter(order => order.status === activeStatus)
+      .map(order => ({
+        id: order.id,
+        time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
+        customer: order.customer?.name || 'Unknown',
+        staffMember: order.staffMember?.name || 'Unknown',
+        tenderType: order.tenderType || 'CASH',
+        total: order.total || 0,
+        status: order.status,
+        items: order.items || [],
+      }));
+
+    // Apply date filter if selected
+    if (selectedDate) {
+      const filterDate = new Date(selectedDate).toDateString();
+      filtered = filtered.filter(order => {
+        const orderDate = new Date(order.time).toDateString();
+        return orderDate === filterDate;
+      });
+    }
+
     setFilteredOrders(filtered);
-  }, [activeStatus]);
+  }, [activeStatus, selectedDate, orders]);
 
   const handleOrderSelect = (order) => {
     // Convert mock order to cart format and load it

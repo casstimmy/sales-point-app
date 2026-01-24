@@ -257,18 +257,18 @@ export default function CartPanel() {
     <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200">
       {isEmpty ? (
         // Empty Cart State
-        <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-6 text-center">
-          <div className="text-8xl mb-6 opacity-40">🍽️</div>
-          <div className="text-2xl font-bold mb-2 text-neutral-600">Add a Dish or Drink</div>
-          <div className="text-base text-neutral-500">Tap a product to add to the bill</div>
-          <div className="mt-8 w-32 h-1 bg-neutral-300 rounded-full"></div>
+        <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-4 text-center">
+          <div className="text-6xl mb-3 opacity-40">🍽️</div>
+          <div className="text-lg font-bold mb-1 text-neutral-600">Add a Dish or Drink</div>
+          <div className="text-sm text-neutral-500">Tap a product to add to the bill</div>
+          <div className="mt-6 w-24 h-0.5 bg-neutral-300 rounded-full"></div>
         </div>
       ) : (
         // Cart Content
         <>
           {/* Table Header */}
           <div className="bg-neutral-100 border-b border-neutral-300 sticky top-0 z-10">
-            <div className="grid grid-cols-12 gap-2 px-4 py-3 text-base font-semibold text-neutral-600 uppercase">
+            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-sm font-semibold text-neutral-600 uppercase">
               <div className="col-span-5">Product</div>
               <div className="col-span-2 text-center">Qty</div>
               <div className="col-span-2 text-right">Each</div>
@@ -284,25 +284,25 @@ export default function CartPanel() {
                 {selectedItemId !== item.id ? (
                   <div
                     onClick={() => setSelectedItemId(item.id)}
-                    className="grid grid-cols-12 gap-2 px-4 py-6 items-center hover:bg-neutral-50 cursor-pointer transition-colors duration-base"
+                    className="grid grid-cols-12 gap-1 px-3 py-3 items-center hover:bg-neutral-50 cursor-pointer transition-colors duration-base"
                   >
                     <div className="col-span-5">
-                      <div className="text-base font-medium text-neutral-700 line-clamp-1">
+                      <div className="text-sm font-medium text-neutral-700 line-clamp-1">
                         {item.name}
                       </div>
                       {item.discount > 0 && (
-                        <div className="text-sm text-neutral-600 mt-0.5">
+                        <div className="text-xs text-neutral-600 mt-0.5">
                           Promotion <span className="text-neutral-900 font-semibold">-₦{item.discount.toLocaleString()}</span>
                         </div>
                       )}
                     </div>
-                    <div className="col-span-2 text-center text-base font-semibold text-neutral-900">
+                    <div className="col-span-2 text-center text-sm font-semibold text-neutral-900">
                       {item.quantity}
                     </div>
-                    <div className="col-span-2 text-right text-lg text-neutral-600">
+                    <div className="col-span-2 text-right text-base text-neutral-600">
                       ₦{item.price.toLocaleString()}
                     </div>
-                    <div className="col-span-3 text-right text-lg font-semibold text-neutral-900">
+                    <div className="col-span-3 text-right text-base font-semibold text-neutral-900">
                       ₦{(item.price * item.quantity).toLocaleString()}
                     </div>
                   </div>
@@ -310,66 +310,66 @@ export default function CartPanel() {
                   // Selected Item View - Expanded with primary background
                   <div ref={selectedItemRef} className="bg-primary-500 text-white">
                     {/* Item Header with Price Info - All on one line */}
-                    <div className="px-3 py-4 border-b border-primary-600">
-                      <div className="grid grid-cols-3 gap-3 items-center">
+                    <div className="px-2 py-3 border-b border-primary-600">
+                      <div className="grid grid-cols-3 gap-2 items-center">
                         <div className="col-span-1">
-                          <div className="text-sm font-bold">
+                          <div className="text-xs font-bold line-clamp-1">
                             {item.name}
                           </div>
                         </div>
                         <div className="col-span-1 text-center">
                           <div className="opacity-80 text-xs">EACH</div>
-                          <div className="font-bold text-base">₦{item.price.toLocaleString()}</div>
+                          <div className="font-bold text-sm">₦{item.price.toLocaleString()}</div>
                         </div>
                         <div className="col-span-1 text-right">
                           <div className="opacity-80 text-xs">TOTAL</div>
-                          <div className="font-bold text-base">₦{(item.price * item.quantity).toLocaleString()}</div>
+                          <div className="font-bold text-sm">₦{(item.price * item.quantity).toLocaleString()}</div>
                         </div>
                       </div>
                     </div>
 
                     {/* Expanded Controls */}
-                    <div className="px-3 py-4 space-y-3">
+                    <div className="px-2 py-3 space-y-2">
                       {/* Quantity Control - Center */}
-                      <div className="flex items-center justify-center gap-6">
+                      <div className="flex items-center justify-center gap-4">
                         <button
                           onClick={e => {
                             e.stopPropagation();
                             updateQuantity(item.id, Math.max(1, item.quantity - 1));
                           }}
-                          className="w-12 h-12 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100 text-lg"
+                          className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
                         >
-                          <FontAwesomeIcon icon={faMinus} className="w-5 h-5" />
+                          <FontAwesomeIcon icon={faMinus} className="w-4 h-4" />
                         </button>
-                        <div className="text-center w-12">
-                          <div className="text-3xl font-bold">{item.quantity}</div>
+                        <div className="text-center w-10">
+                          <div className="text-2xl font-bold">{item.quantity}</div>
                         </div>
                         <button
                           onClick={e => {
                             e.stopPropagation();
                             updateQuantity(item.id, item.quantity + 1);
                           }}
-                          className="w-12 h-12 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100 text-lg"
+                          className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
                         >
-                          <FontAwesomeIcon icon={faPlus} className="w-5 h-5" />
+                          <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
                         </button>
                       </div>
 
                       {/* Quantity Label */}
                       <div className="text-center text-xs font-semibold tracking-wider">
-                        QUANTITY
+                        QTY
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex gap-2 pt-3 justify-center">
+                      <div className="flex gap-1.5 pt-2 justify-center">
                         <button
                           onClick={e => {
                             e.stopPropagation();
                             setExpandedItemId(expandedItemId === item.id ? null : item.id);
                           }}
-                          className="flex flex-col items-center gap-1 px-3 py-2 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-sm"
+                          className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
                         >
-                          <FontAwesomeIcon icon={faStickyNote} className="w-5 h-5" />
+                          <FontAwesomeIcon icon={faStickyNote} className="w-4 h-4" />
                           <span>NOTE</span>
                         </button>
                         <button
@@ -377,10 +377,10 @@ export default function CartPanel() {
                             e.stopPropagation();
                             setItemDiscount(item.id, (item.discount || 0) + 100);
                           }}
-                          className="flex flex-col items-center gap-1 px-3 py-2 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-sm"
+                          className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
                         >
-                          <FontAwesomeIcon icon={faTag} className="w-5 h-5" />
-                          <span>DISCOUNT</span>
+                          <FontAwesomeIcon icon={faTag} className="w-4 h-4" />
+                          <span>DISC</span>
                         </button>
                         <button
                           onClick={e => {
@@ -388,10 +388,10 @@ export default function CartPanel() {
                             removeItem(item.id);
                             setSelectedItemId(null);
                           }}
-                          className="flex flex-col items-center gap-1 px-3 py-2 bg-white text-red-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-sm"
+                          className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-red-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
                         >
-                          <FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5" />
-                          <span>DELETE</span>
+                          <FontAwesomeIcon icon={faTrashAlt} className="w-4 h-4" />
+                          <span>DEL</span>
                         </button>
                       </div>
 
@@ -426,77 +426,77 @@ export default function CartPanel() {
           </div>
 
           {/* Totals Section */}
-          <div className="bg-neutral-50 border-t border-neutral-300 p-4">
-            <div className="grid grid-cols-2 gap-4 text-base">
+          <div className="bg-neutral-50 border-t border-neutral-300 p-3">
+            <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">ITEMS</span>
-                <span className="text-neutral-900 font-bold text-lg">{totals.itemCount}</span>
+                <span className="text-neutral-900 font-bold text-base">{totals.itemCount}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">TOTAL</span>
-                <span className="text-neutral-900 font-black text-2xl">₦{(totals.total - totals.tax).toLocaleString()}</span>
+                <span className="text-neutral-900 font-black text-lg">₦{(totals.total - totals.tax).toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-700 font-semibold">TOTAL DISCOUNT</span>
-                <span className="text-neutral-900 font-bold text-lg">₦{totals.discountAmount.toLocaleString()}</span>
+                <span className="text-neutral-700 font-semibold">DISCOUNT</span>
+                <span className="text-neutral-900 font-bold text-base">₦{totals.discountAmount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">DUE</span>
-                <span className="text-red-600 font-bold text-xl">₦{(totals.total - totals.tax).toLocaleString()}</span>
+                <span className="text-red-600 font-bold text-lg">₦{(totals.total - totals.tax).toLocaleString()}</span>
               </div>
               <div className="col-span-2 flex justify-between">
                 <span className="text-neutral-700 font-semibold">TAX</span>
-                <span className="text-neutral-900 font-bold text-lg">₦0.00</span>
+                <span className="text-neutral-900 font-bold text-base">₦0.00</span>
               </div>
             </div>
           </div>
 
           {/* Action Buttons Grid */}
-          <div className="bg-white border-t border-neutral-300 p-4 space-y-3">
+          <div className="bg-white border-t border-neutral-300 p-3 space-y-2">
             {/* Row 1: Utility Buttons */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button 
                 onClick={handlePrintCart}
-                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20">
-                <FontAwesomeIcon icon={faPrint} className="w-5 h-5" />
+                className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16">
+                <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
                 <span>PRINT</span>
               </button>
-              <button className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20">
-                <FontAwesomeIcon icon={faMoneyBill} className="w-5 h-5" />
+              <button className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16">
+                <FontAwesomeIcon icon={faMoneyBill} className="w-4 h-4" />
                 <span>PETTY</span>
                 <span>CASH</span>
               </button>
               <button 
                 onClick={() => setShowAdjustFloatModal(true)}
-                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20"
+                className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
               >
-                <FontAwesomeIcon icon={faGripVertical} className="w-5 h-5" />
+                <FontAwesomeIcon icon={faGripVertical} className="w-4 h-4" />
                 <span>ADJUST</span>
                 <span>FLOAT</span>
               </button>
             </div>
 
             {/* Row 3: Action Buttons */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={deleteCart}
-                className="px-3 py-4 text-lg font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-2 min-h-24"
+                className="px-2 py-3 text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20"
               >
-                <FontAwesomeIcon icon={faTrashAlt} className="w-6 h-6" />
+                <FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5" />
                 <span>DELETE</span>
               </button>
               <button
                 onClick={holdOrder}
-                className="px-3 py-4 text-lg font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-2 min-h-24"
+                className="px-2 py-3 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20"
               >
-                <FontAwesomeIcon icon={faClock} className="w-6 h-6" />
+                <FontAwesomeIcon icon={faClock} className="w-5 h-5" />
                 <span>HOLD</span>
               </button>
               <button
                 onClick={handlePayment}
-                className="px-3 py-4 text-lg font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-2 min-h-24"
+                className="px-2 py-3 text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20"
               >
-                <FontAwesomeIcon icon={faMoneyBill} className="w-6 h-6" />
+                <FontAwesomeIcon icon={faMoneyBill} className="w-5 h-5" />
                 <span>PAY</span>
               </button>
             </div>
