@@ -243,7 +243,27 @@ export default function MenuScreen() {
     fetchCategories();
   }, [location?._id]); // Re-fetch when location changes
 
-  // Fetch products when category changes (from IndexedDB first, fallback to API)
+  // Load ALL products from local DB on mount for global search
+  useEffect(() => {
+    const loadAllLocalProducts = async () => {
+      try {
+        console.log("📦 Loading all local products for search...");
+        const localProducts = await getAllLocalProducts();
+        if (localProducts && localProducts.length > 0) {
+          console.log(`✅ Loaded ${localProducts.length} products from local storage`);
+          setAllProducts(localProducts);
+        } else {
+          console.log("📦 No local products found, will fetch on sync");
+        }
+      } catch (err) {
+        console.error("❌ Error loading local products:", err);
+      }
+    };
+    
+    loadAllLocalProducts();
+  }, []);
+
+  // Fetch products when category changes (from IndexedDB ONLY - API sync is manual)
   useEffect(() => {
     if (!selectedCategory) {
       setProducts([]);
@@ -252,108 +272,101 @@ export default function MenuScreen() {
 
     const fetchProducts = async () => {
       setLoadingProducts(true);
-      setError(null); // Clear previous errors immediately
+      setError(null);
       
       try {
         const categoryId = selectedCategory._id || selectedCategory.id;
         console.log("🛍️ Loading products from IndexedDB for category ID:", categoryId);
         
-        // Try to get from local storage first - filter by category ID (ObjectId)
+        // ALWAYS try local storage first
         const localProducts = await getLocalProductsByCategory(categoryId);
         
         if (localProducts && localProducts.length > 0) {
           console.log("✅ Found", localProducts.length, "products in local storage");
           setProducts(localProducts);
           setLoadingProducts(false);
-          return; // Early return - found local products
+          return; // Use local products - no API call
         }
         
-        console.log("📥 No local products found, fetching from API...");
-        // If no local data, fetch from API using category ID
-        const url = `/api/products?category=${encodeURIComponent(categoryId)}`;
+        // If no local products for this category, try all local products filtered
+        console.log("📦 No products for this category locally, checking all products...");
+        const allLocal = await getAllLocalProducts();
         
-        try {
-          const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+        if (allLocal && allLocal.length > 0) {
+          // Filter by category
+          const categoryName = selectedCategory.name;
+          const categoryFiltered = allLocal.filter(p => 
+            p.category === categoryId || 
+            p.category === categoryName ||
+            p.categoryId === categoryId
+          );
           
-          if (response.ok) {
-            const data = await response.json();
-            console.log("🛍️ Products from API:", data.data);
-            setProducts(data.data || []);
-            // Add to global search products
-            setAllProducts(prev => {
-              const merged = [...prev];
-              (data.data || []).forEach(product => {
-                if (!merged.find(p => p._id === product._id)) {
-                  merged.push(product);
-                }
-              });
-              return merged;
-            });
-            // Save to IndexedDB for offline support
-            await syncProducts(data.data || []);
-            setLastSyncTime(new Date());
+          if (categoryFiltered.length > 0) {
+            console.log("✅ Filtered", categoryFiltered.length, "products from all local products");
+            setProducts(categoryFiltered);
             setLoadingProducts(false);
             return;
           }
-        } catch (fetchErr) {
-          console.error(`❌ API fetch failed:`, fetchErr.message);
         }
         
-        // API failed - try fallback
-        console.log("📥 API unavailable, trying cache fallback...");
-        let fallbackProducts = await getLocalProductsByCategory(categoryId);
-        
-        if (fallbackProducts && fallbackProducts.length > 0) {
-          console.log("✅ Using cached products for category:", fallbackProducts.length);
-          setProducts(fallbackProducts);
-          setLoadingProducts(false);
-          return;
-        }
-        
-        // Try all products if category-specific cache is empty
-        console.log("📦 No category cache, trying all products...");
-        fallbackProducts = await getAllLocalProducts();
-        
-        if (fallbackProducts && fallbackProducts.length > 0) {
-          console.log("✅ Using all cached products:", fallbackProducts.length);
-          setProducts(fallbackProducts);
-          setLoadingProducts(false);
-          return;
-        }
-        
-        // No data available anywhere
-        console.log("❌ No products available - offline and no cache");
-        setProducts([]);
-        setLoadingProducts(false);
-        
-      } catch (err) {
-        console.error('❌ Unexpected error in fetchProducts:', err);
-        // Final fallback attempt
-        try {
-          const fallbackProducts = await getAllLocalProducts();
-          if (fallbackProducts && fallbackProducts.length > 0) {
-            console.log("✅ Emergency fallback: using all cached products");
-            setProducts(fallbackProducts);
-          } else {
+        // No local data at all - only fetch from API if online AND user hasn't synced before
+        if (isOnline && allProducts.length === 0) {
+          console.log("📥 No local products found, fetching from API (first load)...");
+          const url = `/api/products?category=${encodeURIComponent(categoryId)}`;
+          
+          try {
+            const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
+            
+            if (response.ok) {
+              const data = await response.json();
+              console.log("🛍️ Products from API:", data.data?.length || 0);
+              setProducts(data.data || []);
+              // Save to IndexedDB for offline support
+              if (data.data && data.data.length > 0) {
+                await syncProducts(data.data);
+                // Also update allProducts for search
+                setAllProducts(prev => {
+                  const merged = [...prev];
+                  data.data.forEach(product => {
+                    if (!merged.find(p => p._id === product._id)) {
+                      merged.push(product);
+                    }
+                  });
+                  return merged;
+                });
+              }
+              setLastSyncTime(new Date());
+            } else {
+              console.warn("API returned", response.status);
+              setProducts([]);
+            }
+          } catch (fetchErr) {
+            console.error("❌ API fetch failed:", fetchErr.message);
             setProducts([]);
           }
-        } catch (fallbackErr) {
-          console.error('❌ Emergency fallback failed:', fallbackErr);
+        } else {
+          // Offline or user has synced before - show empty with message
+          console.log("📦 No products for this category - use Sync Products to load");
           setProducts([]);
         }
+        
+        setLoadingProducts(false);
+      } catch (err) {
+        console.error('❌ Unexpected error in fetchProducts:', err);
+        setProducts([]);
         setLoadingProducts(false);
       }
     };
 
     fetchProducts();
-  }, [selectedCategory]);
+  }, [selectedCategory, isOnline]);
 
-  // Manual sync button handler
+  // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
-      console.log("🔄 Manual sync initiated...");
-      setError(null); // Clear previous errors
+      console.log("🔄 Manual sync initiated - syncing ALL products...");
+      setError(null);
       
       // Fetch and sync categories - use location filter if available
       const catUrl = location?._id 
@@ -364,54 +377,54 @@ export default function MenuScreen() {
       const catResponse = await fetch(catUrl);
       if (catResponse.ok) {
         const catData = await catResponse.json();
-        await syncCategories(catData.data || []);
-        setCategories(catData.data || []);
-        console.log(`✅ Categories synced${location ? ` for location: ${location.name}` : ''}`);
-      } else {
-        const errorData = await catResponse.text();
-        console.error("❌ Categories API Error:", {
-          status: catResponse.status,
-          statusText: catResponse.statusText,
-          response: errorData
-        });
-        // Try local cache as fallback
-        const localCategories = await getLocalCategories();
-        if (localCategories && localCategories.length > 0) {
-          console.log("📦 Using cached categories as fallback");
-          setCategories(localCategories);
-        } else {
-          throw new Error(`Failed to sync categories: ${catResponse.status}`);
-        }
-      }
-      
-      // Fetch and sync products
-      if (selectedCategory) {
-        const categoryId = selectedCategory._id || selectedCategory.id;
-        const prodUrl = `/api/products?category=${encodeURIComponent(categoryId)}`;
-        console.log("🔗 Products API URL:", prodUrl);
+        const fetchedCategories = catData.data || [];
+        await syncCategories(fetchedCategories);
+        setCategories(fetchedCategories);
+        console.log(`✅ Categories synced: ${fetchedCategories.length} categories`);
         
-        const prodResponse = await fetch(prodUrl);
-        if (prodResponse.ok) {
-          const prodData = await prodResponse.json();
-          await syncProducts(prodData.data || []);
-          setProducts(prodData.data || []);
-          console.log("✅ Products synced");
-        } else {
-          const errorData = await prodResponse.text();
-          console.error("❌ Products API Error:", {
-            status: prodResponse.status,
-            statusText: prodResponse.statusText,
-            response: errorData
-          });
-          // Try local cache as fallback
-          const localProducts = await getLocalProductsByCategory(categoryId);
-          if (localProducts && localProducts.length > 0) {
-            console.log("📦 Using cached products as fallback");
-            setProducts(localProducts);
-          } else {
-            throw new Error(`Failed to sync products: ${prodResponse.status}`);
+        // Now fetch products for ALL categories
+        let allFetchedProducts = [];
+        
+        for (const category of fetchedCategories) {
+          const categoryId = category._id || category.id;
+          console.log(`📦 Fetching products for category: ${category.name}...`);
+          
+          try {
+            const prodUrl = `/api/products?category=${encodeURIComponent(categoryId)}`;
+            const prodResponse = await fetch(prodUrl, { signal: AbortSignal.timeout(15000) });
+            
+            if (prodResponse.ok) {
+              const prodData = await prodResponse.json();
+              const categoryProducts = prodData.data || [];
+              allFetchedProducts = [...allFetchedProducts, ...categoryProducts];
+              console.log(`   ✅ ${categoryProducts.length} products for ${category.name}`);
+            }
+          } catch (prodErr) {
+            console.warn(`   ⚠️ Failed to fetch products for ${category.name}:`, prodErr.message);
           }
         }
+        
+        // Save all products to IndexedDB
+        if (allFetchedProducts.length > 0) {
+          await syncProducts(allFetchedProducts);
+          setAllProducts(allFetchedProducts);
+          console.log(`✅ Total products synced: ${allFetchedProducts.length}`);
+          
+          // Reload current category products
+          if (selectedCategory) {
+            const categoryId = selectedCategory._id || selectedCategory.id;
+            const categoryProducts = allFetchedProducts.filter(p => 
+              p.category === categoryId || 
+              p.categoryId === categoryId
+            );
+            setProducts(categoryProducts);
+          }
+        }
+        
+      } else {
+        const errorData = await catResponse.text();
+        console.error("❌ Categories API Error:", catResponse.status);
+        throw new Error(`Failed to sync categories: ${catResponse.status}`);
       }
       
       setLastSyncTime(new Date());
@@ -583,22 +596,19 @@ export default function MenuScreen() {
                         category: product.category,
                         quantity: 1,
                       })}
-                      className="relative h-36 p-2 bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-lg border-2 border-green-300 transition-all duration-base transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
+                      className="relative h-40 bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all transform hover:scale-[1.02] shadow-sm touch-manipulation flex flex-col overflow-hidden active:scale-[0.98]"
                     >
                       {/* Product Image */}
-                      <div className="w-20 h-20 bg-white rounded border border-green-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-1">
+                      <div className="h-20 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {!isOnline && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 z-20">
-                            <div className="text-center">
-                              <div className="text-2xl mb-1">📦</div>
-                              <div className="text-xs text-neutral-600">Offline</div>
-                            </div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
+                            <div className="text-2xl">📦</div>
                           </div>
                         )}
                         
                         {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-neutral-100 z-10">
-                            <div className="animate-pulse text-3xl">⏳</div>
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                            <div className="animate-pulse text-2xl">⏳</div>
                           </div>
                         )}
                         
@@ -606,7 +616,7 @@ export default function MenuScreen() {
                           <img
                             src={product.images[0].full}
                             alt={product.name}
-                            className="w-full h-full object-cover lazy-load"
+                            className="w-full h-full object-cover"
                             loading="lazy"
                             onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
                             onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
@@ -615,21 +625,39 @@ export default function MenuScreen() {
                         ) : (
                           <div className="text-2xl">📦</div>
                         )}
-                      </div>
-
-                      {/* Product Info - Below Image */}
-                      <div className="flex flex-col items-center justify-center flex-1 min-h-0">
-                        <div className="text-sm font-bold text-gray-900 leading-tight line-clamp-2 mb-0.5">
-                          {product.name}
-                        </div>
-                        <div className="text-lg font-bold text-green-700 mb-0.5">
-                          ₦{product.salePriceIncTax?.toLocaleString() || '0'}
-                        </div>
-                        {product.quantity > 0 && (
-                          <div className="text-xs text-gray-700 font-semibold">
-                            Stock: {product.quantity}
+                        
+                        {/* Stock Badge */}
+                        {product.quantity !== undefined && (
+                          <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${
+                            product.quantity <= 0 ? 'bg-red-500 text-white' :
+                            product.quantity <= 5 ? 'bg-yellow-500 text-white' :
+                            'bg-green-500 text-white'
+                          }`}>
+                            {product.quantity <= 0 ? 'Out' : product.quantity}
                           </div>
                         )}
+                        
+                        {/* Search Match Badge */}
+                        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold bg-green-600 text-white">
+                          🔍
+                        </div>
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="flex-1 p-1.5 flex flex-col justify-between min-h-0">
+                        <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
+                          {product.name}
+                        </div>
+                        <div className="mt-auto">
+                          <div className="text-sm font-bold text-green-700">
+                            ₦{product.salePriceIncTax?.toLocaleString() || '0'}
+                          </div>
+                          {product.costPrice && (
+                            <div className="text-xs text-gray-400 line-through">
+                              ₦{product.costPrice?.toLocaleString()}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -668,24 +696,21 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative h-36 p-2 bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-lg border-2 border-blue-300 transition-all transform hover:scale-105 shadow-md hover:shadow-lg touch-manipulation flex flex-col items-center justify-center text-center overflow-hidden"
+                    className="relative h-40 bg-white rounded-lg border-2 border-gray-200 hover:border-cyan-400 hover:shadow-lg transition-all transform hover:scale-[1.02] shadow-sm touch-manipulation flex flex-col overflow-hidden active:scale-[0.98]"
                   >
                     {/* Product Image */}
-                    <div className="w-20 h-20 bg-white rounded border border-blue-200 flex items-center justify-center overflow-hidden flex-shrink-0 relative mb-1">
+                    <div className="h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                       {/* Offline Placeholder */}
                       {!isOnline && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
-                          <div className="text-center">
-                            <div className="text-2xl mb-1">📦</div>
-                            <div className="text-xs text-gray-600">Offline</div>
-                          </div>
+                          <div className="text-2xl">📦</div>
                         </div>
                       )}
                       
                       {/* Loading Placeholder */}
                       {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
                         <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                          <div className="animate-pulse text-3xl">⏳</div>
+                          <div className="animate-pulse text-2xl">⏳</div>
                         </div>
                       )}
                       
@@ -694,7 +719,7 @@ export default function MenuScreen() {
                         <img
                           src={product.images[0].full}
                           alt={product.name}
-                          className="w-full h-full object-cover lazy-load"
+                          className="w-full h-full object-cover"
                           loading="lazy"
                           onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
                           onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
@@ -703,21 +728,34 @@ export default function MenuScreen() {
                       ) : (
                         <div className="text-3xl">📦</div>
                       )}
-                    </div>
-
-                    {/* Product Info - Below Image */}
-                    <div className="flex flex-col items-center justify-center flex-1 min-h-0">
-                      <div className="text-sm font-bold text-gray-900 leading-tight line-clamp-2 mb-0.5">
-                        {product.name}
-                      </div>
-                      <div className="text-lg font-bold text-blue-700 mb-0.5">
-                        ₦{product.salePriceIncTax?.toLocaleString() || '0'}
-                      </div>
-                      {product.quantity > 0 && (
-                        <div className="text-xs text-gray-700 font-semibold">
-                          Stock: {product.quantity}
+                      
+                      {/* Stock Badge */}
+                      {product.quantity !== undefined && (
+                        <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${
+                          product.quantity <= 0 ? 'bg-red-500 text-white' :
+                          product.quantity <= 5 ? 'bg-yellow-500 text-white' :
+                          'bg-green-500 text-white'
+                        }`}>
+                          {product.quantity <= 0 ? 'Out' : product.quantity}
                         </div>
                       )}
+                    </div>
+
+                    {/* Product Info */}
+                    <div className="flex-1 p-1.5 flex flex-col justify-between min-h-0">
+                      <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
+                        {product.name}
+                      </div>
+                      <div className="mt-auto">
+                        <div className="text-sm font-bold text-cyan-700">
+                          ₦{product.salePriceIncTax?.toLocaleString() || '0'}
+                        </div>
+                        {product.costPrice && (
+                          <div className="text-xs text-gray-400 line-through">
+                            ₦{product.costPrice?.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))}

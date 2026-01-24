@@ -268,6 +268,24 @@ export default function CartPanel() {
         <>
           {/* Table Header */}
           <div className="bg-neutral-100 border-b border-neutral-300 sticky top-0 z-10">
+            {/* Customer Promotion Banner */}
+            {activeCart.customer && activeCart.appliedPromotion && (
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-2 flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">🎁</span>
+                  <div>
+                    <span className="font-bold">{activeCart.customer.name}</span>
+                    <span className="ml-2 opacity-80">({activeCart.appliedPromotion.name})</span>
+                  </div>
+                </div>
+                <span className="bg-white/20 px-2 py-0.5 rounded font-bold">
+                  {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
+                    ? `${activeCart.appliedPromotion.discountValue}% OFF`
+                    : `₦${activeCart.appliedPromotion.discountValue} OFF`
+                  }
+                </span>
+              </div>
+            )}
             <div className="grid grid-cols-12 gap-2 px-3 py-2 text-sm font-semibold text-neutral-600 uppercase">
               <div className="col-span-5">Product</div>
               <div className="col-span-2 text-center">Qty</div>
@@ -427,6 +445,22 @@ export default function CartPanel() {
 
           {/* Totals Section */}
           <div className="bg-neutral-50 border-t border-neutral-300 p-3">
+            {/* Customer Discount Note */}
+            {activeCart.appliedPromotion && (
+              <div className="mb-2 pb-2 border-b border-neutral-200">
+                <div className="flex justify-between text-sm">
+                  <span className="text-purple-700 font-semibold flex items-center gap-1">
+                    <span>🎁</span> {activeCart.appliedPromotion.name}
+                  </span>
+                  <span className="text-purple-700 font-bold">
+                    -{activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
+                      ? `${activeCart.appliedPromotion.discountValue}%`
+                      : `₦${activeCart.appliedPromotion.discountValue}`
+                    }
+                  </span>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">ITEMS</span>
@@ -438,7 +472,9 @@ export default function CartPanel() {
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">DISCOUNT</span>
-                <span className="text-neutral-900 font-bold text-lg">₦{totals.discountAmount.toLocaleString()}</span>
+                <span className={`font-bold text-lg ${totals.discountAmount > 0 ? 'text-green-600' : 'text-neutral-900'}`}>
+                  ₦{totals.discountAmount.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">DUE</span>

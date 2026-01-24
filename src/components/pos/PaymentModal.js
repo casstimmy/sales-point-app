@@ -243,193 +243,229 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-6 rounded-t-lg flex justify-between items-center">
+        <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
           <div>
-            <h2 className="text-3xl font-bold">Payment Required</h2>
-            <p className="text-blue-100 mt-1">Enter payment method and amount</p>
+            <h2 className="text-2xl font-bold">Complete Payment</h2>
+            <p className="text-cyan-100 text-sm">Select payment method and enter amount</p>
           </div>
           <button
             onClick={onCancel}
-            className="hover:bg-white hover:bg-opacity-20 p-2 rounded transition-all"
+            className="hover:bg-white/20 p-2 rounded-lg transition-all active:scale-95"
           >
-            <FontAwesomeIcon icon={faXmark} size="lg" />
+            <FontAwesomeIcon icon={faXmark} className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-3 gap-6">
-            {/* Left: Tender Selection and Amount */}
-            <div className="col-span-2 space-y-4">
-              {/* Total Due and Payment Progress */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex justify-between mb-4">
-                  <div>
-                    <p className="text-gray-600 text-sm">Total Due</p>
-                    <p className="text-4xl font-bold text-gray-800">
-                      {formatNaira(total)}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-gray-600 text-sm">Amount Paid</p>
-                    <p className={`text-4xl font-bold ${isPaymentComplete ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatNaira(totalPaid)}
-                    </p>
-                  </div>
-                </div>
+        {/* Main Content */}
+        <div className="flex-1 p-4 grid grid-cols-3 gap-4 overflow-hidden">
+          {/* Left Column: Amount Summary */}
+          <div className="space-y-3">
+            {/* Total Due Card */}
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl p-4">
+              <p className="text-xs text-gray-500 font-semibold uppercase">Total Due</p>
+              <p className="text-3xl font-black text-gray-800">
+                {formatNaira(total)}
+              </p>
+            </div>
 
-                {/* Change Display */}
-                {isPaymentComplete && (
-                  <div className="bg-green-50 border-2 border-green-300 rounded p-3">
-                    <p className="text-green-700 text-sm font-semibold">CHANGE</p>
-                    <p className="text-3xl font-bold text-green-600">
-                      {formatNaira(change)}
-                    </p>
-                  </div>
+            {/* Amount Paid Card */}
+            <div className={`rounded-xl p-4 border-2 ${
+              isPaymentComplete 
+                ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-300' 
+                : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300'
+            }`}>
+              <p className={`text-xs font-semibold uppercase ${isPaymentComplete ? 'text-green-600' : 'text-orange-600'}`}>
+                Amount Paid
+              </p>
+              <p className={`text-3xl font-black ${isPaymentComplete ? 'text-green-700' : 'text-orange-700'}`}>
+                {formatNaira(totalPaid)}
+              </p>
+            </div>
+
+            {/* Change Display */}
+            {isPaymentComplete && (
+              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-300 rounded-xl p-4">
+                <p className="text-xs text-cyan-600 font-semibold uppercase">Change Due</p>
+                <p className="text-3xl font-black text-cyan-700">
+                  {formatNaira(change)}
+                </p>
+              </div>
+            )}
+
+            {/* Remaining */}
+            {!isPaymentComplete && totalPaid > 0 && (
+              <div className="bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-300 rounded-xl p-4">
+                <p className="text-xs text-red-600 font-semibold uppercase">Still Needed</p>
+                <p className="text-3xl font-black text-red-700">
+                  {formatNaira(total - totalPaid)}
+                </p>
+              </div>
+            )}
+
+            {/* Tenders Summary */}
+            <div className="bg-white border-2 border-gray-200 rounded-xl p-3">
+              <p className="text-xs font-bold text-gray-600 uppercase mb-2">Payment Breakdown</p>
+              <div className="space-y-1.5">
+                {availableTenders.map(tender => (
+                  tenders[tender.id] > 0 && (
+                    <div key={tender.id} className="flex justify-between items-center text-sm">
+                      <span className="text-gray-700 font-medium">{tender.name}</span>
+                      <span className="font-bold text-cyan-700">
+                        {formatNaira(tenders[tender.id])}
+                      </span>
+                    </div>
+                  )
+                ))}
+                {Object.values(tenders).every(v => v === 0) && (
+                  <p className="text-gray-400 text-xs text-center py-2">No payments added yet</p>
                 )}
               </div>
-
-              {/* Tender Type Buttons */}
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-700">Select Payment Method</p>
-                <div className="grid grid-cols-2 gap-2">
-                  {availableTenders.map(tender => (
-                    <button
-                      key={tender.id}
-                      onClick={() => {
-                        setSelectedTender(tender.id);
-                        handleClear();
-                      }}
-                      className={`p-4 rounded font-semibold transition-all transform text-lg ${
-                        selectedTender === tender.id
-                          ? `${TENDER_COLOR_MAP[tender.classification] || 'bg-indigo-500'} text-white scale-105 shadow-lg`
-                          : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                      }`}
-                    >
-                      {tender.name}
-                      <div className="text-sm mt-1">
-                        {formatNaira(tenders[tender.id])}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Amount Input Display */}
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
-                <p className="text-blue-700 text-sm font-semibold mb-2">
-                  Amount for {availableTenders.find(t => t.id === selectedTender)?.name}
-                </p>
-                <p className="text-5xl font-bold text-blue-600 text-right">
-                  ₦{displayAmount}
-                </p>
-              </div>
             </div>
+          </div>
 
-            {/* Right: Numeric Keypad */}
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-gray-700 text-center">NUMERIC KEYPAD</p>
-
-              {/* Number Grid */}
-              <div className="grid grid-cols-3 gap-3">
-                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+          {/* Middle Column: Payment Methods & Input */}
+          <div className="flex flex-col space-y-3">
+            {/* Payment Methods */}
+            <div>
+              <p className="text-xs font-bold text-gray-600 uppercase mb-2">Payment Methods</p>
+              <div className="grid grid-cols-2 gap-2">
+                {availableTenders.map(tender => (
                   <button
-                    key={num}
-                    onClick={() => handleNumberClick(num)}
-                    className="bg-gray-200 hover:bg-gray-300 p-6 rounded font-bold text-2xl transition-all min-h-16"
+                    key={tender.id}
+                    onClick={() => {
+                      setSelectedTender(tender.id);
+                      handleClear();
+                    }}
+                    className={`p-3 rounded-xl font-semibold transition-all text-sm active:scale-[0.98] ${
+                      selectedTender === tender.id
+                        ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-lg ring-2 ring-cyan-300'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-200'
+                    }`}
                   >
-                    {num}
+                    <div className="font-bold">{tender.name}</div>
+                    <div className={`text-xs mt-0.5 ${selectedTender === tender.id ? 'text-cyan-100' : 'text-gray-500'}`}>
+                      {formatNaira(tenders[tender.id])}
+                    </div>
                   </button>
                 ))}
-
-                {/* Zero and Decimal */}
-                <button
-                  onClick={() => handleNumberClick(0)}
-                  className="col-span-2 bg-gray-200 hover:bg-gray-300 p-6 rounded font-bold text-2xl transition-all min-h-16"
-                >
-                  0
-                </button>
-                <button
-                  onClick={handleDecimal}
-                  className="bg-blue-400 hover:bg-blue-500 text-white p-6 rounded font-bold text-2xl transition-all min-h-16"
-                >
-                  .
-                </button>
-
-                {/* Backspace */}
-                <button
-                  onClick={handleBackspace}
-                  className="col-span-3 bg-red-400 hover:bg-red-500 text-white p-4 rounded font-semibold transition-all text-lg min-h-14"
-                >
-                  ← BACKSPACE
-                </button>
-
-                {/* Clear */}
-                <button
-                  onClick={handleClear}
-                  className="col-span-3 bg-yellow-400 hover:bg-yellow-500 text-gray-800 p-4 rounded font-semibold transition-all text-lg min-h-14"
-                >
-                  CLEAR
-                </button>
-
-                {/* Add Amount */}
-                <button
-                  onClick={handleAdd}
-                  className="col-span-3 bg-green-500 hover:bg-green-600 text-white p-5 rounded font-bold text-xl transition-all min-h-16"
-                >
-                  ADD AMOUNT
-                </button>
               </div>
+            </div>
 
-              {/* Tender Summary */}
-              <div className="bg-gray-100 rounded-lg p-3 text-xs">
-                <p className="font-semibold text-gray-700 mb-2">Tenders Summary</p>
-                <div className="space-y-1">
-                  {availableTenders.map(tender => (
-                    tenders[tender.id] > 0 && (
-                      <div key={tender.id} className="flex justify-between text-gray-800">
-                        <span>{tender.name}</span>
-                        <span className="font-semibold">
-                          {formatNaira(tenders[tender.id])}
-                        </span>
-                      </div>
-                    )
-                  ))}
-                </div>
-              </div>
+            {/* Amount Input Display */}
+            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-300 rounded-xl p-4">
+              <p className="text-cyan-600 text-xs font-bold uppercase mb-1">
+                Entering for: {availableTenders.find(t => t.id === selectedTender)?.name || 'Select Method'}
+              </p>
+              <p className="text-4xl font-black text-cyan-700 text-right font-mono">
+                ₦{displayAmount}
+              </p>
+            </div>
+
+            {/* Quick Amount Buttons */}
+            <div className="grid grid-cols-4 gap-1.5">
+              {[500, 1000, 2000, 5000, 10000, 20000, 50000].map(amount => (
+                <button
+                  key={amount}
+                  onClick={() => {
+                    setCurrentAmount(amount.toString());
+                    setDisplayAmount(amount.toString());
+                  }}
+                  className="py-2 px-1 bg-gray-100 hover:bg-cyan-100 border-2 border-gray-200 hover:border-cyan-300 rounded-lg text-xs font-bold text-gray-700 transition-all active:scale-95"
+                >
+                  ₦{amount >= 1000 ? `${amount / 1000}K` : amount}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  setCurrentAmount(total.toString());
+                  setDisplayAmount(total.toString());
+                }}
+                className="py-2 px-1 bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 rounded-lg text-xs font-bold text-cyan-700 transition-all active:scale-95"
+              >
+                EXACT
+              </button>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="mt-6 flex gap-4 justify-end">
-            <button
-              onClick={onCancel}
-              className="px-8 py-4 bg-gray-400 hover:bg-gray-500 text-white rounded-lg font-semibold transition-all flex items-center gap-2 text-lg min-h-14"
-            >
-              <FontAwesomeIcon icon={faTimes} />
-              CANCEL
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={!isPaymentComplete}
-              className={`px-8 py-4 rounded-lg font-semibold transition-all flex items-center gap-2 text-lg min-h-14 ${
-                isPaymentComplete
-                  ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              <FontAwesomeIcon icon={faCheckCircle} />
-              CONFIRM PAYMENT
-            </button>
-          </div>
+          {/* Right Column: Numeric Keypad */}
+          <div className="flex flex-col space-y-2">
+            <p className="text-xs font-bold text-gray-600 uppercase text-center">Keypad</p>
 
-          {!isPaymentComplete && totalPaid > 0 && (
-            <p className="text-center text-red-600 text-sm mt-3 font-semibold">
-              Still need {formatNaira(total - totalPaid)} more
-            </p>
-          )}
+            {/* Number Grid */}
+            <div className="grid grid-cols-3 gap-2 flex-1">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                <button
+                  key={num}
+                  onClick={() => handleNumberClick(num)}
+                  className="bg-gray-100 hover:bg-gray-200 border-2 border-gray-200 rounded-xl font-bold text-2xl transition-all active:scale-95 active:bg-cyan-100"
+                >
+                  {num}
+                </button>
+              ))}
+
+              {/* Zero and Decimal */}
+              <button
+                onClick={() => handleNumberClick(0)}
+                className="col-span-2 bg-gray-100 hover:bg-gray-200 border-2 border-gray-200 rounded-xl font-bold text-2xl transition-all active:scale-95"
+              >
+                0
+              </button>
+              <button
+                onClick={handleDecimal}
+                className="bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 text-cyan-700 rounded-xl font-bold text-2xl transition-all active:scale-95"
+              >
+                .
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <button
+                onClick={handleBackspace}
+                className="w-full py-3 bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 text-orange-700 rounded-xl font-bold transition-all active:scale-[0.98]"
+              >
+                ← BACK
+              </button>
+              <button
+                onClick={handleClear}
+                className="w-full py-3 bg-gray-200 hover:bg-gray-300 border-2 border-gray-300 text-gray-700 rounded-xl font-bold transition-all active:scale-[0.98]"
+              >
+                CLEAR
+              </button>
+              <button
+                onClick={handleAdd}
+                className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold text-lg shadow-lg transition-all active:scale-[0.98]"
+              >
+                + ADD AMOUNT
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-4 flex-shrink-0">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-6 py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+          >
+            <FontAwesomeIcon icon={faTimes} />
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={!isPaymentComplete}
+            className={`flex-1 px-6 py-4 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+              isPaymentComplete
+                ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white shadow-lg'
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            <FontAwesomeIcon icon={faCheckCircle} />
+            Confirm Payment
+          </button>
         </div>
       </div>
     </div>

@@ -276,10 +276,10 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[calc(100vh-1rem)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-6 py-4 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold">Close Till & Reconciliation</h2>
-            <p className="text-red-100 text-sm">
+            <p className="text-cyan-100 text-sm">
               Session: {till?.openedAt ? new Date(till.openedAt).toLocaleTimeString() : 'Unknown'}
             </p>
           </div>
@@ -421,7 +421,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           <button
             onClick={handleCloseTill}
             disabled={isButtonDisabled}
-            className="flex-1 px-6 py-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-6 py-4 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-xl transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Closing Till..." : "Close Till & Logout"}
           </button>
