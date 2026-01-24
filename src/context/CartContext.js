@@ -224,28 +224,15 @@ export function CartProvider({ children }) {
         appliedPromotion: promotion,
       };
 
-      // Apply promotion discount to cart level
+      // The promotion will be applied in calculateTotals
+      // Just store the promotion object as-is
       if (promotion && promotion.active) {
-        // Store the promotion details
-        newCart.appliedPromotion = promotion;
-        
-        // Apply discount based on type
-        if (promotion.discountType === 'PERCENTAGE') {
-          // For percentage, apply to cart discount percent
-          if (promotion.valueType === 'DISCOUNT') {
-            newCart.discountPercent = promotion.discountValue;
-          } else if (promotion.valueType === 'MARKUP') {
-            // Markup increases prices - store as negative discount
-            newCart.discountPercent = -promotion.discountValue;
-          }
-        } else if (promotion.discountType === 'FIXED') {
-          // For fixed amount discount
-          newCart.fixedDiscount = promotion.discountValue;
-        }
-      } else {
-        // Clear any applied promotion
-        newCart.discountPercent = 0;
-        newCart.fixedDiscount = 0;
+        console.log('✅ Promotion applied:', {
+          name: promotion.name,
+          discountType: promotion.discountType,
+          discountValue: promotion.discountValue,
+          valueType: promotion.valueType
+        });
       }
 
       return {
@@ -374,13 +361,21 @@ export function CartProvider({ children }) {
         if (appliedPromotion.discountType === 'PERCENTAGE') {
           const percentChange = appliedPromotion.discountValue / 100;
           if (appliedPromotion.valueType === 'MARKUP') {
-            // Markup increases the price
+            // MARKUP increases the item price
             itemTotal = itemTotal * (1 + percentChange);
-          } else {
-            // Discount decreases the price
+          } else if (appliedPromotion.valueType === 'DISCOUNT') {
+            // DISCOUNT decreases the item price
             itemTotal = itemTotal * (1 - percentChange);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType}: ₦${itemTotal}`);
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (${appliedPromotion.discountValue}%): ₦${itemTotal}`);
+        } else if (appliedPromotion.discountType === 'FIXED') {
+          // Fixed amount discount/markup
+          if (appliedPromotion.valueType === 'MARKUP') {
+            itemTotal = itemTotal + appliedPromotion.discountValue;
+          } else if (appliedPromotion.valueType === 'DISCOUNT') {
+            itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);
+          }
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (₦${appliedPromotion.discountValue}): ₦${itemTotal}`);
         }
       }
       

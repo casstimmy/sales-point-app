@@ -304,9 +304,18 @@ export default function CartPanel() {
                 if (activeCart.appliedPromotion.discountType === 'PERCENTAGE') {
                   const percentChange = activeCart.appliedPromotion.discountValue / 100;
                   if (activeCart.appliedPromotion.valueType === 'MARKUP') {
+                    // MARKUP increases the price
                     adjustedPrice = item.price * (1 + percentChange);
                   } else {
+                    // DISCOUNT decreases the price
                     adjustedPrice = item.price * (1 - percentChange);
+                  }
+                } else if (activeCart.appliedPromotion.discountType === 'FIXED') {
+                  // Fixed discount - apply to each item
+                  if (activeCart.appliedPromotion.valueType === 'MARKUP') {
+                    adjustedPrice = item.price + activeCart.appliedPromotion.discountValue;
+                  } else {
+                    adjustedPrice = Math.max(0, item.price - activeCart.appliedPromotion.discountValue);
                   }
                 }
               }

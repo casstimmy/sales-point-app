@@ -13,11 +13,11 @@ const PromotionSchema = new mongoose.Schema({
     enum: ["REGULAR", "VIP", "NEW", "INACTIVE", "BULK_BUYER", "ONLINE"],
   }],
   
-  // Value details (can be discount or increment)
+  // Value details (can be discount or markup)
   valueType: {
     type: String,
-    enum: ["DISCOUNT", "INCREMENT"],
-    default: "DISCOUNT", // DISCOUNT = reduce price, INCREMENT = increase price
+    enum: ["DISCOUNT", "MARKUP"],
+    default: "DISCOUNT", // DISCOUNT = reduce price, MARKUP = increase price
   },
   discountType: {
     type: String,
