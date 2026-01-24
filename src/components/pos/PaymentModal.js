@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark, faCheckCircle, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faXmark, faCheckCircle, faTimes, faBackspace } from '@fortawesome/free-solid-svg-icons';
 import { useStaff } from '@/src/context/StaffContext';
 import { useLocationTenders } from '@/src/hooks/useLocationTenders';
 
@@ -445,33 +445,42 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
           </div>
         </div>
 
-        {/* Footer - Large Icon Buttons */}
-        <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 grid grid-cols-2 gap-4 flex-shrink-0">
+        {/* Footer - Action Buttons */}
+        <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 grid grid-cols-3 gap-3 flex-shrink-0">
           <button
             onClick={onCancel}
-            className="flex flex-col items-center justify-center py-6 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-[0.98]"
           >
-            <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-2">
-              <FontAwesomeIcon icon={faTimes} className="w-10 h-10 text-white" />
+            <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+              <FontAwesomeIcon icon={faTimes} className="w-5 h-5 text-white" />
             </div>
-            <span className="text-gray-700 font-bold text-lg">Cancel</span>
+            <span className="text-gray-700 font-bold text-sm">Cancel</span>
+          </button>
+          <button
+            onClick={handleClear}
+            className="flex items-center justify-center gap-2 py-3 bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 rounded-xl transition-all active:scale-[0.98]"
+          >
+            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
+              <FontAwesomeIcon icon={faBackspace} className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-orange-700 font-bold text-sm">Clear Entry</span>
           </button>
           <button
             onClick={handleConfirm}
             disabled={!isPaymentComplete}
-            className={`flex flex-col items-center justify-center py-6 rounded-xl transition-all active:scale-[0.98] ${
+            className={`flex items-center justify-center gap-2 py-3 rounded-xl transition-all active:scale-[0.98] ${
               isPaymentComplete
-                ? 'bg-gray-200 hover:bg-gray-300'
-                : 'bg-gray-100 cursor-not-allowed opacity-50'
+                ? 'bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300'
+                : 'bg-gray-100 cursor-not-allowed opacity-50 border-2 border-gray-200'
             }`}
           >
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-2 ${
-              isPaymentComplete ? 'bg-gray-500' : 'bg-gray-400'
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+              isPaymentComplete ? 'bg-cyan-600' : 'bg-gray-400'
             }`}>
-              <FontAwesomeIcon icon={faCheckCircle} className="w-10 h-10 text-white" />
+              <FontAwesomeIcon icon={faCheckCircle} className="w-5 h-5 text-white" />
             </div>
-            <span className={`font-bold text-lg ${isPaymentComplete ? 'text-gray-700' : 'text-gray-400'}`}>
-              Confirm Payment
+            <span className={`font-bold text-sm ${isPaymentComplete ? 'text-cyan-700' : 'text-gray-400'}`}>
+              Confirm
             </span>
           </button>
         </div>

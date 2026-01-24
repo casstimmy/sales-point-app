@@ -392,7 +392,7 @@ export function CartProvider({ children }) {
       total,
       itemCount: state.activeCart.items.reduce((sum, item) => sum + item.quantity, 0),
     };
-  }, [state.activeCart.items, state.activeCart.discountPercent]);
+  }, [state.activeCart.items, state.activeCart.discountPercent, state.activeCart.appliedPromotion, state.activeCart.fixedDiscount]);
 
   // =========================================================================
   // CONTEXT VALUE

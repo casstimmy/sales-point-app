@@ -411,3 +411,48 @@ export function getImageUrl(product) {
 export function shouldShowPlaceholder(product) {
   return !isOnline || !getImageUrl(product);
 }
+
+/**
+ * Get completed transactions from IndexedDB
+ * @returns {Promise<Array>} Array of completed transactions
+ */
+export async function getCompletedTransactions() {
+  try {
+    const request = indexedDB.open('SalesPOS', 1);
+
+    return new Promise((resolve, reject) => {
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+        const txStore = db.transaction(['transactions'], 'readonly')
+          .objectStore('transactions');
+        
+        const getAllRequest = txStore.getAll();
+
+        getAllRequest.onsuccess = () => {
+          const allTransactions = getAllRequest.result || [];
+          
+          // Filter for completed transactions
+          const completed = allTransactions.filter(tx => 
+            tx.status === 'completed' || tx.status === 'COMPLETE'
+          );
+          
+          console.log(`📋 Found ${completed.length} completed transactions in IndexedDB`);
+          resolve(completed);
+        };
+
+        getAllRequest.onerror = () => {
+          console.error('❌ Failed to get transactions:', getAllRequest.error);
+          reject(getAllRequest.error);
+        };
+      };
+
+      request.onerror = () => {
+        console.error('❌ Failed to open database:', request.error);
+        reject(request.error);
+      };
+    });
+  } catch (err) {
+    console.error('❌ Error getting completed transactions:', err);
+    return [];
+  }
+}

@@ -9,7 +9,7 @@
  * - Offline sync warning banner
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faCalendar,
@@ -17,8 +17,10 @@ import {
   faSliders,
   faX,
   faChevronDown,
+  faSync,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
+import { getCompletedTransactions } from '../../lib/offlineSync';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
@@ -27,30 +29,69 @@ export default function OrdersScreen() {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [filteredOrders, setFilteredOrders] = useState([]);
+  const [completedTransactions, setCompletedTransactions] = useState([]);
+  const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
   const { isOnline, lastSyncTime, resumeOrder, orders } = useCart();
+
+  // Fetch completed transactions from IndexedDB
+  const fetchCompletedTransactions = useCallback(async () => {
+    setIsLoadingCompleted(true);
+    try {
+      const completed = await getCompletedTransactions();
+      setCompletedTransactions(completed);
+    } catch (error) {
+      console.error('Failed to fetch completed transactions:', error);
+    } finally {
+      setIsLoadingCompleted(false);
+    }
+  }, []);
+
+  // Load completed transactions on mount and when switching to COMPLETE tab
+  useEffect(() => {
+    if (activeStatus === 'COMPLETE') {
+      fetchCompletedTransactions();
+    }
+  }, [activeStatus, fetchCompletedTransactions]);
 
   // Filter orders by status
   useEffect(() => {
-    if (!orders || orders.length === 0) {
-      setFilteredOrders([]);
-      return;
+    let sourceOrders = [];
+
+    if (activeStatus === 'COMPLETE') {
+      // Use completed transactions from IndexedDB
+      sourceOrders = completedTransactions.map(tx => ({
+        id: tx.id || tx._id,
+        time: tx.createdAt ? new Date(tx.createdAt).toLocaleString() : 'N/A',
+        customer: tx.customerName || 'Walk-in',
+        staffMember: tx.staffName || 'Unknown',
+        tenderType: tx.tenderType || (tx.tenderPayments?.[0]?.tenderName) || null,
+        total: tx.total || 0,
+        status: 'COMPLETE',
+        items: tx.items || [],
+      }));
+    } else {
+      // Use held orders from CartContext
+      if (!orders || orders.length === 0) {
+        setFilteredOrders([]);
+        return;
+      }
+
+      sourceOrders = orders
+        .filter(order => order.status === activeStatus)
+        .map(order => ({
+          id: order.id,
+          time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
+          customer: order.customer?.name || 'Unknown',
+          staffMember: order.staffMember?.name || 'Unknown',
+          tenderType: order.status === 'HELD' ? null : (order.tenderType || null), // Don't show tender for HELD
+          total: order.total || 0,
+          status: order.status,
+          items: order.items || [],
+        }));
     }
 
-    // Format orders from CartContext to display format
-    let filtered = orders
-      .filter(order => order.status === activeStatus)
-      .map(order => ({
-        id: order.id,
-        time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
-        customer: order.customer?.name || 'Unknown',
-        staffMember: order.staffMember?.name || 'Unknown',
-        tenderType: order.tenderType || 'CASH',
-        total: order.total || 0,
-        status: order.status,
-        items: order.items || [],
-      }));
-
     // Apply date filter if selected
+    let filtered = sourceOrders;
     if (selectedDate) {
       const filterDate = new Date(selectedDate).toDateString();
       filtered = filtered.filter(order => {
@@ -60,7 +101,7 @@ export default function OrdersScreen() {
     }
 
     setFilteredOrders(filtered);
-  }, [activeStatus, selectedDate, orders]);
+  }, [activeStatus, selectedDate, orders, completedTransactions]);
 
   const handleOrderSelect = (order) => {
     // Convert mock order to cart format and load it
@@ -143,6 +184,18 @@ export default function OrdersScreen() {
           <span className="hidden sm:inline">ADVANCED FILTER</span>
           <span className="sm:hidden">FILTER</span>
         </button>
+        
+        {/* Refresh button for completed transactions */}
+        {activeStatus === 'COMPLETE' && (
+          <button 
+            onClick={fetchCompletedTransactions}
+            disabled={isLoadingCompleted}
+            className="px-4 py-2 bg-green-500 text-white rounded font-semibold text-sm hover:bg-green-600 flex items-center gap-2 transition-colors touch-manipulation disabled:opacity-50"
+          >
+            <FontAwesomeIcon icon={faSync} className={`w-4 h-4 ${isLoadingCompleted ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">REFRESH</span>
+          </button>
+        )}
       </div>
 
       {/* Orders Table */}
@@ -168,15 +221,21 @@ export default function OrdersScreen() {
                 <td className="p-3 text-gray-800">{order.customer}</td>
                 <td className="p-3 text-gray-800">{order.staffMember}</td>
                 <td className="p-3 text-gray-800 uppercase text-xs font-semibold">
-                  <span
-                    className={`px-2 py-1 rounded ${
-                      order.tenderType === 'CASH'
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-purple-100 text-purple-800'
-                    }`}
-                  >
-                    {order.tenderType === 'HYDROGEN_POS' ? 'HYDROGEN POS' : order.tenderType}
-                  </span>
+                  {order.tenderType ? (
+                    <span
+                      className={`px-2 py-1 rounded ${
+                        order.tenderType === 'CASH'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-purple-100 text-purple-800'
+                      }`}
+                    >
+                      {order.tenderType === 'HYDROGEN_POS' ? 'HYDROGEN POS' : order.tenderType}
+                    </span>
+                  ) : (
+                    <span className="px-2 py-1 rounded bg-gray-100 text-gray-500 italic">
+                      Pending
+                    </span>
+                  )}
                 </td>
                 <td className="p-3 text-gray-800 font-bold text-right">₦{order.total.toLocaleString()}</td>
               </tr>

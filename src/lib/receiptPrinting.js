@@ -495,7 +495,7 @@ function generateReceiptHTML(transaction, settings) {
           ${refundDays > 0 ? `<div style="text-align: center; font-size: 8pt;">Refund within ${refundDays} days with receipt</div>` : ''}
 
           <!-- Status -->
-          <div class="status-box">PAID</div>
+          <div class="status-box" style="${status === 'UNPAID' ? 'color: red; border-color: red;' : ''}">${status === 'UNPAID' ? 'UNPAID' : 'PAID'}</div>
 
           <!-- Message -->
           ${receiptMessage ? `<div class="message">${receiptMessage}</div>` : ''}
