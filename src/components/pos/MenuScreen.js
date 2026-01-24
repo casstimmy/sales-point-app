@@ -56,7 +56,8 @@ export default function MenuScreen() {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [products, setProducts] = useState([]);
   const [allProducts, setAllProducts] = useState([]); // All products for global search
-  const [searchTerm, setSearchTerm] = useState(''); // Search state
+  const [searchTerm, setSearchTerm] = useState(''); // Current input value
+  const [appliedSearch, setAppliedSearch] = useState(''); // Search only applied on button click
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(null);
@@ -442,6 +443,11 @@ export default function MenuScreen() {
     setLoadingImages(prev => ({ ...prev, [productId]: false }));
   }, []);
 
+  // Handle search button click - apply search filter
+  const handleSearchClick = () => {
+    setAppliedSearch(searchTerm);
+  };
+
   return (
     <div className="flex flex-col h-full bg-neutral-50 overflow-hidden">
       {/* Error Display */}
@@ -507,7 +513,7 @@ export default function MenuScreen() {
             />
           </div>
           <button
-            onClick={() => setSearchTerm(searchTerm)}
+            onClick={handleSearchClick}
             className="px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors duration-base flex items-center gap-2"
           >
             <FontAwesomeIcon icon={faSearch} className="w-5 h-5" />
@@ -553,7 +559,7 @@ export default function MenuScreen() {
         </div>
 
         {/* Product List - Category view or Search Results */}
-        {searchTerm ? (
+        {appliedSearch ? (
           // Search Results View - Search across all products
           <div className="bg-white rounded-lg border-2 border-green-200 p-3 mt-3">
             <div className="text-base font-bold text-neutral-900 mb-3">
@@ -561,8 +567,8 @@ export default function MenuScreen() {
             </div>
             {(() => {
               const searchResults = allProducts.filter(product =>
-                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
+                product.name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+                (product.description && product.description.toLowerCase().includes(appliedSearch.toLowerCase()))
               );
               
               return searchResults.length > 0 ? (
@@ -629,11 +635,11 @@ export default function MenuScreen() {
             {loadingProducts ? (
               <div className="text-sm text-neutral-400 text-center py-4">Loading products...</div>
             ) : (() => {
-              // Filter products based on search term
-              const filteredProducts = products.filter(product =>
-                product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()))
-              );
+              // Filter products based on applied search term
+              const filteredProducts = appliedSearch ? products.filter(product =>
+                product.name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+                (product.description && product.description.toLowerCase().includes(appliedSearch.toLowerCase()))
+              ) : products;
               
               return filteredProducts.length > 0 ? (
               <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 auto-rows-max">

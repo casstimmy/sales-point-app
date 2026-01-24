@@ -331,9 +331,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   if (!till || !summary) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-8 max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
-        <div className="flex items-center justify-between mb-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2">
+      <div className="bg-white rounded-lg shadow-lg max-w-4xl w-full mx-auto p-6 max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h2 className="text-2xl font-bold text-gray-800">Close Till & Reconciliation</h2>
           {!isOnline && (
             <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-1 rounded text-sm font-semibold flex items-center gap-2">
@@ -343,41 +343,43 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           )}
         </div>
         
-        {/* Till Session Info */}
-        <div className="text-sm text-gray-600 mb-4 pb-3 border-b border-gray-200">
-          <p>Till Session: {till?.openedAt ? new Date(till.openedAt).toLocaleTimeString() : 'Unknown'}</p>
-          <p className="text-xs text-gray-500">Reconciling {till?.transactionCount || 0} transactions from this session</p>
-          {!isOnline && (
-            <p className="text-xs text-yellow-600 mt-2 font-semibold">
-              ℹ️ Working offline - reconciliation data will be saved locally and synced when back online
-            </p>
-          )}
-        </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-4 mb-6">
-          {/* Opening Balance */}
-          <div className="bg-blue-50 border border-blue-200 p-4 rounded">
-            <p className="text-sm text-gray-600">Opening Balance</p>
-            <p className="text-2xl font-bold text-blue-600">
-              {summary.openingBalance.toFixed(2)}
-            </p>
+        {/* Scrollable Content Area */}
+        <div className="overflow-y-auto flex-1 pr-2">
+          {/* Till Session Info */}
+          <div className="text-sm text-gray-600 mb-4 pb-3 border-b border-gray-200">
+            <p>Till Session: {till?.openedAt ? new Date(till.openedAt).toLocaleTimeString() : 'Unknown'}</p>
+            <p className="text-xs text-gray-500">Reconciling {till?.transactionCount || 0} transactions from this session</p>
+            {!isOnline && (
+              <p className="text-xs text-yellow-600 mt-2 font-semibold">
+                ℹ️ Working offline - reconciliation data will be saved locally and synced when back online
+              </p>
+            )}
           </div>
 
-          {/* Transaction Count */}
-          <div className="bg-orange-50 border border-orange-200 p-4 rounded">
-            <p className="text-sm text-gray-600">Transactions</p>
-            <p className="text-2xl font-bold text-orange-600">
-              {till?.transactionCount || 0}
-            </p>
-          </div>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            {/* Opening Balance */}
+            <div className="bg-blue-50 border border-blue-200 p-4 rounded">
+              <p className="text-sm text-gray-600">Opening Balance</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {summary.openingBalance.toFixed(2)}
+              </p>
+            </div>
 
-          {/* Total Sales */}
-          <div className="bg-green-50 border border-green-200 p-4 rounded">
-            <p className="text-sm text-gray-600">Total Sales</p>
-            <p className="text-2xl font-bold text-green-600">
-              {summary.totalSales.toFixed(2)}
-            </p>
+            {/* Transaction Count */}
+            <div className="bg-orange-50 border border-orange-200 p-4 rounded">
+              <p className="text-sm text-gray-600">Transactions</p>
+              <p className="text-2xl font-bold text-orange-600">
+                {till?.transactionCount || 0}
+              </p>
+            </div>
+
+            {/* Total Sales */}
+            <div className="bg-green-50 border border-green-200 p-4 rounded">
+              <p className="text-sm text-gray-600">Total Sales</p>
+              <p className="text-2xl font-bold text-green-600">
+                {summary.totalSales.toFixed(2)}
+              </p>
           </div>
 
           {/* Expected Closing Balance */}
@@ -559,9 +561,10 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             {error}
           </div>
         )}
+        </div>
 
-        {/* Buttons */}
-        <div className="flex gap-3">
+        {/* Buttons - Fixed at bottom, outside scroll area */}
+        <div className="flex gap-3 mt-4 flex-shrink-0 border-t border-gray-200 pt-4">
           <button
             onClick={onClose}
             disabled={loading}

@@ -430,23 +430,23 @@ export default function CartPanel() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">ITEMS</span>
-                <span className="text-neutral-900 font-bold text-base">{totals.itemCount}</span>
+                <span className="text-neutral-900 font-bold text-lg">{totals.itemCount}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">TOTAL</span>
-                <span className="text-neutral-900 font-black text-lg">₦{(totals.total - totals.tax).toLocaleString()}</span>
+                <span className="text-neutral-900 font-black text-2xl">₦{(totals.total - totals.tax).toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">DISCOUNT</span>
-                <span className="text-neutral-900 font-bold text-base">₦{totals.discountAmount.toLocaleString()}</span>
+                <span className="text-neutral-900 font-bold text-lg">₦{totals.discountAmount.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">DUE</span>
-                <span className="text-red-600 font-bold text-lg">₦{(totals.total - totals.tax).toLocaleString()}</span>
+                <span className="text-red-600 font-bold text-2xl">₦{(totals.total - totals.tax).toLocaleString()}</span>
               </div>
               <div className="col-span-2 flex justify-between">
                 <span className="text-neutral-700 font-semibold">TAX</span>
-                <span className="text-neutral-900 font-bold text-base">₦0.00</span>
+                <span className="text-neutral-900 font-bold text-lg">₦0.00</span>
               </div>
             </div>
           </div>
