@@ -60,7 +60,7 @@ export default async function handler(req, res) {
       openingBalance: parseFloat(openingBalance),
       status: "OPEN",
       date: new Date().setHours(0, 0, 0, 0),
-      transactionCount: -1, // Mark opening till as transaction -1
+      transactionCount: 0, // Start at 0 - no transactions yet
     });
 
     await newTill.save();

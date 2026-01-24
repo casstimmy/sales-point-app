@@ -215,24 +215,37 @@ export function CartProvider({ children }) {
     }));
   }, []);
 
-  // Set customer with optional promotion
+  // Set customer with optional promotion - applies discount to all items
   const setCustomer = useCallback((customer, promotion = null) => {
     setState(prev => {
       const newCart = {
         ...prev.activeCart,
         customer: customer,
+        appliedPromotion: promotion,
       };
 
-      // Apply promotion discount if provided
+      // Apply promotion discount to cart level
       if (promotion && promotion.active) {
+        // Store the promotion details
+        newCart.appliedPromotion = promotion;
+        
+        // Apply discount based on type
         if (promotion.discountType === 'PERCENTAGE') {
-          newCart.discountPercent = promotion.discountValue;
-          newCart.appliedPromotion = promotion;
+          // For percentage, apply to cart discount percent
+          if (promotion.valueType === 'DISCOUNT') {
+            newCart.discountPercent = promotion.discountValue;
+          } else if (promotion.valueType === 'MARKUP') {
+            // Markup increases prices - store as negative discount
+            newCart.discountPercent = -promotion.discountValue;
+          }
         } else if (promotion.discountType === 'FIXED') {
-          // For fixed discounts, we'll store it separately
-          newCart.discountAmount = promotion.discountValue;
-          newCart.appliedPromotion = promotion;
+          // For fixed amount discount
+          newCart.fixedDiscount = promotion.discountValue;
         }
+      } else {
+        // Clear any applied promotion
+        newCart.discountPercent = 0;
+        newCart.fixedDiscount = 0;
       }
 
       return {
@@ -332,19 +345,48 @@ export function CartProvider({ children }) {
   // =========================================================================
 
   const calculateTotals = useCallback(() => {
-    const subtotal = state.activeCart.items.reduce(
-      (sum, item) => sum + item.price * item.quantity - (item.discount || 0),
-      0
-    );
+    const { items, discountPercent, fixedDiscount, appliedPromotion } = state.activeCart;
+    
+    // Calculate subtotal with promotion applied to each item
+    let subtotal = 0;
+    
+    items.forEach(item => {
+      let itemTotal = item.price * item.quantity - (item.discount || 0);
+      
+      // Apply promotion markup/discount to item if customer selected
+      if (appliedPromotion && appliedPromotion.active) {
+        if (appliedPromotion.discountType === 'PERCENTAGE') {
+          const percentChange = appliedPromotion.discountValue / 100;
+          if (appliedPromotion.valueType === 'MARKUP') {
+            // Markup increases the price
+            itemTotal = itemTotal * (1 + percentChange);
+          } else {
+            // Discount decreases the price
+            itemTotal = itemTotal * (1 - percentChange);
+          }
+        }
+      }
+      
+      subtotal += itemTotal;
+    });
 
-    const discountAmount = (subtotal * state.activeCart.discountPercent) / 100;
-    const discountedSubtotal = subtotal - discountAmount;
+    // Apply fixed discount if any
+    const fixedDiscountAmount = fixedDiscount || 0;
+    const discountedSubtotal = Math.max(0, subtotal - fixedDiscountAmount);
+    
     const tax = 0; // No tax for now
     const total = discountedSubtotal + tax;
 
+    // Calculate the discount amount for display
+    const rawSubtotal = items.reduce(
+      (sum, item) => sum + item.price * item.quantity - (item.discount || 0),
+      0
+    );
+    const discountAmount = rawSubtotal - subtotal + fixedDiscountAmount;
+
     return {
-      subtotal,
-      discountAmount,
+      subtotal: rawSubtotal,
+      discountAmount: Math.abs(discountAmount),
       discountedSubtotal,
       tax,
       total,

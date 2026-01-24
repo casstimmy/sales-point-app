@@ -585,7 +585,7 @@ export default function MenuScreen() {
               );
               
               return searchResults.length > 0 ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 auto-rows-max">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 auto-rows-max">
                   {searchResults.map(product => (
                     <button
                       key={product._id || product.id}
@@ -596,67 +596,68 @@ export default function MenuScreen() {
                         category: product.category,
                         quantity: 1,
                       })}
-                      className="relative h-40 bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all transform hover:scale-[1.02] shadow-sm touch-manipulation flex flex-col overflow-hidden active:scale-[0.98]"
+                      className="relative bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
                     >
-                      {/* Product Image */}
-                      <div className="h-20 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
-                        {!isOnline && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
+                      {/* Top Row: Image + Details Side by Side */}
+                      <div className="flex h-20">
+                        {/* Product Image */}
+                        <div className="w-20 h-20 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                          {!isOnline && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
+                              <div className="text-2xl">📦</div>
+                            </div>
+                          )}
+                          
+                          {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                              <div className="animate-pulse text-xl">⏳</div>
+                            </div>
+                          )}
+                          
+                          {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
+                            <img
+                              src={product.images[0].full}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
+                              onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
+                              onError={() => handleImageError(product._id || product.id)}
+                            />
+                          ) : (
                             <div className="text-2xl">📦</div>
+                          )}
+                          
+                          {/* Search Badge */}
+                          <div className="absolute top-1 left-1 px-1 py-0.5 rounded text-xs font-bold bg-green-600 text-white">
+                            🔍
                           </div>
-                        )}
-                        
-                        {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                            <div className="animate-pulse text-2xl">⏳</div>
+                        </div>
+
+                        {/* Product Details */}
+                        <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
+                          <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
+                            {product.name}
                           </div>
-                        )}
-                        
-                        {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
-                          <img
-                            src={product.images[0].full}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
-                            onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
-                            onError={() => handleImageError(product._id || product.id)}
-                          />
-                        ) : (
-                          <div className="text-2xl">📦</div>
-                        )}
-                        
-                        {/* Stock Badge */}
-                        {product.quantity !== undefined && (
-                          <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${
-                            product.quantity <= 0 ? 'bg-red-500 text-white' :
-                            product.quantity <= 5 ? 'bg-yellow-500 text-white' :
-                            'bg-green-500 text-white'
-                          }`}>
-                            {product.quantity <= 0 ? 'Out' : product.quantity}
+                          <div className="flex items-center justify-between mt-1">
+                            {/* Stock Badge */}
+                            {product.quantity !== undefined && (
+                              <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                                product.quantity <= 0 ? 'bg-red-100 text-red-700' :
+                                product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {product.quantity <= 0 ? 'Out' : `${product.quantity} left`}
+                              </span>
+                            )}
                           </div>
-                        )}
-                        
-                        {/* Search Match Badge */}
-                        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-bold bg-green-600 text-white">
-                          🔍
                         </div>
                       </div>
 
-                      {/* Product Info */}
-                      <div className="flex-1 p-1.5 flex flex-col justify-between min-h-0">
-                        <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
-                          {product.name}
-                        </div>
-                        <div className="mt-auto">
-                          <div className="text-sm font-bold text-green-700">
-                            ₦{product.salePriceIncTax?.toLocaleString() || '0'}
-                          </div>
-                          {product.costPrice && (
-                            <div className="text-xs text-gray-400 line-through">
-                              ₦{product.costPrice?.toLocaleString()}
-                            </div>
-                          )}
+                      {/* Bottom Row: Price Full Width */}
+                      <div className="bg-gradient-to-r from-green-500 to-green-600 px-3 py-2">
+                        <div className="text-lg font-black text-white text-center">
+                          ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                         </div>
                       </div>
                     </button>
@@ -685,7 +686,7 @@ export default function MenuScreen() {
               ) : products;
               
               return filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 auto-rows-max">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 auto-rows-max">
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
@@ -696,65 +697,63 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative h-40 bg-white rounded-lg border-2 border-gray-200 hover:border-cyan-400 hover:shadow-lg transition-all transform hover:scale-[1.02] shadow-sm touch-manipulation flex flex-col overflow-hidden active:scale-[0.98]"
+                    className="relative bg-white rounded-lg border-2 border-gray-200 hover:border-cyan-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
                   >
-                    {/* Product Image */}
-                    <div className="h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
-                      {/* Offline Placeholder */}
-                      {!isOnline && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
-                          <div className="text-2xl">📦</div>
-                        </div>
-                      )}
-                      
-                      {/* Loading Placeholder */}
-                      {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                          <div className="animate-pulse text-2xl">⏳</div>
-                        </div>
-                      )}
-                      
-                      {/* Image Display */}
-                      {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
-                        <img
-                          src={product.images[0].full}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
-                          onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
-                          onError={() => handleImageError(product._id || product.id)}
-                        />
-                      ) : (
-                        <div className="text-3xl">📦</div>
-                      )}
-                      
-                      {/* Stock Badge */}
-                      {product.quantity !== undefined && (
-                        <div className={`absolute top-1 right-1 px-1.5 py-0.5 rounded text-xs font-bold ${
-                          product.quantity <= 0 ? 'bg-red-500 text-white' :
-                          product.quantity <= 5 ? 'bg-yellow-500 text-white' :
-                          'bg-green-500 text-white'
-                        }`}>
-                          {product.quantity <= 0 ? 'Out' : product.quantity}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="flex-1 p-1.5 flex flex-col justify-between min-h-0">
-                      <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
-                        {product.name}
-                      </div>
-                      <div className="mt-auto">
-                        <div className="text-sm font-bold text-cyan-700">
-                          ₦{product.salePriceIncTax?.toLocaleString() || '0'}
-                        </div>
-                        {product.costPrice && (
-                          <div className="text-xs text-gray-400 line-through">
-                            ₦{product.costPrice?.toLocaleString()}
+                    {/* Top Row: Image + Details Side by Side */}
+                    <div className="flex h-20">
+                      {/* Product Image */}
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                        {!isOnline && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
+                            <div className="text-2xl">📦</div>
                           </div>
                         )}
+                        
+                        {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                            <div className="animate-pulse text-xl">⏳</div>
+                          </div>
+                        )}
+                        
+                        {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
+                          <img
+                            src={product.images[0].full}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
+                            onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
+                            onError={() => handleImageError(product._id || product.id)}
+                          />
+                        ) : (
+                          <div className="text-2xl">📦</div>
+                        )}
+                      </div>
+
+                      {/* Product Details */}
+                      <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
+                        <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
+                          {product.name}
+                        </div>
+                        <div className="flex items-center justify-between mt-1">
+                          {/* Stock Badge */}
+                          {product.quantity !== undefined && (
+                            <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                              product.quantity <= 0 ? 'bg-red-100 text-red-700' :
+                              product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-green-100 text-green-700'
+                            }`}>
+                              {product.quantity <= 0 ? 'Out' : `${product.quantity} left`}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Price Full Width */}
+                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-3 py-2">
+                      <div className="text-lg font-black text-white text-center">
+                        ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                       </div>
                     </div>
                   </button>

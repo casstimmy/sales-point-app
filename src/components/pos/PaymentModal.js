@@ -445,26 +445,34 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex gap-4 flex-shrink-0">
+        {/* Footer - Large Icon Buttons */}
+        <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 grid grid-cols-2 gap-4 flex-shrink-0">
           <button
             onClick={onCancel}
-            className="flex-1 px-6 py-4 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+            className="flex flex-col items-center justify-center py-6 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-[0.98]"
           >
-            <FontAwesomeIcon icon={faTimes} />
-            Cancel
+            <div className="w-20 h-20 bg-gray-700 rounded-full flex items-center justify-center mb-2">
+              <FontAwesomeIcon icon={faTimes} className="w-10 h-10 text-white" />
+            </div>
+            <span className="text-gray-700 font-bold text-lg">Cancel</span>
           </button>
           <button
             onClick={handleConfirm}
             disabled={!isPaymentComplete}
-            className={`flex-1 px-6 py-4 rounded-xl font-bold transition-all active:scale-[0.98] flex items-center justify-center gap-2 ${
+            className={`flex flex-col items-center justify-center py-6 rounded-xl transition-all active:scale-[0.98] ${
               isPaymentComplete
-                ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 hover:from-cyan-600 hover:to-cyan-700 text-white shadow-lg'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-gray-200 hover:bg-gray-300'
+                : 'bg-gray-100 cursor-not-allowed opacity-50'
             }`}
           >
-            <FontAwesomeIcon icon={faCheckCircle} />
-            Confirm Payment
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-2 ${
+              isPaymentComplete ? 'bg-gray-500' : 'bg-gray-400'
+            }`}>
+              <FontAwesomeIcon icon={faCheckCircle} className="w-10 h-10 text-white" />
+            </div>
+            <span className={`font-bold text-lg ${isPaymentComplete ? 'text-gray-700' : 'text-gray-400'}`}>
+              Confirm Payment
+            </span>
           </button>
         </div>
       </div>

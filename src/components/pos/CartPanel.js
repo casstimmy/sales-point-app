@@ -279,9 +279,10 @@ export default function CartPanel() {
                   </div>
                 </div>
                 <span className="bg-white/20 px-2 py-0.5 rounded font-bold">
+                  {activeCart.appliedPromotion.valueType === 'MARKUP' ? '↑' : '↓'}
                   {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
-                    ? `${activeCart.appliedPromotion.discountValue}% OFF`
-                    : `₦${activeCart.appliedPromotion.discountValue} OFF`
+                    ? ` ${activeCart.appliedPromotion.discountValue}%`
+                    : ` ₦${activeCart.appliedPromotion.discountValue}`
                   }
                 </span>
               </div>
@@ -296,7 +297,23 @@ export default function CartPanel() {
 
           {/* Line Items */}
           <div className="flex-1 overflow-y-auto bg-white divide-y divide-neutral-200">
-            {activeCart.items.map(item => (
+            {activeCart.items.map(item => {
+              // Calculate adjusted price if promotion is active
+              let adjustedPrice = item.price;
+              if (activeCart.appliedPromotion && activeCart.appliedPromotion.active) {
+                if (activeCart.appliedPromotion.discountType === 'PERCENTAGE') {
+                  const percentChange = activeCart.appliedPromotion.discountValue / 100;
+                  if (activeCart.appliedPromotion.valueType === 'MARKUP') {
+                    adjustedPrice = item.price * (1 + percentChange);
+                  } else {
+                    adjustedPrice = item.price * (1 - percentChange);
+                  }
+                }
+              }
+              const itemTotal = adjustedPrice * item.quantity - (item.discount || 0);
+              const hasPromoAdjustment = adjustedPrice !== item.price;
+
+              return (
               <div key={item.id}>
                 {/* Normal Item View */}
                 {selectedItemId !== item.id ? (
@@ -308,20 +325,34 @@ export default function CartPanel() {
                       <div className="text-sm font-medium text-neutral-700 line-clamp-1">
                         {item.name}
                       </div>
-                      {item.discount > 0 && (
-                        <div className="text-xs text-neutral-600 mt-0.5">
-                          Promotion <span className="text-neutral-900 font-semibold">-₦{item.discount.toLocaleString()}</span>
+                      {(item.discount > 0 || hasPromoAdjustment) && (
+                        <div className="text-xs text-purple-600 mt-0.5 font-semibold">
+                          {hasPromoAdjustment && (
+                            <span>{activeCart.appliedPromotion.valueType === 'MARKUP' ? '↑' : '↓'} Promo</span>
+                          )}
+                          {item.discount > 0 && (
+                            <span className="ml-1">-₦{item.discount.toLocaleString()}</span>
+                          )}
                         </div>
                       )}
                     </div>
                     <div className="col-span-2 text-center text-sm font-semibold text-neutral-900">
                       {item.quantity}
                     </div>
-                    <div className="col-span-2 text-right text-base text-neutral-600">
-                      ₦{item.price.toLocaleString()}
+                    <div className="col-span-2 text-right">
+                      {hasPromoAdjustment ? (
+                        <div>
+                          <div className="text-xs text-gray-400 line-through">₦{item.price.toLocaleString()}</div>
+                          <div className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'}`}>
+                            ₦{Math.round(adjustedPrice).toLocaleString()}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-base text-neutral-600">₦{item.price.toLocaleString()}</div>
+                      )}
                     </div>
-                    <div className="col-span-3 text-right text-base font-semibold text-neutral-900">
-                      ₦{(item.price * item.quantity).toLocaleString()}
+                    <div className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === 'MARKUP' ? 'text-red-700' : 'text-green-700') : 'text-neutral-900'}`}>
+                      ₦{Math.round(itemTotal).toLocaleString()}
                     </div>
                   </div>
                 ) : (
@@ -430,7 +461,8 @@ export default function CartPanel() {
                   </div>
                 )}
               </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Collapse Button */}
@@ -445,15 +477,18 @@ export default function CartPanel() {
 
           {/* Totals Section */}
           <div className="bg-neutral-50 border-t border-neutral-300 p-3">
-            {/* Customer Discount Note */}
+            {/* Customer Promotion Note */}
             {activeCart.appliedPromotion && (
               <div className="mb-2 pb-2 border-b border-neutral-200">
                 <div className="flex justify-between text-sm">
                   <span className="text-purple-700 font-semibold flex items-center gap-1">
                     <span>🎁</span> {activeCart.appliedPromotion.name}
                   </span>
-                  <span className="text-purple-700 font-bold">
-                    -{activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
+                  <span className={`font-bold ${
+                    activeCart.appliedPromotion.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'
+                  }`}>
+                    {activeCart.appliedPromotion.valueType === 'MARKUP' ? '+' : '-'}
+                    {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
                       ? `${activeCart.appliedPromotion.discountValue}%`
                       : `₦${activeCart.appliedPromotion.discountValue}`
                     }
@@ -467,22 +502,22 @@ export default function CartPanel() {
                 <span className="text-neutral-900 font-bold text-lg">{totals.itemCount}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-neutral-700 font-semibold">TOTAL</span>
-                <span className="text-neutral-900 font-black text-2xl">₦{(totals.total - totals.tax).toLocaleString()}</span>
+                <span className="text-neutral-700 font-semibold">SUBTOTAL</span>
+                <span className="text-neutral-700 font-bold text-lg">₦{totals.subtotal.toLocaleString()}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-700 font-semibold">DISCOUNT</span>
-                <span className={`font-bold text-lg ${totals.discountAmount > 0 ? 'text-green-600' : 'text-neutral-900'}`}>
-                  ₦{totals.discountAmount.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-neutral-700 font-semibold">DUE</span>
-                <span className="text-red-600 font-bold text-2xl">₦{(totals.total - totals.tax).toLocaleString()}</span>
-              </div>
-              <div className="col-span-2 flex justify-between">
-                <span className="text-neutral-700 font-semibold">TAX</span>
-                <span className="text-neutral-900 font-bold text-lg">₦0.00</span>
+              {totals.discountAmount > 0 && (
+                <div className="flex justify-between col-span-2">
+                  <span className={`font-semibold ${activeCart.appliedPromotion?.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'}`}>
+                    {activeCart.appliedPromotion?.valueType === 'MARKUP' ? 'MARKUP' : 'SAVINGS'}
+                  </span>
+                  <span className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'}`}>
+                    {activeCart.appliedPromotion?.valueType === 'MARKUP' ? '+' : '-'}₦{Math.round(totals.discountAmount).toLocaleString()}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between col-span-2 pt-2 border-t border-neutral-200">
+                <span className="text-neutral-900 font-bold text-lg">TOTAL DUE</span>
+                <span className="text-cyan-700 font-black text-2xl">₦{Math.round(totals.total).toLocaleString()}</span>
               </div>
             </div>
           </div>
