@@ -273,7 +273,7 @@ export function CartProvider({ children }) {
   // ORDER OPERATIONS
   // =========================================================================
 
-  const holdOrder = useCallback(() => {
+  const holdOrder = useCallback((staffInfo = null, locationInfo = null) => {
     if (state.activeCart.items.length === 0) {
       console.warn('Cannot hold empty cart');
       return;
@@ -284,6 +284,9 @@ export function CartProvider({ children }) {
       id: `order_${Date.now()}`,
       status: 'HELD',
       createdAt: new Date().toISOString(),
+      // Store staff and location info when holding
+      staffMember: staffInfo || state.activeCart.staffMember,
+      location: locationInfo || state.activeCart.location,
     };
 
     setState(prev => ({
@@ -347,11 +350,24 @@ export function CartProvider({ children }) {
   const calculateTotals = useCallback(() => {
     const { items, discountPercent, fixedDiscount, appliedPromotion } = state.activeCart;
     
+    // Debug: Log promotion details
+    if (appliedPromotion) {
+      console.log('🎁 PROMOTION DEBUG:', {
+        promotionName: appliedPromotion.name,
+        discountType: appliedPromotion.discountType,
+        discountValue: appliedPromotion.discountValue,
+        valueType: appliedPromotion.valueType,
+        active: appliedPromotion.active,
+        fullPromotion: appliedPromotion
+      });
+    }
+    
     // Calculate subtotal with promotion applied to each item
     let subtotal = 0;
     
     items.forEach(item => {
       let itemTotal = item.price * item.quantity - (item.discount || 0);
+      const originalItemTotal = itemTotal;
       
       // Apply promotion markup/discount to item if customer selected
       if (appliedPromotion && appliedPromotion.active) {
@@ -364,6 +380,7 @@ export function CartProvider({ children }) {
             // Discount decreases the price
             itemTotal = itemTotal * (1 - percentChange);
           }
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType}: ₦${itemTotal}`);
         }
       }
       
@@ -383,6 +400,18 @@ export function CartProvider({ children }) {
       0
     );
     const discountAmount = rawSubtotal - subtotal + fixedDiscountAmount;
+
+    // Debug: Log final totals
+    if (appliedPromotion) {
+      console.log('💰 TOTALS DEBUG:', {
+        rawSubtotal,
+        subtotalAfterPromotion: subtotal,
+        discountAmount: Math.abs(discountAmount),
+        fixedDiscountAmount,
+        discountedSubtotal,
+        total
+      });
+    }
 
     return {
       subtotal: rawSubtotal,

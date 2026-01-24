@@ -35,6 +35,7 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
   const [currentAmount, setCurrentAmount] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false); // Prevent double-click
 
   // Use pre-fetched location tenders from hook
   useEffect(() => {
@@ -125,6 +126,16 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
     setDisplayAmount('0');
   };
 
+  // Clear all tenders (Payment Breakdown)
+  const handleClearAllTenders = () => {
+    const clearedTenders = {};
+    availableTenders.forEach(tender => {
+      clearedTenders[tender.id] = 0;
+    });
+    setTenders(clearedTenders);
+    handleClear();
+  };
+
   // Add amount to selected tender
   const handleAdd = () => {
     const amount = parseFloat(currentAmount) || 0;
@@ -147,7 +158,8 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
 
   // Handle confirm
   const handleConfirm = () => {
-    if (isPaymentComplete) {
+    if (isPaymentComplete && !isProcessing) {
+      setIsProcessing(true); // Prevent double-click
       // Find the selected tender object to get the name
       const selectedTenderObj = availableTenders.find(t => t.id === selectedTender || t._id === selectedTender);
       const tenderName = selectedTenderObj?.name || selectedTender;
@@ -307,7 +319,17 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
 
             {/* Tenders Summary */}
             <div className="bg-white border-2 border-gray-200 rounded-xl p-3">
-              <p className="text-xs font-bold text-gray-600 uppercase mb-2">Payment Breakdown</p>
+              <div className="flex justify-between items-center mb-2">
+                <p className="text-xs font-bold text-gray-600 uppercase">Payment Breakdown</p>
+                {Object.values(tenders).some(v => v > 0) && (
+                  <button
+                    onClick={handleClearAllTenders}
+                    className="text-xs px-2 py-1 bg-orange-100 hover:bg-orange-200 text-orange-700 font-bold rounded transition-all"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
               <div className="space-y-1.5">
                 {availableTenders.map(tender => (
                   tenders[tender.id] > 0 && (
@@ -446,41 +468,32 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
         </div>
 
         {/* Footer - Action Buttons */}
-        <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 grid grid-cols-3 gap-3 flex-shrink-0">
+        <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 grid grid-cols-2 gap-4 flex-shrink-0">
           <button
             onClick={onCancel}
-            className="flex items-center justify-center gap-2 py-3 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 py-4 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-[0.98]"
           >
-            <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
-              <FontAwesomeIcon icon={faTimes} className="w-5 h-5 text-white" />
+            <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center">
+              <FontAwesomeIcon icon={faTimes} className="w-6 h-6 text-white" />
             </div>
-            <span className="text-gray-700 font-bold text-sm">Cancel</span>
-          </button>
-          <button
-            onClick={handleClear}
-            className="flex items-center justify-center gap-2 py-3 bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 rounded-xl transition-all active:scale-[0.98]"
-          >
-            <div className="w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center">
-              <FontAwesomeIcon icon={faBackspace} className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-orange-700 font-bold text-sm">Clear Entry</span>
+            <span className="text-gray-700 font-bold">Cancel</span>
           </button>
           <button
             onClick={handleConfirm}
-            disabled={!isPaymentComplete}
-            className={`flex items-center justify-center gap-2 py-3 rounded-xl transition-all active:scale-[0.98] ${
-              isPaymentComplete
+            disabled={!isPaymentComplete || isProcessing}
+            className={`flex items-center justify-center gap-2 py-4 rounded-xl transition-all active:scale-[0.98] ${
+              isPaymentComplete && !isProcessing
                 ? 'bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300'
                 : 'bg-gray-100 cursor-not-allowed opacity-50 border-2 border-gray-200'
             }`}
           >
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-              isPaymentComplete ? 'bg-cyan-600' : 'bg-gray-400'
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+              isPaymentComplete && !isProcessing ? 'bg-cyan-600' : 'bg-gray-400'
             }`}>
-              <FontAwesomeIcon icon={faCheckCircle} className="w-5 h-5 text-white" />
+              <FontAwesomeIcon icon={faCheckCircle} className="w-6 h-6 text-white" />
             </div>
-            <span className={`font-bold text-sm ${isPaymentComplete ? 'text-cyan-700' : 'text-gray-400'}`}>
-              Confirm
+            <span className={`font-bold ${isPaymentComplete && !isProcessing ? 'text-cyan-700' : 'text-gray-400'}`}>
+              {isProcessing ? 'Processing...' : 'Confirm'}
             </span>
           </button>
         </div>

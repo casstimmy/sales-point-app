@@ -732,7 +732,7 @@ export default function MenuScreen() {
 
                       {/* Product Details */}
                       <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
-                        <div className="text-sm font-bold text-gray-800 leading-tight line-clamp-2">
+                        <div className="text-base font-bold text-gray-800 leading-tight line-clamp-2">
                           {product.name}
                         </div>
                         <div className="flex items-center justify-end mt-1">

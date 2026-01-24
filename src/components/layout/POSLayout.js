@@ -160,8 +160,8 @@ export default function POSLayout({ children }) {
             </div>
           </div>
 
-          {/* Right: TabNavigation + CartPanel - Full Height */}
-          <div className="hidden lg:flex w-[40rem] bg-white flex-col border-l border-neutral-200 overflow-hidden">
+          {/* Right: TabNavigation + CartPanel - Full Height - 35% Width */}
+          <div className="hidden lg:flex w-[35%] min-w-[360px] max-w-[500px] bg-white flex-col border-l border-neutral-200 overflow-hidden">
             {/* Tab Navigation - Screen Switching */}
             <div className="px-4 py-3 flex-shrink-0">
               <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />

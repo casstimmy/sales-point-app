@@ -81,8 +81,9 @@ export default function OrdersScreen() {
         .map(order => ({
           id: order.id,
           time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
-          customer: order.customer?.name || 'Unknown',
-          staffMember: order.staffMember?.name || 'Unknown',
+          customer: order.customer?.name || 'Walk-in',
+          staffMember: order.staffMember?.name || order.staffMember || 'Unknown',
+          location: order.location?.name || order.location || 'Unknown',
           tenderType: order.status === 'HELD' ? null : (order.tenderType || null), // Don't show tender for HELD
           total: order.total || 0,
           status: order.status,

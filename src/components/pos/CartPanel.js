@@ -557,7 +557,7 @@ export default function CartPanel() {
                 <span>DELETE</span>
               </button>
               <button
-                onClick={holdOrder}
+                onClick={() => holdOrder(staff, location)}
                 className="px-2 py-3 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-20"
               >
                 <FontAwesomeIcon icon={faClock} className="w-5 h-5" />
