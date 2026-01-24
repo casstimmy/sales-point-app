@@ -71,11 +71,27 @@ export default function POSLayout({ children }) {
   // Show loading screen if not staff is not set yet
   if (!staff && loading === false) {
     return (
-      <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
-        <div className="text-center space-y-4">
-          <div className="text-3xl mb-2">🔐</div>
-          <div className="text-neutral-800 font-semibold text-lg">Not Logged In</div>
-          <div className="text-neutral-500 text-sm">Redirecting to login page...</div>
+      <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
+        <div className="text-center">
+          {/* Logo */}
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
+            <img 
+              src="/images/st-micheals-logo.png" 
+              alt="Store Logo" 
+              className="w-16 h-16 object-contain"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/placeholder.jpg';
+              }}
+            />
+          </div>
+          <div className="text-white font-semibold text-lg mb-2">Not Logged In</div>
+          <div className="text-cyan-200 text-sm">Redirecting to login page...</div>
+          
+          {/* Progress Bar */}
+          <div className="w-40 h-1.5 bg-cyan-900 rounded-full mx-auto mt-4 overflow-hidden">
+            <div className="h-full bg-cyan-300 rounded-full animate-pulse" style={{ width: '80%' }}></div>
+          </div>
         </div>
       </div>
     );
@@ -83,10 +99,28 @@ export default function POSLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-neutral-100">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
         <div className="text-center">
-          <div className="text-4xl mb-4">📦</div>
-          <p className="text-neutral-600">Loading POS System...</p>
+          {/* Logo */}
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+            <img 
+              src="/images/st-micheals-logo.png" 
+              alt="Store Logo" 
+              className="w-20 h-20 object-contain"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/placeholder.jpg';
+              }}
+            />
+          </div>
+          
+          {/* Loading Text */}
+          <p className="text-white font-semibold text-lg mb-4">Loading POS System...</p>
+          
+          {/* Progress Bar */}
+          <div className="w-48 h-2 bg-cyan-900 rounded-full mx-auto overflow-hidden">
+            <div className="h-full bg-cyan-300 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
         </div>
       </div>
     );

@@ -9,6 +9,7 @@ import {
   faQuestionCircle,
   faPowerOff,
   faX,
+  faRedo,
 } from "@fortawesome/free-solid-svg-icons";
 
 /**
@@ -470,54 +471,107 @@ export default function StaffLogin() {
     return () => window.removeEventListener("keypress", handleKeyPress);
   }, [pin, selectedStore]);
 
+  // Handle refresh of store/location data
+  const handleRefreshData = async () => {
+    setLoadingData(true);
+    try {
+      // Try online first
+      if (isOnline) {
+        const storeResponse = await fetch("/api/store/init-locations");
+        if (storeResponse.ok) {
+          const storeData = await storeResponse.json();
+          if (storeData.store) {
+            setStores([storeData.store]);
+            setSelectedStore(storeData.store._id);
+            const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
+            setLocations(activeLocations);
+            localStorage.setItem("locations", JSON.stringify(activeLocations));
+            console.log("✅ Refreshed locations from cloud");
+          }
+        }
+        
+        const staffResponse = await fetch("/api/staff/list");
+        if (staffResponse.ok) {
+          const staffData = await staffResponse.json();
+          const staffList = staffData.data || staffData || [];
+          const refreshedStaff = Array.isArray(staffList) ? staffList : [];
+          setStaff(refreshedStaff);
+          localStorage.setItem("staff", JSON.stringify(refreshedStaff));
+          console.log("✅ Refreshed staff from cloud");
+        }
+      } else {
+        // Offline - load from localStorage
+        loadCachedData();
+        console.log("📱 Refreshed data from local storage (offline)");
+      }
+    } catch (error) {
+      console.error("Failed to refresh data:", error);
+      loadCachedData();
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  // Handle exit/close system
+  const handleExitSystem = () => {
+    if (typeof window !== 'undefined') {
+      // Try to close window (works if opened as popup)
+      window.close();
+      // If window.close() doesn't work (main window), redirect to blank
+      setTimeout(() => {
+        window.location.href = "about:blank";
+      }, 100);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-cyan-600 to-cyan-700 flex flex-col">
+    <div className="h-screen bg-gradient-to-b from-cyan-600 to-cyan-700 flex flex-col overflow-hidden">
       {/* Offline Banner */}
       {!isOnline && (
-        <div className="bg-red-600 text-white py-2 px-4 flex items-center justify-between">
+        <div className="bg-red-600 text-white py-1 px-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faX} />
-            <span className="font-semibold">Offline mode</span>
+            <span className="font-semibold text-sm">Offline mode</span>
           </div>
-          <a href="#" className="underline hover:text-red-100">
+          <a href="#" className="underline hover:text-red-100 text-sm">
             Learn more →
           </a>
         </div>
       )}
 
       {/* Top Header Bar */}
-      <div className="bg-cyan-700 px-6 py-4 flex items-center justify-between border-b-4 border-cyan-800 flex-shrink-0">
+      <div className="bg-cyan-700 px-4 py-2 flex items-center justify-between border-b-4 border-cyan-800 flex-shrink-0">
         {/* Clock In/Out Button */}
-        <button className="px-6 py-2 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 transition flex items-center gap-2">
+        <button className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2">
           <FontAwesomeIcon icon={faClock} />
           CLOCK IN / OUT
         </button>
 
         {/* Center Logo */}
         <div className="text-center flex flex-col items-center">
-          <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center mx-auto mb-2 shadow-lg overflow-hidden">
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-1 shadow-lg overflow-hidden">
             <img 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              className="w-10 h-10 object-contain"
+              className="w-8 h-8 object-contain"
               onError={(e) => {
                 e.target.onerror = null;
-                e.target.style.display = 'none';
+                e.target.src = '/images/placeholder.jpg';
               }}
             />
           </div>
-          <p className="text-white font-bold text-sm">{currentTime}</p>
+          <p className="text-white font-bold text-xs">{currentTime}</p>
         </div>
 
         {/* Right Buttons */}
-        <div className="flex items-center gap-4">
-          <button className="px-6 py-2 border-2 border-white text-white rounded-full font-semibold hover:bg-cyan-600 transition flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <button className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2">
             <FontAwesomeIcon icon={faQuestionCircle} />
-            HELP & SUPPORT
+            HELP
           </button>
           <button
-            onClick={() => router.push("/")}
-            className="px-6 py-2 bg-red-600 text-white rounded-full font-semibold hover:bg-red-700 transition flex items-center gap-2"
+            onClick={handleExitSystem}
+            className="px-4 py-1.5 bg-red-600 text-white rounded-full font-semibold text-sm hover:bg-red-700 transition flex items-center gap-2"
           >
             <FontAwesomeIcon icon={faPowerOff} />
             EXIT
@@ -526,64 +580,57 @@ export default function StaffLogin() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Side - Store/Location/Staff Selection - SCROLLABLE */}
-        <div className="flex-1 overflow-y-auto p-8 bg-gradient-to-b from-cyan-600 to-cyan-700">
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Left Side - Store/Location/Staff Selection */}
+        <div className="flex-1 overflow-y-auto p-4 bg-gradient-to-b from-cyan-600 to-cyan-700">
           {/* Active Open Tills Alert */}
           {activeTills && activeTills.length > 0 && (
-            <div className="mb-6 bg-yellow-400 bg-opacity-90 border-l-4 border-yellow-600 p-4 rounded-lg">
-              <p className="text-yellow-900 font-bold mb-3 flex items-center gap-2">
+            <div className="mb-4 bg-yellow-400 bg-opacity-90 border-l-4 border-yellow-600 p-3 rounded-lg">
+              <p className="text-yellow-900 font-bold mb-2 flex items-center gap-2 text-sm">
                 ⏱️ ACTIVE OPEN TILL{activeTills.length > 1 ? 'S' : ''}
               </p>
               <div className="space-y-2">
                 {activeTills.map((till) => (
-                  <div key={till._id} className="text-yellow-900 text-sm bg-white bg-opacity-60 p-3 rounded flex items-start justify-between">
+                  <div key={till._id} className="text-yellow-900 text-xs bg-white bg-opacity-60 p-2 rounded flex items-start justify-between">
                     <div className="flex-1">
                       <div className="font-semibold">{till.staffName} @ {till.locationName || 'Unknown Location'}</div>
                       <div className="text-xs opacity-80">
                         Opened: {new Date(till.openedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                      <div className="text-xs opacity-80">
-                        Sales: ₦{till.totalSales?.toLocaleString('en-NG') || '0'}
+                        {' | '}Sales: ₦{till.totalSales?.toLocaleString('en-NG') || '0'}
                       </div>
                     </div>
                     <button
                       onClick={() => handleQuickLogin(till)}
                       disabled={loading}
-                      className="ml-3 px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded whitespace-nowrap transition disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded whitespace-nowrap transition disabled:opacity-50"
                     >
                       {loading ? "..." : "RESUME"}
                     </button>
                   </div>
                 ))}
               </div>
-              <p className="text-yellow-900 text-xs mt-3 italic">
-                ℹ️ Click RESUME to quickly log back into an active till, or select location/staff and enter PIN to login normally.
-              </p>
             </div>
           )}
 
           {/* Pending Transactions Indicator */}
-          <div className="mb-6">
-            <p className="text-white font-bold text-lg mb-4">
-              {hasPendingTransactions && (
-                <span className="flex items-center gap-2">
-                  📋 HAS PENDING TRANSACTIONS
-                </span>
-              )}
-            </p>
-          </div>
+          {hasPendingTransactions && (
+            <div className="mb-4">
+              <p className="text-white font-bold text-sm flex items-center gap-2">
+                📋 HAS PENDING TRANSACTIONS
+              </p>
+            </div>
+          )}
 
           {loadingData ? (
-            <div className="text-white text-center py-12">Loading stores and staff...</div>
+            <div className="text-white text-center py-8 text-sm">Loading stores and staff...</div>
           ) : (
             <>
               {/* Store Selection Grid */}
-              <div className="mb-8">
-                <p className="text-white font-semibold text-sm mb-3">SELECT STORE</p>
-                <div className="grid grid-cols-2 gap-4">
+              <div className="mb-4">
+                <p className="text-white font-semibold text-xs mb-2">SELECT STORE</p>
+                <div className="grid grid-cols-2 gap-2">
                   {stores.length === 0 ? (
-                    <div className="text-white col-span-2">No stores available</div>
+                    <div className="text-white col-span-2 text-sm">No stores available</div>
                   ) : (
                     stores.map((store) => (
                       <button
@@ -593,9 +640,9 @@ export default function StaffLogin() {
                           setSelectedLocation("");
                           setSelectedStaff("");
                         }}
-                        className={`py-4 px-3 rounded-lg font-bold text-sm transition transform hover:scale-105 ${
+                        className={`py-2 px-2 rounded-lg font-bold text-xs transition transform hover:scale-105 ${
                           selectedStore === store._id
-                            ? "bg-cyan-900 text-white ring-4 ring-yellow-400"
+                            ? "bg-cyan-900 text-white ring-2 ring-yellow-400"
                             : "bg-cyan-800 text-white hover:bg-cyan-700"
                         }`}
                       >
@@ -606,37 +653,47 @@ export default function StaffLogin() {
                 </div>
               </div>
 
-              {/* Location Dropdown */}
+              {/* Location Dropdown with Refresh Button */}
               {selectedStore && (
-                <div className="mb-8">
-                  <label className="text-white font-semibold text-sm mb-2 block">
+                <div className="mb-4">
+                  <label className="text-white font-semibold text-xs mb-1 block">
                     SELECT LOCATION
                   </label>
-                  <select
-                    value={selectedLocation}
-                    onChange={(e) => {
-                      setSelectedLocation(e.target.value);
-                      setSelectedStaff("");
-                    }}
-                    className="w-full px-4 py-3 bg-cyan-800 text-white border-2 border-cyan-700 rounded-lg font-semibold focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400"
-                  >
-                    <option value="">-- Select Location --</option>
-                    {locations.map((loc) => (
-                      <option key={loc._id} value={loc._id}>
-                        {loc.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedLocation}
+                      onChange={(e) => {
+                        setSelectedLocation(e.target.value);
+                        setSelectedStaff("");
+                      }}
+                      className="flex-1 px-3 py-2 bg-cyan-800 text-white border-2 border-cyan-700 rounded-lg font-semibold text-sm focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400"
+                    >
+                      <option value="">-- Select Location --</option>
+                      {locations.map((loc) => (
+                        <option key={loc._id} value={loc._id}>
+                          {loc.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={handleRefreshData}
+                      disabled={loadingData}
+                      className="px-3 py-2 bg-cyan-800 hover:bg-cyan-600 text-white rounded-lg transition border-2 border-cyan-700 disabled:opacity-50"
+                      title="Refresh locations from cloud/local"
+                    >
+                      <FontAwesomeIcon icon={faRedo} className={loadingData ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
                 </div>
               )}
 
               {/* Staff Cards */}
               {selectedLocation && (
                 <div>
-                  <p className="text-white font-semibold text-sm mb-3">SELECT STAFF</p>
-                  <div className="grid grid-cols-1 gap-3 max-h-96 overflow-y-auto">
+                  <p className="text-white font-semibold text-xs mb-2">SELECT STAFF</p>
+                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
                     {staff.length === 0 ? (
-                      <div className="text-white text-center py-6 bg-cyan-800 rounded-lg">
+                      <div className="text-white text-center py-4 bg-cyan-800 rounded-lg text-sm">
                         No staff available
                       </div>
                     ) : (
@@ -644,17 +701,14 @@ export default function StaffLogin() {
                         <button
                           key={member._id}
                           onClick={() => setSelectedStaff(member._id)}
-                          className={`p-4 rounded-lg text-left font-semibold transition ${
+                          className={`p-2 rounded-lg text-left font-semibold transition text-sm ${
                             selectedStaff === member._id
-                              ? "bg-yellow-400 text-cyan-900 ring-4 ring-yellow-300"
+                              ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300"
                               : "bg-cyan-800 text-white hover:bg-cyan-700"
                           }`}
                         >
-                          <div className="font-bold">{member.name}</div>
+                          <div className="font-bold text-sm">{member.name}</div>
                           <div className="text-xs opacity-80">@{member.username}</div>
-                          {member.role && (
-                            <div className="text-xs opacity-60 mt-1">{member.role}</div>
-                          )}
                         </button>
                       ))
                     )}
@@ -666,18 +720,18 @@ export default function StaffLogin() {
         </div>
 
         {/* Divider */}
-        <div className="w-1 bg-cyan-800"></div>
+        <div className="w-0.5 bg-cyan-800"></div>
 
         {/* Right Side - PIN Entry */}
-        <div className="w-2/5 bg-cyan-700 p-8 flex flex-col justify-center items-center">
+        <div className="w-2/5 bg-cyan-700 p-4 flex flex-col justify-center items-center">
           {/* Title */}
-          <h2 className="text-white font-bold text-xl mb-8 tracking-wide">
+          <h2 className="text-white font-bold text-lg mb-4 tracking-wide">
             PLEASE ENTER YOUR PASSCODE
           </h2>
 
           {/* PIN Display */}
-          <div className="mb-8">
-            <div className="text-6xl tracking-widest text-white font-bold text-center">
+          <div className="mb-4">
+            <div className="text-4xl tracking-widest text-white font-bold text-center">
               {pin.split("").map((_, i) => (
                 <span key={i}>●</span>
               ))}
@@ -690,15 +744,15 @@ export default function StaffLogin() {
           </div>
 
           {/* Separator Line */}
-          <div className="w-48 h-1 bg-white/30 mb-8"></div>
+          <div className="w-48 h-0.5 bg-white/30 mb-4"></div>
 
           {/* Numeric Keypad */}
-          <div className="grid grid-cols-3 gap-4 mb-8 w-full max-w-md">
+          <div className="grid grid-cols-3 gap-2 mb-4 w-full max-w-xs">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
                 onClick={() => handlePinClick(num.toString())}
-                className="py-6 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-2xl rounded-lg transition active:scale-95"
+                className="py-4 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
               >
                 {num}
               </button>
@@ -707,13 +761,13 @@ export default function StaffLogin() {
             {/* 0 and Backspace */}
             <button
               onClick={() => handlePinClick("0")}
-              className="col-span-2 py-6 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-2xl rounded-lg transition active:scale-95"
+              className="col-span-2 py-4 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
-              className="py-6 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
+              className="py-4 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
             >
               ⌫
             </button>
@@ -721,16 +775,16 @@ export default function StaffLogin() {
 
           {/* Error Message */}
           {error && (
-            <div className="w-full mb-4 p-3 bg-red-600 text-white rounded-lg text-sm text-center font-semibold">
+            <div className="w-full max-w-xs mb-3 p-2 bg-red-600 text-white rounded-lg text-xs text-center font-semibold">
               {error}
             </div>
           )}
 
-          {/* Login Button */}
+          {/* Login Button - Same width as keypad */}
           <button
             onClick={handleLogin}
             disabled={loading || pin.length !== 4 || !selectedStore || !selectedLocation || !selectedStaff}
-            className={`w-full py-4 font-bold text-lg rounded-lg transition ${
+            className={`w-full max-w-xs py-3 font-bold text-base rounded-lg transition ${
               pin.length === 4 && selectedStore && selectedLocation && selectedStaff && !loading
                 ? "bg-cyan-400 hover:bg-cyan-300 text-cyan-900"
                 : "bg-gray-400 text-gray-600 cursor-not-allowed"
@@ -740,7 +794,7 @@ export default function StaffLogin() {
           </button>
 
           {/* Info Text */}
-          <p className="text-white/60 text-xs mt-6 text-center">
+          <p className="text-white/60 text-xs mt-3 text-center">
             Enter 4-digit passcode and select a store to continue
           </p>
         </div>
