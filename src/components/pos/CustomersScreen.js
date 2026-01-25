@@ -409,7 +409,7 @@ export default function CustomersScreen() {
                         {applicablePromo.discountType === 'PERCENTAGE' 
                           ? ` ${applicablePromo.discountValue}%`
                           : ` ₦${applicablePromo.discountValue}`
-                        } {applicablePromo.valueType === 'DISCOUNT' ? 'discount' : 'INCREMENT'}
+                        } {applicablePromo.valueType === 'DISCOUNT' ? 'discount' : 'markup'}
                       </div>
                     </div>
                   )}

@@ -266,6 +266,28 @@ export function CartProvider({ children }) {
       return;
     }
 
+    // Calculate total for the held order
+    const items = state.activeCart.items;
+    const appliedPromotion = state.activeCart.appliedPromotion;
+    let subtotal = 0;
+    
+    items.forEach(item => {
+      let itemTotal = item.price * item.quantity - (item.discount || 0);
+      
+      // Apply promotion if active
+      if (appliedPromotion && appliedPromotion.active) {
+        if (appliedPromotion.discountType === 'PERCENTAGE') {
+          const percentChange = appliedPromotion.discountValue / 100;
+          if (appliedPromotion.valueType === 'MARKUP') {
+            itemTotal = itemTotal * (1 + percentChange);
+          } else if (appliedPromotion.valueType === 'DISCOUNT') {
+            itemTotal = itemTotal * (1 - percentChange);
+          }
+        }
+      }
+      subtotal += itemTotal;
+    });
+
     const newOrder = {
       ...state.activeCart,
       id: `order_${Date.now()}`,
@@ -274,7 +296,12 @@ export function CartProvider({ children }) {
       // Store staff and location info when holding
       staffMember: staffInfo || state.activeCart.staffMember,
       location: locationInfo || state.activeCart.location,
+      // Store calculated total
+      total: subtotal,
+      subtotal: subtotal,
     };
+
+    console.log('📋 Holding order with total:', subtotal);
 
     setState(prev => ({
       ...prev,
@@ -356,12 +383,12 @@ export function CartProvider({ children }) {
       let itemTotal = item.price * item.quantity - (item.discount || 0);
       const originalItemTotal = itemTotal;
       
-      // Apply promotion INCREMENT/discount to item if customer selected
+      // Apply promotion MARKUP/discount to item if customer selected
       if (appliedPromotion && appliedPromotion.active) {
         if (appliedPromotion.discountType === 'PERCENTAGE') {
           const percentChange = appliedPromotion.discountValue / 100;
-          if (appliedPromotion.valueType === 'INCREMENT') {
-            // INCREMENT increases the item price
+          if (appliedPromotion.valueType === 'MARKUP') {
+            // MARKUP increases the item price
             itemTotal = itemTotal * (1 + percentChange);
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             // DISCOUNT decreases the item price
@@ -369,8 +396,8 @@ export function CartProvider({ children }) {
           }
           console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (${appliedPromotion.discountValue}%): ₦${itemTotal}`);
         } else if (appliedPromotion.discountType === 'FIXED') {
-          // Fixed amount discount/INCREMENT
-          if (appliedPromotion.valueType === 'INCREMENT') {
+          // Fixed amount discount/MARKUP
+          if (appliedPromotion.valueType === 'MARKUP') {
             itemTotal = itemTotal + appliedPromotion.discountValue;
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);

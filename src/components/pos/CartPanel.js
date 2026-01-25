@@ -310,8 +310,8 @@ export default function CartPanel() {
                 if (activeCart.appliedPromotion.discountType === "PERCENTAGE") {
                   const percentChange =
                     activeCart.appliedPromotion.discountValue / 100;
-                  if (activeCart.appliedPromotion.valueType === "INCREMENT") {
-                    // INCREMENT increases the price
+                  if (activeCart.appliedPromotion.valueType === "MARKUP") {
+                    // MARKUP increases the price
                     adjustedPrice = item.price * (1 + percentChange);
                   } else {
                     // DISCOUNT decreases the price
@@ -321,7 +321,7 @@ export default function CartPanel() {
                   activeCart.appliedPromotion.discountType === "FIXED"
                 ) {
                   // Fixed discount - apply to each item
-                  if (activeCart.appliedPromotion.valueType === "INCREMENT") {
+                  if (activeCart.appliedPromotion.valueType === "MARKUP") {
                     adjustedPrice =
                       item.price + activeCart.appliedPromotion.discountValue;
                   } else {
@@ -377,7 +377,7 @@ export default function CartPanel() {
                               ₦{item.price.toLocaleString()}
                             </div>
                             <div
-                              className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
+                              className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "MARKUP" ? "text-blue-600" : "text-green-600"}`}
                             >
                               ₦{Math.round(adjustedPrice).toLocaleString()}
                             </div>
@@ -389,7 +389,7 @@ export default function CartPanel() {
                         )}
                       </div>
                       <div
-                        className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
+                        className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "MARKUP" ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
                       >
                         ₦{Math.round(itemTotal).toLocaleString()}
                       </div>
@@ -573,16 +573,16 @@ export default function CartPanel() {
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between col-span-2">
                   <span
-                    className={`font-semibold ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
+                    className={`font-semibold ${activeCart.appliedPromotion?.valueType === "MARKUP" ? "text-blue-600" : "text-green-600"}`}
                   >
                     {activeCart.appliedPromotion?.valueType === "INCREMENT"
                       ? "INCREMENT"
                       : "SAVINGS"}
                   </span>
                   <span
-                    className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
+                    className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === "MARKUP" ? "text-blue-600" : "text-green-600"}`}
                   >
-                    {activeCart.appliedPromotion?.valueType === "INCREMENT"
+                    {activeCart.appliedPromotion?.valueType === "MARKUP"
                       ? "+"
                       : "-"}
                     ₦{Math.round(totals.discountAmount).toLocaleString()}

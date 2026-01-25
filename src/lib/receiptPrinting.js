@@ -91,23 +91,52 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
     iframe.contentDocument.write(receiptHTML);
     iframe.contentDocument.close();
 
-    // Print immediately (with slight delay to allow logo to load)
+    // Print with proper timing and cleanup
     try {
       iframe.contentWindow.focus();
       
       let hasPrinted = false; // Flag to ensure print happens only once
+      let cleanupScheduled = false;
+      
+      // Function to clean up iframe after print
+      const cleanupIframe = () => {
+        if (cleanupScheduled) return;
+        cleanupScheduled = true;
+        
+        // Wait a bit before cleanup to ensure print dialog is handled
+        setTimeout(() => {
+          try {
+            if (iframe.parentNode) {
+              document.body.removeChild(iframe);
+              console.log('🧹 Print iframe cleaned up');
+            }
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }, 3000); // Wait 3 seconds after print to cleanup
+      };
       
       // Function to safely print
       const doPrint = () => {
         if (!hasPrinted) {
           hasPrinted = true;
           try {
+            console.log('🖨️ Triggering print dialog...');
             iframe.contentWindow.print();
+            console.log('✅ Print dialog triggered');
+            cleanupIframe();
           } catch (e) {
             console.error('Print error:', e);
+            cleanupIframe();
           }
         }
       };
+      
+      // Listen for afterprint event (fires when print dialog closes)
+      iframe.contentWindow.addEventListener('afterprint', () => {
+        console.log('📄 Print dialog closed');
+        cleanupIframe();
+      }, { once: true });
       
       // Try to print on load event first
       iframe.contentWindow.addEventListener('load', doPrint, { once: true });
@@ -122,14 +151,10 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
         doPrint();
       }, 1000);
       
-      // Clean up iframe after print completes (quick timeout)
+      // Final safety cleanup (if nothing else triggered)
       setTimeout(() => {
-        try {
-          document.body.removeChild(iframe);
-        } catch (e) {
-          // Ignore
-        }
-      }, 500);
+        cleanupIframe();
+      }, 10000); // Max 10 seconds before cleanup
     } catch (printError) {
       console.error('❌ Print error:', printError);
       try {

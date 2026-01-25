@@ -560,7 +560,7 @@ export default function MenuScreen() {
           {loadingCategories ? (
             <div className="text-sm text-neutral-400 text-center py-4">Loading categories...</div>
           ) : (
-            <div className="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-1.5 auto-rows-max">
+            <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max">
               {categories.map(category => {
                 const color = CATEGORY_COLORS[category.name] || 'from-neutral-500 to-neutral-600';
                 const icon = CATEGORY_ICONS[category.name] || faBook;
@@ -703,7 +703,7 @@ export default function MenuScreen() {
               ) : products;
               
               return filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 auto-rows-max">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 auto-rows-max">
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
@@ -714,10 +714,10 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative bg-white rounded-lg border-2 border-gray-200 hover:border-cyan-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
+                    className="relative bg-white rounded-lg border-2 border-gray-200 hover:border-cyan-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] max-w-[200px]"
                   >
                     {/* Top Row: Image + Details Side by Side */}
-                    <div className="flex h-20">
+                    <div className="flex h-22">
                       {/* Product Image */}
                       <div className="w-20 h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {!isOnline && (
@@ -749,7 +749,7 @@ export default function MenuScreen() {
 
                       {/* Product Details */}
                       <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
-                        <div className="text-base font-bold text-gray-800 leading-tight line-clamp-2">
+                        <div className="text-sm sm:text-base lg:text-lg font-bold text-gray-800 leading-tight line-clamp-2">
                           {product.name}
                         </div>
                         <div className="flex items-center justify-end mt-1">
