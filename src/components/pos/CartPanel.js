@@ -294,7 +294,6 @@ export default function CartPanel() {
             {activeCart.customer && activeCart.appliedPromotion && (
               <div className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-3 py-2 flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2">
-                  <span className="text-lg">🎁</span>
                   <div>
                     <span className="font-bold">
                       {activeCart.customer.name}
