@@ -1,8 +1,8 @@
 /**
  * CartPanel Component
- * 
+ *
  * Persistent right checkout panel - table-based design with inline editing.
- * 
+ *
  * Responsibilities:
  * - Display active cart/order line items in table format
  * - Show: Product name | Qty | Each price | Total
@@ -14,8 +14,8 @@
  * - Empty state when no items
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import React, { useState, useEffect, useRef } from "react";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
   faMinus,
@@ -30,14 +30,21 @@ import {
   faChevronDown,
   faBoxOpen,
   faGripVertical,
-} from '@fortawesome/free-solid-svg-icons';
-import { useCart } from '../../context/CartContext';
-import { useStaff } from '../../context/StaffContext';
-import { saveTransactionOffline, getOnlineStatus, syncPendingTransactions } from '../../lib/offlineSync';
-import { printTransactionReceipt, getReceiptSettings } from '../../lib/receiptPrinting';
-import PaymentModal from './PaymentModal';
-import ThankYouNote from './ThankYouNote';
-import AdjustFloatModal from './AdjustFloatModal';
+} from "@fortawesome/free-solid-svg-icons";
+import { useCart } from "../../context/CartContext";
+import { useStaff } from "../../context/StaffContext";
+import {
+  saveTransactionOffline,
+  getOnlineStatus,
+  syncPendingTransactions,
+} from "../../lib/offlineSync";
+import {
+  printTransactionReceipt,
+  getReceiptSettings,
+} from "../../lib/receiptPrinting";
+import PaymentModal from "./PaymentModal";
+import ThankYouNote from "./ThankYouNote";
+import AdjustFloatModal from "./AdjustFloatModal";
 
 export default function CartPanel() {
   const [selectedItemId, setSelectedItemId] = useState(null);
@@ -75,13 +82,16 @@ export default function CartPanel() {
   // Auto-scroll to selected item
   useEffect(() => {
     if (selectedItemRef.current) {
-      selectedItemRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      selectedItemRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }
   }, [selectedItemId]);
 
   const handlePayment = async () => {
     if (isEmpty) {
-      alert('Cart is empty. Add items to complete payment.');
+      alert("Cart is empty. Add items to complete payment.");
       return;
     }
     // Show payment modal instead of processing immediately
@@ -90,14 +100,14 @@ export default function CartPanel() {
 
   const handlePrintCart = async () => {
     if (isEmpty) {
-      alert('Cart is empty. Add items to print.');
+      alert("Cart is empty. Add items to print.");
       return;
     }
 
     try {
       // Create a temporary transaction object for printing
       const printTransaction = {
-        items: activeCart.items.map(item => ({
+        items: activeCart.items.map((item) => ({
           productId: item.id,
           name: item.name,
           quantity: item.quantity,
@@ -108,7 +118,7 @@ export default function CartPanel() {
         discountAmount: totals.discountAmount,
         tax: totals.tax,
         payment: {
-          method: 'CASH',
+          method: "CASH",
           amount: totals.total,
           change: 0,
         },
@@ -120,7 +130,7 @@ export default function CartPanel() {
         tillNumber: till?.number,
         timestamp: new Date(),
         _id: Date.now().toString(),
-        status: 'UNPAID', // Mark receipt as unpaid
+        status: "UNPAID", // Mark receipt as unpaid
       };
 
       // Get receipt settings
@@ -132,92 +142,100 @@ export default function CartPanel() {
         // Ignore errors
       });
     } catch (error) {
-      console.error('❌ Error printing receipt:', error);
-      alert('Error printing receipt. Please try again.');
+      console.error("❌ Error printing receipt:", error);
+      alert("Error printing receipt. Please try again.");
     }
   };
 
   const handlePaymentConfirm = async (paymentDetails) => {
     try {
-      console.log('🔔 handlePaymentConfirm called');
-      console.log('   Staff:', staff);
-      console.log('   Location:', location);
-      console.log('   Till from context:', till);
-      console.log('   Till?._id:', till?._id);
-      console.log('   Is till null?', till === null);
-      console.log('   Is till undefined?', till === undefined);
-      
+      console.log("🔔 handlePaymentConfirm called");
+      console.log("   Staff:", staff);
+      console.log("   Location:", location);
+      console.log("   Till from context:", till);
+      console.log("   Till?._id:", till?._id);
+      console.log("   Is till null?", till === null);
+      console.log("   Is till undefined?", till === undefined);
+
       // Create transaction object matching schema
       const transaction = {
-        items: activeCart.items.map(item => ({
+        items: activeCart.items.map((item) => ({
           productId: item.id,
           name: item.name,
-          quantity: item.quantity,  // Maps to 'qty' in schema
-          price: item.price,  // Maps to 'salePriceIncTax' in schema
+          quantity: item.quantity, // Maps to 'qty' in schema
+          price: item.price, // Maps to 'salePriceIncTax' in schema
         })),
-        total: totals.total,  // Use 'total' from calculateTotals
+        total: totals.total, // Use 'total' from calculateTotals
         subtotal: totals.subtotal,
         tax: totals.tax,
         discount: activeCart.discountPercent || 0,
-        amountPaid: paymentDetails.amountPaid,  // Actual amount paid by customer
-        change: paymentDetails.change,  // Calculate change
-        tenderType: paymentDetails.tenderType,  // Primary tender type (legacy, for backwards compatibility)
-        tenderPayments: paymentDetails.tenderPayments,  // New: split payments array [{tenderId, tenderName, amount}]
-        tenders: paymentDetails.tenders,  // All tender breakdowns (for display)
-        staffName: staff?.name || 'Unknown Staff',
-        staffId: staff?._id,  // Include staff ObjectId
-        location: location?.name || 'Default Location',  // Use store location from login
-        device: 'POS',
+        amountPaid: paymentDetails.amountPaid, // Actual amount paid by customer
+        change: paymentDetails.change, // Calculate change
+        tenderType: paymentDetails.tenderType, // Primary tender type (legacy, for backwards compatibility)
+        tenderPayments: paymentDetails.tenderPayments, // New: split payments array [{tenderId, tenderName, amount}]
+        tenders: paymentDetails.tenders, // All tender breakdowns (for display)
+        staffName: staff?.name || "Unknown Staff",
+        staffId: staff?._id, // Include staff ObjectId
+        location: location?.name || "Default Location", // Use store location from login
+        device: "POS",
         tableName: null,
         customerName: activeCart.customer?.name,
-        status: 'completed',  // Mark as completed after payment confirmation
-        transactionType: 'pos',
+        status: "completed", // Mark as completed after payment confirmation
+        transactionType: "pos",
         createdAt: new Date().toISOString(),
-        tillId: till?._id,  // Link to till session by ID
+        tillId: till?._id, // Link to till session by ID
       };
 
-      console.log('💾 Transaction to save:', transaction);
-      console.log('🔍 Totals:', { total: totals.total, subtotal: totals.subtotal, tax: totals.tax });
-      console.log('🔍 Payment details:', paymentDetails);
-      console.log('🔍 Tender payments:', paymentDetails.tenderPayments);
-      
+      console.log("💾 Transaction to save:", transaction);
+      console.log("🔍 Totals:", {
+        total: totals.total,
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+      });
+      console.log("🔍 Payment details:", paymentDetails);
+      console.log("🔍 Tender payments:", paymentDetails.tenderPayments);
+
       if (transaction.tillId) {
-        console.log(`✅ Till ID included in transaction: ${transaction.tillId}`);
+        console.log(
+          `✅ Till ID included in transaction: ${transaction.tillId}`,
+        );
       } else {
-        console.warn('⚠️ No Till ID in transaction - till may not be set in context');
-        console.warn('   Till is:', till);
+        console.warn(
+          "⚠️ No Till ID in transaction - till may not be set in context",
+        );
+        console.warn("   Till is:", till);
       }
 
       // Send transaction directly if online, queue if offline
       if (getOnlineStatus()) {
         // Online: Send directly to server
         try {
-          const response = await fetch('/api/transactions/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const response = await fetch("/api/transactions/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify(transaction),
           });
-          
+
           if (!response.ok) {
-            console.warn('Failed to send transaction online, queuing for sync');
+            console.warn("Failed to send transaction online, queuing for sync");
             await saveTransactionOffline(transaction);
           } else {
-            console.log('✅ Transaction sent directly to server');
+            console.log("✅ Transaction sent directly to server");
             // Still save to IndexedDB as backup
             await saveTransactionOffline(transaction);
           }
         } catch (err) {
-          console.warn('Error sending transaction, queuing for sync:', err);
+          console.warn("Error sending transaction, queuing for sync:", err);
           await saveTransactionOffline(transaction);
         }
       } else {
         // Offline: Queue to IndexedDB
-        console.log('🔴 Offline - Queuing transaction for sync');
+        console.log("🔴 Offline - Queuing transaction for sync");
         await saveTransactionOffline(transaction);
       }
 
       // Complete order (clear cart)
-      completeOrder('CASH');
+      completeOrder("CASH");
 
       // Hide modal
       setShowPaymentModal(false);
@@ -228,13 +246,13 @@ export default function CartPanel() {
       // Get receipt settings (use cached if available)
       const settings = receiptSettings || (await getReceiptSettings());
       setReceiptSettings(settings);
-      
+
       // Print receipt asynchronously (fire and forget)
       const receiptTransaction = {
         ...transaction,
         _id: transaction._id || Date.now().toString(),
       };
-      
+
       // Don't await printing - do it in background
       printTransactionReceipt(receiptTransaction, settings).catch(() => {
         // Ignore errors
@@ -248,8 +266,8 @@ export default function CartPanel() {
         });
       }
     } catch (error) {
-      console.error('❌ Error processing payment:', error);
-      alert('Error saving transaction. Please try again.');
+      console.error("❌ Error processing payment:", error);
+      alert("Error saving transaction. Please try again.");
     }
   };
 
@@ -259,8 +277,12 @@ export default function CartPanel() {
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-4 text-center">
           <div className="text-6xl mb-3 opacity-40">🍽️</div>
-          <div className="text-lg font-bold mb-1 text-neutral-600">Add a Dish or Drink</div>
-          <div className="text-sm text-neutral-500">Tap a product to add to the bill</div>
+          <div className="text-lg font-bold mb-1 text-neutral-600">
+            Add a Dish or Drink
+          </div>
+          <div className="text-sm text-neutral-500">
+            Tap a product to add to the bill
+          </div>
           <div className="mt-6 w-24 h-0.5 bg-neutral-300 rounded-full"></div>
         </div>
       ) : (
@@ -274,16 +296,21 @@ export default function CartPanel() {
                 <div className="flex items-center gap-2">
                   <span className="text-lg">🎁</span>
                   <div>
-                    <span className="font-bold">{activeCart.customer.name}</span>
-                    <span className="ml-2 opacity-80">({activeCart.appliedPromotion.name})</span>
+                    <span className="font-bold">
+                      {activeCart.customer.name}
+                    </span>
+                    <span className="ml-2 opacity-80">
+                      ({activeCart.appliedPromotion.name})
+                    </span>
                   </div>
                 </div>
                 <span className="bg-white/20 px-2 py-0.5 rounded font-bold">
-                  {activeCart.appliedPromotion.valueType === 'INCREMENT' ? '↑' : '↓'}
-                  {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
+                  {activeCart.appliedPromotion.valueType === "INCREMENT"
+                    ? "↑"
+                    : "↓"}
+                  {activeCart.appliedPromotion.discountType === "PERCENTAGE"
                     ? ` ${activeCart.appliedPromotion.discountValue}%`
-                    : ` ₦${activeCart.appliedPromotion.discountValue}`
-                  }
+                    : ` ₦${activeCart.appliedPromotion.discountValue}`}
                 </span>
               </div>
             )}
@@ -297,179 +324,237 @@ export default function CartPanel() {
 
           {/* Line Items */}
           <div className="flex-1 overflow-y-auto bg-white divide-y divide-neutral-200">
-            {activeCart.items.map(item => {
+            {activeCart.items.map((item) => {
               // Calculate adjusted price if promotion is active
               let adjustedPrice = item.price;
-              if (activeCart.appliedPromotion && activeCart.appliedPromotion.active) {
-                if (activeCart.appliedPromotion.discountType === 'PERCENTAGE') {
-                  const percentChange = activeCart.appliedPromotion.discountValue / 100;
-                  if (activeCart.appliedPromotion.valueType === 'INCREMENT') {
+              if (
+                activeCart.appliedPromotion &&
+                activeCart.appliedPromotion.active
+              ) {
+                if (activeCart.appliedPromotion.discountType === "PERCENTAGE") {
+                  const percentChange =
+                    activeCart.appliedPromotion.discountValue / 100;
+                  if (activeCart.appliedPromotion.valueType === "INCREMENT") {
                     // INCREMENT increases the price
                     adjustedPrice = item.price * (1 + percentChange);
                   } else {
                     // DISCOUNT decreases the price
                     adjustedPrice = item.price * (1 - percentChange);
                   }
-                } else if (activeCart.appliedPromotion.discountType === 'FIXED') {
+                } else if (
+                  activeCart.appliedPromotion.discountType === "FIXED"
+                ) {
                   // Fixed discount - apply to each item
-                  if (activeCart.appliedPromotion.valueType === 'INCREMENT') {
-                    adjustedPrice = item.price + activeCart.appliedPromotion.discountValue;
+                  if (activeCart.appliedPromotion.valueType === "INCREMENT") {
+                    adjustedPrice =
+                      item.price + activeCart.appliedPromotion.discountValue;
                   } else {
-                    adjustedPrice = Math.max(0, item.price - activeCart.appliedPromotion.discountValue);
+                    adjustedPrice = Math.max(
+                      0,
+                      item.price - activeCart.appliedPromotion.discountValue,
+                    );
                   }
                 }
               }
-              const itemTotal = adjustedPrice * item.quantity - (item.discount || 0);
+              const itemTotal =
+                adjustedPrice * item.quantity - (item.discount || 0);
               const hasPromoAdjustment = adjustedPrice !== item.price;
 
               return (
-              <div key={item.id}>
-                {/* Normal Item View */}
-                {selectedItemId !== item.id ? (
-                  <div
-                    onClick={() => setSelectedItemId(item.id)}
-                    className="grid grid-cols-12 gap-1 px-3 py-3 items-center hover:bg-neutral-50 cursor-pointer transition-colors duration-base"
-                  >
-                    <div className="col-span-5">
-                      <div className="text-sm font-medium text-neutral-700 line-clamp-1">
-                        {item.name}
-                      </div>
-                      {(item.discount > 0 || hasPromoAdjustment) && (
-                        <div className="text-xs text-purple-600 mt-0.5 font-semibold">
-                          {hasPromoAdjustment && (
-                            <span>{activeCart.appliedPromotion.valueType === 'INCREMENT' ? '↑' : '↓'} Promo</span>
-                          )}
-                          {item.discount > 0 && (
-                            <span className="ml-1">-₦{item.discount.toLocaleString()}</span>
-                          )}
+                <div key={item.id}>
+                  {/* Normal Item View */}
+                  {selectedItemId !== item.id ? (
+                    <div
+                      onClick={() => setSelectedItemId(item.id)}
+                      className="grid grid-cols-12 gap-1 px-3 py-3 items-center hover:bg-neutral-50 cursor-pointer transition-colors duration-base"
+                    >
+                      <div className="col-span-5">
+                        <div className="text-sm font-medium text-neutral-700 line-clamp-1">
+                          {item.name}
                         </div>
-                      )}
+                        {(item.discount > 0 || hasPromoAdjustment) && (
+                          <div className="text-xs text-purple-600 mt-0.5 font-semibold">
+                            {hasPromoAdjustment && (
+                              <span>
+                                {activeCart.appliedPromotion.valueType ===
+                                "INCREMENT"
+                                  ? "↑"
+                                  : "↓"}{" "}
+                                Promo
+                              </span>
+                            )}
+                            {item.discount > 0 && (
+                              <span className="ml-1">
+                                -₦{item.discount.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <div className="col-span-2 text-center text-sm font-semibold text-neutral-900">
+                        {item.quantity}
+                      </div>
+                      <div className="col-span-2 text-right">
+                        {hasPromoAdjustment ? (
+                          <div>
+                            <div className="text-xs text-gray-400 line-through">
+                              ₦{item.price.toLocaleString()}
+                            </div>
+                            <div
+                              className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-red-600" : "text-green-600"}`}
+                            >
+                              ₦{Math.round(adjustedPrice).toLocaleString()}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-base text-neutral-600">
+                            ₦{item.price.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                      <div
+                        className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-red-700" : "text-green-700") : "text-neutral-900"}`}
+                      >
+                        ₦{Math.round(itemTotal).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="col-span-2 text-center text-sm font-semibold text-neutral-900">
-                      {item.quantity}
-                    </div>
-                    <div className="col-span-2 text-right">
-                      {hasPromoAdjustment ? (
-                        <div>
-                          <div className="text-xs text-gray-400 line-through">₦{item.price.toLocaleString()}</div>
-                          <div className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'}`}>
-                            ₦{Math.round(adjustedPrice).toLocaleString()}
+                  ) : (
+                    // Selected Item View - Expanded with primary background
+                    <div
+                      ref={selectedItemRef}
+                      className="bg-primary-500 text-white"
+                    >
+                      {/* Item Header with Price Info - All on one line */}
+                      <div className="px-2 py-3 border-b border-primary-600">
+                        <div className="grid grid-cols-3 gap-2 items-center">
+                          <div className="col-span-1">
+                            <div className="text-xs font-bold line-clamp-1">
+                              {item.name}
+                            </div>
+                          </div>
+                          <div className="col-span-1 text-center">
+                            <div className="opacity-80 text-xs">EACH</div>
+                            <div className="font-bold text-sm">
+                              ₦{item.price.toLocaleString()}
+                            </div>
+                          </div>
+                          <div className="col-span-1 text-right">
+                            <div className="opacity-80 text-xs">TOTAL</div>
+                            <div className="font-bold text-sm">
+                              ₦{(item.price * item.quantity).toLocaleString()}
+                            </div>
                           </div>
                         </div>
-                      ) : (
-                        <div className="text-base text-neutral-600">₦{item.price.toLocaleString()}</div>
-                      )}
-                    </div>
-                    <div className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === 'INCREMENT' ? 'text-red-700' : 'text-green-700') : 'text-neutral-900'}`}>
-                      ₦{Math.round(itemTotal).toLocaleString()}
-                    </div>
-                  </div>
-                ) : (
-                  // Selected Item View - Expanded with primary background
-                  <div ref={selectedItemRef} className="bg-primary-500 text-white">
-                    {/* Item Header with Price Info - All on one line */}
-                    <div className="px-2 py-3 border-b border-primary-600">
-                      <div className="grid grid-cols-3 gap-2 items-center">
-                        <div className="col-span-1">
-                          <div className="text-xs font-bold line-clamp-1">
-                            {item.name}
+                      </div>
+
+                      {/* Expanded Controls */}
+                      <div className="px-2 py-3 space-y-2">
+                        {/* Quantity Control - Center */}
+                        <div className="flex items-center justify-center gap-4">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(
+                                item.id,
+                                Math.max(1, item.quantity - 1),
+                              );
+                            }}
+                            className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
+                          >
+                            <FontAwesomeIcon
+                              icon={faMinus}
+                              className="w-4 h-4"
+                            />
+                          </button>
+                          <div className="text-center w-10">
+                            <div className="text-2xl font-bold">
+                              {item.quantity}
+                            </div>
                           </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item.id, item.quantity + 1);
+                            }}
+                            className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
+                          >
+                            <FontAwesomeIcon
+                              icon={faPlus}
+                              className="w-4 h-4"
+                            />
+                          </button>
                         </div>
-                        <div className="col-span-1 text-center">
-                          <div className="opacity-80 text-xs">EACH</div>
-                          <div className="font-bold text-sm">₦{item.price.toLocaleString()}</div>
+
+                        {/* Quantity Label */}
+                        <div className="text-center text-xs font-semibold tracking-wider">
+                          QTY
                         </div>
-                        <div className="col-span-1 text-right">
-                          <div className="opacity-80 text-xs">TOTAL</div>
-                          <div className="font-bold text-sm">₦{(item.price * item.quantity).toLocaleString()}</div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-1.5 pt-2 justify-center">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedItemId(
+                                expandedItemId === item.id ? null : item.id,
+                              );
+                            }}
+                            className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
+                          >
+                            <FontAwesomeIcon
+                              icon={faStickyNote}
+                              className="w-4 h-4"
+                            />
+                            <span>NOTE</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setItemDiscount(
+                                item.id,
+                                (item.discount || 0) + 100,
+                              );
+                            }}
+                            className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
+                          >
+                            <FontAwesomeIcon icon={faTag} className="w-4 h-4" />
+                            <span>DISC</span>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeItem(item.id);
+                              setSelectedItemId(null);
+                            }}
+                            className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-red-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
+                          >
+                            <FontAwesomeIcon
+                              icon={faTrashAlt}
+                              className="w-4 h-4"
+                            />
+                            <span>DEL</span>
+                          </button>
                         </div>
+
+                        {/* Note Input */}
+                        {expandedItemId === item.id && (
+                          <div className="pt-3 border-t border-blue-400">
+                            <input
+                              type="text"
+                              placeholder="Add note..."
+                              value={item.notes || ""}
+                              onChange={(e) =>
+                                setItemNotes(item.id, e.target.value)
+                              }
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-full text-xs p-2 border border-blue-400 rounded bg-blue-600 text-white placeholder-blue-200 outline-none focus:ring-2 focus:ring-white"
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* Expanded Controls */}
-                    <div className="px-2 py-3 space-y-2">
-                      {/* Quantity Control - Center */}
-                      <div className="flex items-center justify-center gap-4">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            updateQuantity(item.id, Math.max(1, item.quantity - 1));
-                          }}
-                          className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
-                        >
-                          <FontAwesomeIcon icon={faMinus} className="w-4 h-4" />
-                        </button>
-                        <div className="text-center w-10">
-                          <div className="text-2xl font-bold">{item.quantity}</div>
-                        </div>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            updateQuantity(item.id, item.quantity + 1);
-                          }}
-                          className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
-                        >
-                          <FontAwesomeIcon icon={faPlus} className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Quantity Label */}
-                      <div className="text-center text-xs font-semibold tracking-wider">
-                        QTY
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-1.5 pt-2 justify-center">
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setExpandedItemId(expandedItemId === item.id ? null : item.id);
-                          }}
-                          className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
-                        >
-                          <FontAwesomeIcon icon={faStickyNote} className="w-4 h-4" />
-                          <span>NOTE</span>
-                        </button>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            setItemDiscount(item.id, (item.discount || 0) + 100);
-                          }}
-                          className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
-                        >
-                          <FontAwesomeIcon icon={faTag} className="w-4 h-4" />
-                          <span>DISC</span>
-                        </button>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            removeItem(item.id);
-                            setSelectedItemId(null);
-                          }}
-                          className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-red-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
-                        >
-                          <FontAwesomeIcon icon={faTrashAlt} className="w-4 h-4" />
-                          <span>DEL</span>
-                        </button>
-                      </div>
-
-                      {/* Note Input */}
-                      {expandedItemId === item.id && (
-                        <div className="pt-3 border-t border-blue-400">
-                          <input
-                            type="text"
-                            placeholder="Add note..."
-                            value={item.notes || ''}
-                            onChange={e => setItemNotes(item.id, e.target.value)}
-                            onClick={e => e.stopPropagation()}
-                            className="w-full text-xs p-2 border border-blue-400 rounded bg-blue-600 text-white placeholder-blue-200 outline-none focus:ring-2 focus:ring-white"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -491,16 +576,7 @@ export default function CartPanel() {
               <div className="mb-2 pb-2 border-b border-neutral-200">
                 <div className="flex justify-between text-sm">
                   <span className="text-purple-700 font-semibold flex items-center gap-1">
-                    <span>🎁</span> {activeCart.appliedPromotion.name}
-                  </span>
-                  <span className={`font-bold ${
-                    activeCart.appliedPromotion.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'
-                  }`}>
-                    {activeCart.appliedPromotion.valueType === 'INCREMENT' ? '+' : '-'}
-                    {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
-                      ? `${activeCart.appliedPromotion.discountValue}%`
-                      : `₦${activeCart.appliedPromotion.discountValue}`
-                    }
+                    {activeCart.appliedPromotion.name}
                   </span>
                 </div>
               </div>
@@ -508,25 +584,42 @@ export default function CartPanel() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">ITEMS</span>
-                <span className="text-neutral-900 font-bold text-lg">{totals.itemCount}</span>
+                <span className="text-neutral-900 font-bold text-lg">
+                  {totals.itemCount}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">SUBTOTAL</span>
-                <span className="text-neutral-700 font-bold text-lg">₦{totals.subtotal.toLocaleString()}</span>
+                <span className="text-neutral-700 font-bold text-lg">
+                  ₦{totals.subtotal.toLocaleString()}
+                </span>
               </div>
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between col-span-2">
-                  <span className={`font-semibold ${activeCart.appliedPromotion?.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'}`}>
-                    {activeCart.appliedPromotion?.valueType === 'INCREMENT' ? 'INCREMENT' : 'SAVINGS'}
+                  <span
+                    className={`font-semibold ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-red-600" : "text-green-600"}`}
+                  >
+                    {activeCart.appliedPromotion?.valueType === "INCREMENT"
+                      ? "INCREMENT"
+                      : "SAVINGS"}
                   </span>
-                  <span className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'}`}>
-                    {activeCart.appliedPromotion?.valueType === 'INCREMENT' ? '+' : '-'}₦{Math.round(totals.discountAmount).toLocaleString()}
+                  <span
+                    className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-red-600" : "text-green-600"}`}
+                  >
+                    {activeCart.appliedPromotion?.valueType === "INCREMENT"
+                      ? "+"
+                      : "-"}
+                    ₦{Math.round(totals.discountAmount).toLocaleString()}
                   </span>
                 </div>
               )}
               <div className="flex justify-between col-span-2 pt-2 border-t border-neutral-200">
-                <span className="text-neutral-900 font-bold text-lg">TOTAL DUE</span>
-                <span className="text-cyan-700 font-black text-2xl">₦{Math.round(totals.total).toLocaleString()}</span>
+                <span className="text-neutral-900 font-bold text-lg">
+                  TOTAL DUE
+                </span>
+                <span className="text-cyan-700 font-black text-2xl">
+                  ₦{Math.round(totals.total).toLocaleString()}
+                </span>
               </div>
             </div>
           </div>
@@ -535,9 +628,10 @@ export default function CartPanel() {
           <div className="bg-white border-t border-neutral-300 p-3 space-y-2">
             {/* Row 1: Utility Buttons */}
             <div className="grid grid-cols-3 gap-2">
-              <button 
+              <button
                 onClick={handlePrintCart}
-                className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16">
+                className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
+              >
                 <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
                 <span>PRINT</span>
               </button>
@@ -546,7 +640,7 @@ export default function CartPanel() {
                 <span>PETTY</span>
                 <span>CASH</span>
               </button>
-              <button 
+              <button
                 onClick={() => setShowAdjustFloatModal(true)}
                 className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
               >
@@ -594,7 +688,7 @@ export default function CartPanel() {
       )}
 
       {/* Thank You Modal */}
-      <ThankYouNote 
+      <ThankYouNote
         isOpen={showThankYouModal}
         onClose={() => setShowThankYouModal(false)}
         receiptSettings={receiptSettings}
