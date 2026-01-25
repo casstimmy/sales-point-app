@@ -108,6 +108,13 @@ export default function StaffLogin() {
               setLocations(activeLocations);
               // Cache locations for offline use
               localStorage.setItem('cachedLocations', JSON.stringify(activeLocations));
+              // Store metadata about when locations were synced
+              localStorage.setItem('locations_metadata', JSON.stringify({
+                lastSynced: new Date().toISOString(),
+                count: activeLocations.length,
+                locationNames: activeLocations.map(l => l.name)
+              }));
+              console.log(`💾 Locations cached for offline access (${activeLocations.length} locations)`);
               // Auto-select first location
               if (activeLocations.length > 0) {
                 setSelectedLocation(activeLocations[0]._id);
@@ -202,6 +209,7 @@ export default function StaffLogin() {
     try {
       const cachedStaff = localStorage.getItem('cachedStaff');
       const cachedLocations = localStorage.getItem('cachedLocations');
+      const cachedLocationsMetadata = localStorage.getItem('locations_metadata');
 
       if (cachedStaff) {
         const staffArray = JSON.parse(cachedStaff);
@@ -216,6 +224,17 @@ export default function StaffLogin() {
           setSelectedLocation(locationsArray[0]._id);
         }
         console.log(`✅ Loaded ${locationsArray.length} locations from cache`);
+        console.log(`📍 Locations available offline: ${locationsArray.map(l => l.name).join(', ')}`);
+      }
+
+      // Log metadata about cached data
+      if (cachedLocationsMetadata) {
+        try {
+          const metadata = JSON.parse(cachedLocationsMetadata);
+          console.log(`⏱️ Locations last synced: ${new Date(metadata.lastSynced).toLocaleString()}`);
+        } catch (e) {
+          console.warn("Could not parse metadata:", e);
+        }
       }
     } catch (error) {
       console.error("Failed to load cached data:", error);
@@ -322,20 +341,24 @@ export default function StaffLogin() {
       } else {
         // OFFLINE MODE - Use cached staff and till data
         console.log("📱 OFFLINE MODE - Attempting local login");
+        console.log(`   Available locations from cache: ${locations.map(l => l.name).join(', ')}`);
+        console.log(`   Available staff from cache: ${staff.map(s => s.name).join(', ')}`);
         
         const selectedStaffData = staff.find(s => s._id === selectedStaff);
         const selectedLocationData = locations.find(loc => loc._id === selectedLocation);
 
         if (!selectedStaffData || !selectedLocationData) {
-          setError("Staff or location not found in local data. Please sync when online.");
+          const missingItem = !selectedStaffData ? 'Staff' : 'Location';
+          console.error(`❌ ${missingItem} not found in local cached data`);
+          setError(`${missingItem} data not available offline. Please sync with server when online.`);
           return;
         }
 
         // In offline mode, we can't validate PIN against server, so we accept the login
         // The staff member is responsible for their own PIN security
-        console.log("✅ Login successful (OFFLINE)!");
+        console.log("✅ Login successful (OFFLINE MODE)!");
         console.log("📍 Staff:", selectedStaffData.name, "Location:", selectedLocationData.name);
-        console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped");
+        console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped (using locally cached locations)");
         
         // Check if there's a persisted till in localStorage
         const savedTill = localStorage.getItem("till");
@@ -485,8 +508,14 @@ export default function StaffLogin() {
             setSelectedStore(storeData.store._id);
             const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
             setLocations(activeLocations);
-            localStorage.setItem("locations", JSON.stringify(activeLocations));
-            console.log("✅ Refreshed locations from cloud");
+            // Cache locations for offline use
+            localStorage.setItem("cachedLocations", JSON.stringify(activeLocations));
+            localStorage.setItem("locations_metadata", JSON.stringify({
+              lastSynced: new Date().toISOString(),
+              count: activeLocations.length,
+              locationNames: activeLocations.map(l => l.name)
+            }));
+            console.log("✅ Refreshed locations from cloud and cached for offline");
           }
         }
         

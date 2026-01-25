@@ -5,6 +5,7 @@ const StaffContext = createContext();
 export function StaffProvider({ children }) {
   const [staff, setStaff] = useState(null);
   const [location, setLocation] = useState(null);
+  const [locations, setLocations] = useState([]); // All available locations for offline access
   const [till, setTill] = useState(null); // Current till session
   const [shift, setShift] = useState({
     start: null,
@@ -17,11 +18,17 @@ export function StaffProvider({ children }) {
     try {
       const savedStaff = localStorage.getItem("staff");
       const savedLocation = localStorage.getItem("location");
+      const savedLocations = localStorage.getItem("cachedLocations");
       const savedShift = localStorage.getItem("shift");
       const savedTill = localStorage.getItem("till");
 
       if (savedStaff) setStaff(JSON.parse(savedStaff));
       if (savedLocation) setLocation(JSON.parse(savedLocation));
+      if (savedLocations) {
+        const parsedLocations = JSON.parse(savedLocations);
+        setLocations(parsedLocations);
+        console.log(`✅ [StaffContext] Loaded ${parsedLocations.length} locations for offline access`);
+      }
       if (savedShift) setShift(JSON.parse(savedShift));
       if (savedTill) setTill(JSON.parse(savedTill));
     } catch (error) {
@@ -59,6 +66,23 @@ export function StaffProvider({ children }) {
       start: new Date().toISOString(),
       salesCount: 0,
     });
+  };
+
+  const setCachedLocations = (locationsArray) => {
+    if (isHydrated && locationsArray && Array.isArray(locationsArray)) {
+      setLocations(locationsArray);
+      localStorage.setItem('cachedLocations', JSON.stringify(locationsArray));
+      localStorage.setItem('locations_metadata', JSON.stringify({
+        lastSynced: new Date().toISOString(),
+        count: locationsArray.length,
+        locationNames: locationsArray.map(l => l.name)
+      }));
+      console.log(`✅ Cached ${locationsArray.length} locations for offline access`);
+    }
+  };
+
+  const getCachedLocations = () => {
+    return locations;
   };
 
   const setCachedTenders = (locationId, tenders) => {
@@ -111,7 +135,21 @@ export function StaffProvider({ children }) {
 
   return (
     <StaffContext.Provider
-      value={{ staff, location, till, shift, login, logout, setCurrentTill, incrementSales, setCachedTenders, getCachedTenders }}
+      value={{ 
+        staff, 
+        location, 
+        locations,
+        till, 
+        shift, 
+        login, 
+        logout, 
+        setCurrentTill, 
+        incrementSales, 
+        setCachedTenders, 
+        getCachedTenders,
+        setCachedLocations,
+        getCachedLocations
+      }}
     >
       {children}
     </StaffContext.Provider>
