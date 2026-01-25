@@ -588,7 +588,7 @@ export default function StaffLogin() {
       {!isOnline && (
         <div className="bg-red-600 text-white py-1 px-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2">
-            <FontAwesomeIcon icon={faX} />
+            <FontAwesomeIcon icon={faX} className="w-3 h-3" />
             <span className="font-semibold text-sm">Offline mode</span>
           </div>
           <a href="#" className="underline hover:text-red-100 text-sm">
@@ -601,7 +601,7 @@ export default function StaffLogin() {
       <div className="bg-cyan-700 px-4 py-2 flex items-center justify-between border-b-4 border-cyan-800 flex-shrink-0">
         {/* Clock In/Out Button */}
         <button className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2">
-          <FontAwesomeIcon icon={faClock} />
+          <FontAwesomeIcon icon={faClock} className="w-4 h-4" />
           CLOCK IN / OUT
         </button>
 
@@ -626,14 +626,14 @@ export default function StaffLogin() {
         {/* Right Buttons */}
         <div className="flex items-center gap-3">
           <button className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2">
-            <FontAwesomeIcon icon={faQuestionCircle} />
+            <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4" />
             HELP
           </button>
           <button
             onClick={handleExitSystem}
             className="px-4 py-1.5 bg-red-600 text-white rounded-full font-semibold text-sm hover:bg-red-700 transition flex items-center gap-2"
           >
-            <FontAwesomeIcon icon={faPowerOff} />
+            <FontAwesomeIcon icon={faPowerOff} className="w-4 h-4" />
             EXIT
           </button>
         </div>
@@ -700,8 +700,8 @@ export default function StaffLogin() {
                   disabled={loadingData}
                   className="w-full px-4 py-3 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
                 >
-                  <FontAwesomeIcon icon={faSync} className={loadingData ? 'animate-spin' : ''} />
-                  {loadingData ? 'Syncing...' : (isOnline ? 'Sync Data from Cloud' : 'Load Cached Data')}
+                  <FontAwesomeIcon icon={faSync} className={`w-4 h-4 flex-shrink-0 ${loadingData ? 'animate-spin' : ''}`} />
+                  <span>{loadingData ? 'Syncing...' : (isOnline ? 'Sync Data from Cloud' : 'Load Cached Data')}</span>
                 </button>
                 {/* Sync Status */}
                 {(() => {
@@ -779,7 +779,7 @@ export default function StaffLogin() {
                       className="px-3 py-2 bg-cyan-800 hover:bg-cyan-600 text-white rounded-lg transition border-2 border-cyan-700 disabled:opacity-50"
                       title="Refresh locations from cloud/local"
                     >
-                      <FontAwesomeIcon icon={faRedo} className={loadingData ? 'animate-spin' : ''} />
+                      <FontAwesomeIcon icon={faRedo} className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} />
                     </button>
                   </div>
                   {locations.length === 0 && (
