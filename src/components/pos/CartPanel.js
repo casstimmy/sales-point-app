@@ -279,7 +279,7 @@ export default function CartPanel() {
                   </div>
                 </div>
                 <span className="bg-white/20 px-2 py-0.5 rounded font-bold">
-                  {activeCart.appliedPromotion.valueType === 'MARKUP' ? '↑' : '↓'}
+                  {activeCart.appliedPromotion.valueType === 'INCREMENT' ? '↑' : '↓'}
                   {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
                     ? ` ${activeCart.appliedPromotion.discountValue}%`
                     : ` ₦${activeCart.appliedPromotion.discountValue}`
@@ -303,8 +303,8 @@ export default function CartPanel() {
               if (activeCart.appliedPromotion && activeCart.appliedPromotion.active) {
                 if (activeCart.appliedPromotion.discountType === 'PERCENTAGE') {
                   const percentChange = activeCart.appliedPromotion.discountValue / 100;
-                  if (activeCart.appliedPromotion.valueType === 'MARKUP') {
-                    // MARKUP increases the price
+                  if (activeCart.appliedPromotion.valueType === 'INCREMENT') {
+                    // INCREMENT increases the price
                     adjustedPrice = item.price * (1 + percentChange);
                   } else {
                     // DISCOUNT decreases the price
@@ -312,7 +312,7 @@ export default function CartPanel() {
                   }
                 } else if (activeCart.appliedPromotion.discountType === 'FIXED') {
                   // Fixed discount - apply to each item
-                  if (activeCart.appliedPromotion.valueType === 'MARKUP') {
+                  if (activeCart.appliedPromotion.valueType === 'INCREMENT') {
                     adjustedPrice = item.price + activeCart.appliedPromotion.discountValue;
                   } else {
                     adjustedPrice = Math.max(0, item.price - activeCart.appliedPromotion.discountValue);
@@ -337,7 +337,7 @@ export default function CartPanel() {
                       {(item.discount > 0 || hasPromoAdjustment) && (
                         <div className="text-xs text-purple-600 mt-0.5 font-semibold">
                           {hasPromoAdjustment && (
-                            <span>{activeCart.appliedPromotion.valueType === 'MARKUP' ? '↑' : '↓'} Promo</span>
+                            <span>{activeCart.appliedPromotion.valueType === 'INCREMENT' ? '↑' : '↓'} Promo</span>
                           )}
                           {item.discount > 0 && (
                             <span className="ml-1">-₦{item.discount.toLocaleString()}</span>
@@ -352,7 +352,7 @@ export default function CartPanel() {
                       {hasPromoAdjustment ? (
                         <div>
                           <div className="text-xs text-gray-400 line-through">₦{item.price.toLocaleString()}</div>
-                          <div className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'}`}>
+                          <div className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'}`}>
                             ₦{Math.round(adjustedPrice).toLocaleString()}
                           </div>
                         </div>
@@ -360,7 +360,7 @@ export default function CartPanel() {
                         <div className="text-base text-neutral-600">₦{item.price.toLocaleString()}</div>
                       )}
                     </div>
-                    <div className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === 'MARKUP' ? 'text-red-700' : 'text-green-700') : 'text-neutral-900'}`}>
+                    <div className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === 'INCREMENT' ? 'text-red-700' : 'text-green-700') : 'text-neutral-900'}`}>
                       ₦{Math.round(itemTotal).toLocaleString()}
                     </div>
                   </div>
@@ -494,9 +494,9 @@ export default function CartPanel() {
                     <span>🎁</span> {activeCart.appliedPromotion.name}
                   </span>
                   <span className={`font-bold ${
-                    activeCart.appliedPromotion.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'
+                    activeCart.appliedPromotion.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'
                   }`}>
-                    {activeCart.appliedPromotion.valueType === 'MARKUP' ? '+' : '-'}
+                    {activeCart.appliedPromotion.valueType === 'INCREMENT' ? '+' : '-'}
                     {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
                       ? `${activeCart.appliedPromotion.discountValue}%`
                       : `₦${activeCart.appliedPromotion.discountValue}`
@@ -516,11 +516,11 @@ export default function CartPanel() {
               </div>
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between col-span-2">
-                  <span className={`font-semibold ${activeCart.appliedPromotion?.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'}`}>
-                    {activeCart.appliedPromotion?.valueType === 'MARKUP' ? 'MARKUP' : 'SAVINGS'}
+                  <span className={`font-semibold ${activeCart.appliedPromotion?.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'}`}>
+                    {activeCart.appliedPromotion?.valueType === 'INCREMENT' ? 'INCREMENT' : 'SAVINGS'}
                   </span>
-                  <span className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === 'MARKUP' ? 'text-red-600' : 'text-green-600'}`}>
-                    {activeCart.appliedPromotion?.valueType === 'MARKUP' ? '+' : '-'}₦{Math.round(totals.discountAmount).toLocaleString()}
+                  <span className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === 'INCREMENT' ? 'text-red-600' : 'text-green-600'}`}>
+                    {activeCart.appliedPromotion?.valueType === 'INCREMENT' ? '+' : '-'}₦{Math.round(totals.discountAmount).toLocaleString()}
                   </span>
                 </div>
               )}

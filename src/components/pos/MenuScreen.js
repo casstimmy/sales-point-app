@@ -493,7 +493,7 @@ export default function MenuScreen() {
                   <span>🎁</span>
                   <span className="font-semibold">{activeCart.appliedPromotion.name}</span>
                   <span className="bg-white/20 px-2 py-0.5 rounded font-bold">
-                    {activeCart.appliedPromotion.valueType === 'MARKUP' ? '+' : '-'}
+                    {activeCart.appliedPromotion.valueType === 'INCREMENT' ? '+' : '-'}
                     {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
                       ? `${activeCart.appliedPromotion.discountValue}%`
                       : `₦${activeCart.appliedPromotion.discountValue}`
