@@ -398,11 +398,13 @@ export default function CartPanel() {
                     // Selected Item View - Expanded with primary background
                     <div
                       ref={selectedItemRef}
-                      onClick={() => setSelectedItemId(null)}
-                      className="bg-primary-500 text-white cursor-pointer"
+                      className="bg-primary-500 text-white"
                     >
                       {/* Item Header with Price Info - All on one line */}
-                      <div className="px-3 py-3 border-b border-primary-600">
+                      <div 
+                        className="px-3 py-3 border-b border-primary-600 cursor-pointer hover:bg-primary-600 transition-colors"
+                        onClick={() => setSelectedItemId(null)}
+                      >
                         <div className="grid grid-cols-3 gap-2 items-center">
                           <div className="col-span-1">
                             <div className="text-xs font-bold line-clamp-1">
@@ -448,7 +450,10 @@ export default function CartPanel() {
                       </div>
 
                       {/* Expanded Controls */}
-                      <div className="px-3 py-2 space-y-2">
+                      <div 
+                        className="px-3 py-2 space-y-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {/* Quantity Control - Center */}
                         <div className="flex items-center justify-center gap-3">
                           <button
@@ -538,7 +543,10 @@ export default function CartPanel() {
 
                         {/* Note Input */}
                         {expandedItemId === item.id && (
-                          <div className="pt-3 border-t border-blue-400">
+                          <div 
+                            className="pt-3 border-t border-blue-400"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <input
                               type="text"
                               placeholder="Add note..."
