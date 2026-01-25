@@ -272,7 +272,7 @@ export default function CartPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200 w-96 min-w-max shadow-lg">
+    <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200">
       {isEmpty ? (
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-4 text-center">
