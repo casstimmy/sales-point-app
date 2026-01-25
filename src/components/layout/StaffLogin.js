@@ -84,6 +84,14 @@ export default function StaffLogin() {
         setLoadingData(true);
         console.log("🔄 [LOGIN] Starting data fetch...");
         
+        // If offline, load from cache immediately
+        if (!navigator.onLine) {
+          console.log("📱 OFFLINE MODE - Loading cached data...");
+          loadCachedData();
+          setLoadingData(false);
+          return;
+        }
+        
         // Step 1: Fetch store and locations
         console.log("🔄 [LOGIN] Fetching store and locations...");
         const response = await fetch("/api/store/init-locations");
@@ -102,6 +110,8 @@ export default function StaffLogin() {
             };
             setStores([storeObj]);
             setSelectedStore(storeObj._id);
+            // Cache store for offline use
+            localStorage.setItem('cachedStore', JSON.stringify(storeObj));
             
             // Set locations from store
             if (Array.isArray(data.store.locations)) {
@@ -212,6 +222,21 @@ export default function StaffLogin() {
       const cachedStaff = localStorage.getItem('cachedStaff');
       const cachedLocations = localStorage.getItem('cachedLocations');
       const cachedLocationsMetadata = localStorage.getItem('locations_metadata');
+      const cachedStore = localStorage.getItem('cachedStore');
+
+      // Load cached store first
+      if (cachedStore) {
+        const storeObj = JSON.parse(cachedStore);
+        setStores([storeObj]);
+        setSelectedStore(storeObj._id);
+        console.log(`✅ Loaded store from cache: ${storeObj.name}`);
+      } else {
+        // Create a default store for offline mode if none cached
+        const defaultStore = { _id: 'offline-store', name: 'Offline Store' };
+        setStores([defaultStore]);
+        setSelectedStore(defaultStore._id);
+        console.log(`📦 Using default offline store`);
+      }
 
       if (cachedStaff) {
         const staffArray = JSON.parse(cachedStaff);
@@ -227,6 +252,8 @@ export default function StaffLogin() {
         }
         console.log(`✅ Loaded ${locationsArray.length} locations from cache`);
         console.log(`📍 Locations available offline: ${locationsArray.map(l => l.name).join(', ')}`);
+      } else {
+        console.log(`⚠️ No cached locations found. Please sync when online.`);
       }
 
       // Log metadata about cached data
@@ -658,6 +685,44 @@ export default function StaffLogin() {
             <div className="text-white text-center py-8 text-sm">Loading stores and staff...</div>
           ) : (
             <>
+              {/* Sync Locations Button - Always Visible */}
+              <div className="mb-4 p-3 bg-cyan-800 rounded-lg border-2 border-cyan-600">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-white font-semibold text-xs">
+                    {isOnline ? '🌐 ONLINE' : '📴 OFFLINE MODE'}
+                  </span>
+                  <span className="text-cyan-300 text-xs">
+                    {locations.length} location{locations.length !== 1 ? 's' : ''} cached
+                  </span>
+                </div>
+                <button
+                  onClick={handleRefreshData}
+                  disabled={loadingData}
+                  className="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
+                >
+                  <FontAwesomeIcon icon={faSync} className={loadingData ? 'animate-spin' : ''} />
+                  {loadingData ? 'Syncing...' : (isOnline ? 'Sync Data from Cloud' : 'Load Cached Data')}
+                </button>
+                {/* Sync Status */}
+                {(() => {
+                  try {
+                    const metadata = JSON.parse(localStorage.getItem('locations_metadata') || '{}');
+                    if (metadata.lastSynced) {
+                      const syncDate = new Date(metadata.lastSynced);
+                      const timeAgo = Math.round((Date.now() - syncDate.getTime()) / 60000);
+                      return (
+                        <p className="text-xs text-cyan-300 mt-2 text-center">
+                          Last synced: {timeAgo < 60 ? `${timeAgo} mins ago` : syncDate.toLocaleString()}
+                        </p>
+                      );
+                    }
+                    return <p className="text-xs text-yellow-300 mt-2 text-center">⚠️ Never synced - click to sync</p>;
+                  } catch (e) {
+                    return null;
+                  }
+                })()}
+              </div>
+
               {/* Store Selection Grid */}
               <div className="mb-4">
                 <p className="text-white font-semibold text-xs mb-2">SELECT STORE</p>
@@ -687,10 +752,10 @@ export default function StaffLogin() {
               </div>
 
               {/* Location Dropdown with Refresh Button */}
-              {selectedStore && (
+              {(selectedStore || locations.length > 0) && (
                 <div className="mb-4">
                   <label className="text-white font-semibold text-xs mb-1 block">
-                    SELECT LOCATION
+                    SELECT LOCATION {!isOnline && <span className="text-yellow-300">(Cached)</span>}
                   </label>
                   <div className="flex gap-2">
                     <select
@@ -701,7 +766,7 @@ export default function StaffLogin() {
                       }}
                       className="flex-1 px-3 py-2 bg-cyan-800 text-white border-2 border-cyan-700 rounded-lg font-semibold text-sm focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400"
                     >
-                      <option value="">-- Select Location --</option>
+                      <option value="">-- Select Location ({locations.length} available) --</option>
                       {locations.map((loc) => (
                         <option key={loc._id} value={loc._id}>
                           {loc.name}
@@ -717,31 +782,11 @@ export default function StaffLogin() {
                       <FontAwesomeIcon icon={faRedo} className={loadingData ? 'animate-spin' : ''} />
                     </button>
                   </div>
-                  
-                  {/* Sync Locations Button */}
-                  <button
-                    onClick={handleRefreshData}
-                    disabled={loadingData}
-                    className="w-full mt-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
-                  >
-                    <FontAwesomeIcon icon={faSync} className={loadingData ? 'animate-spin' : ''} />
-                    {loadingData ? 'Syncing...' : (isOnline ? 'Sync Locations from Cloud' : 'Load Cached Locations')}
-                  </button>
-                  
-                  {/* Sync Status */}
-                  {(() => {
-                    const metadata = JSON.parse(localStorage.getItem('locations_metadata') || '{}');
-                    if (metadata.lastSynced) {
-                      const syncDate = new Date(metadata.lastSynced);
-                      const timeAgo = Math.round((Date.now() - syncDate.getTime()) / 60000);
-                      return (
-                        <p className="text-xs text-cyan-300 mt-1 text-center">
-                          Last synced: {timeAgo < 60 ? `${timeAgo} mins ago` : syncDate.toLocaleString()} ({metadata.count || 0} locations)
-                        </p>
-                      );
-                    }
-                    return null;
-                  })()}
+                  {locations.length === 0 && (
+                    <p className="text-yellow-300 text-xs mt-2 text-center">
+                      ⚠️ No locations cached. Please sync when online.
+                    </p>
+                  )}
                 </div>
               )}
 
