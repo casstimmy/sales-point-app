@@ -377,7 +377,7 @@ export default function CartPanel() {
                               ₦{item.price.toLocaleString()}
                             </div>
                             <div
-                              className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-red-600" : "text-green-600"}`}
+                              className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
                             >
                               ₦{Math.round(adjustedPrice).toLocaleString()}
                             </div>
@@ -389,7 +389,7 @@ export default function CartPanel() {
                         )}
                       </div>
                       <div
-                        className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-red-700" : "text-green-700") : "text-neutral-900"}`}
+                        className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
                       >
                         ₦{Math.round(itemTotal).toLocaleString()}
                       </div>
@@ -573,14 +573,14 @@ export default function CartPanel() {
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between col-span-2">
                   <span
-                    className={`font-semibold ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-red-600" : "text-green-600"}`}
+                    className={`font-semibold ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
                   >
                     {activeCart.appliedPromotion?.valueType === "INCREMENT"
                       ? "INCREMENT"
                       : "SAVINGS"}
                   </span>
                   <span
-                    className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-red-600" : "text-green-600"}`}
+                    className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
                   >
                     {activeCart.appliedPromotion?.valueType === "INCREMENT"
                       ? "+"
