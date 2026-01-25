@@ -33,25 +33,49 @@ export default function OrdersScreen() {
   const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
   const { isOnline, lastSyncTime, resumeOrder, orders } = useCart();
 
-  // Fetch completed transactions from IndexedDB
+  // Fetch completed transactions from server (online) or IndexedDB (offline)
   const fetchCompletedTransactions = useCallback(async () => {
     setIsLoadingCompleted(true);
     try {
-      const completed = await getCompletedTransactions();
+      let completed = [];
+
+      if (isOnline) {
+        // Online: Fetch from server API
+        try {
+          const response = await fetch('/api/transactions/completed');
+          if (response.ok) {
+            const result = await response.json();
+            completed = result.data || result || [];
+            console.log(`✅ Fetched ${completed.length} completed transactions from server`);
+          } else {
+            console.warn('Failed to fetch from server, falling back to IndexedDB');
+            completed = await getCompletedTransactions();
+          }
+        } catch (error) {
+          console.warn('Error fetching from server:', error, 'falling back to IndexedDB');
+          completed = await getCompletedTransactions();
+        }
+      } else {
+        // Offline: Fetch from IndexedDB
+        console.log('🔴 Offline mode - fetching from IndexedDB');
+        completed = await getCompletedTransactions();
+      }
+
       setCompletedTransactions(completed);
     } catch (error) {
       console.error('Failed to fetch completed transactions:', error);
+      setCompletedTransactions([]);
     } finally {
       setIsLoadingCompleted(false);
     }
-  }, []);
+  }, [isOnline]);
 
-  // Load completed transactions on mount and when switching to COMPLETE tab
+  // Load completed transactions on mount and when switching to COMPLETE tab or online status changes
   useEffect(() => {
     if (activeStatus === 'COMPLETE') {
       fetchCompletedTransactions();
     }
-  }, [activeStatus, fetchCompletedTransactions]);
+  }, [activeStatus, fetchCompletedTransactions, isOnline]);
 
   // Filter orders by status
   useEffect(() => {
