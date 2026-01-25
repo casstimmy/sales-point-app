@@ -278,7 +278,7 @@ export function CartProvider({ children }) {
       if (appliedPromotion && appliedPromotion.active) {
         if (appliedPromotion.discountType === 'PERCENTAGE') {
           const percentChange = appliedPromotion.discountValue / 100;
-          if (appliedPromotion.valueType === 'MARKUP') {
+          if (appliedPromotion.valueType === 'INCREMENT') {
             itemTotal = itemTotal * (1 + percentChange);
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             itemTotal = itemTotal * (1 - percentChange);
@@ -383,12 +383,12 @@ export function CartProvider({ children }) {
       let itemTotal = item.price * item.quantity - (item.discount || 0);
       const originalItemTotal = itemTotal;
       
-      // Apply promotion MARKUP/discount to item if customer selected
+      // Apply promotion INCREMENT/discount to item if customer selected
       if (appliedPromotion && appliedPromotion.active) {
         if (appliedPromotion.discountType === 'PERCENTAGE') {
           const percentChange = appliedPromotion.discountValue / 100;
-          if (appliedPromotion.valueType === 'MARKUP') {
-            // MARKUP increases the item price
+          if (appliedPromotion.valueType === 'INCREMENT') {
+            // INCREMENT increases the item price
             itemTotal = itemTotal * (1 + percentChange);
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             // DISCOUNT decreases the item price
@@ -396,8 +396,8 @@ export function CartProvider({ children }) {
           }
           console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (${appliedPromotion.discountValue}%): ₦${itemTotal}`);
         } else if (appliedPromotion.discountType === 'FIXED') {
-          // Fixed amount discount/MARKUP
-          if (appliedPromotion.valueType === 'MARKUP') {
+          // Fixed amount discount/INCREMENT
+          if (appliedPromotion.valueType === 'INCREMENT') {
             itemTotal = itemTotal + appliedPromotion.discountValue;
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);
