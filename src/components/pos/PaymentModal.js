@@ -80,7 +80,7 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
     }
 
     setLoading(false);
-  }, [locationTenders, tendersLoading, tendersError]);
+  }, [locationTenders, tendersLoading, tendersError, location]);
 
   console.log('💳 PaymentModal opened with total:', total);
   console.log('📍 Location:', location);

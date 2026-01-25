@@ -83,7 +83,7 @@ export default function CartPanel() {
     }
     
     setPrevItemsLength(currentLength);
-  }, [activeCart.items.length, prevItemsLength]);
+  }, [activeCart.items, prevItemsLength]);
 
   // Auto-scroll to selected item
   useEffect(() => {

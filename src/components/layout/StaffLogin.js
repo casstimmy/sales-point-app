@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
+import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import OpenTillModal from "../pos/OpenTillModal";
 import { syncCategories, syncProducts } from "../../lib/indexedDB";
@@ -10,6 +11,7 @@ import {
   faPowerOff,
   faX,
   faRedo,
+  faSync,
 } from "@fortawesome/free-solid-svg-icons";
 
 /**
@@ -277,7 +279,7 @@ export default function StaffLogin() {
     }
   }, [isOnline]);
 
-  const handleLogin = async () => {
+  const handleLogin = useCallback(async () => {
     if (!selectedStore || !selectedLocation || !selectedStaff || pin.length !== 4) {
       setError("Please select store, location, staff, and enter 4-digit passcode");
       return;
@@ -395,7 +397,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, staff, locations, login, setCurrentTill, router]);
 
   const handlePinClick = (digit) => {
     if (pin.length < 4) {
@@ -483,16 +485,16 @@ export default function StaffLogin() {
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
+  const handleKeyPress = useCallback((e) => {
+    if (e.key === "Enter" && pin.length === 4 && selectedStore && selectedLocation && selectedStaff) {
       handleLogin();
     }
-  };
+  }, [pin, selectedStore, selectedLocation, selectedStaff, handleLogin]);
 
   useEffect(() => {
     window.addEventListener("keypress", handleKeyPress);
     return () => window.removeEventListener("keypress", handleKeyPress);
-  }, [pin, selectedStore]);
+  }, [handleKeyPress]);
 
   // Handle refresh of store/location data
   const handleRefreshData = async () => {
@@ -578,15 +580,17 @@ export default function StaffLogin() {
 
         {/* Center Logo */}
         <div className="text-center flex flex-col items-center">
-          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-1 shadow-lg overflow-hidden">
-            <img 
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-1 shadow-lg overflow-hidden relative">
+            <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              className="w-8 h-8 object-contain"
+              width={32}
+              height={32}
+              className="object-contain"
               onError={(e) => {
-                e.target.onerror = null;
                 e.target.src = '/images/placeholder.jpg';
               }}
+              unoptimized
             />
           </div>
           <p className="text-white font-bold text-xs">{currentTime}</p>
@@ -713,6 +717,31 @@ export default function StaffLogin() {
                       <FontAwesomeIcon icon={faRedo} className={loadingData ? 'animate-spin' : ''} />
                     </button>
                   </div>
+                  
+                  {/* Sync Locations Button */}
+                  <button
+                    onClick={handleRefreshData}
+                    disabled={loadingData}
+                    className="w-full mt-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
+                  >
+                    <FontAwesomeIcon icon={faSync} className={loadingData ? 'animate-spin' : ''} />
+                    {loadingData ? 'Syncing...' : (isOnline ? 'Sync Locations from Cloud' : 'Load Cached Locations')}
+                  </button>
+                  
+                  {/* Sync Status */}
+                  {(() => {
+                    const metadata = JSON.parse(localStorage.getItem('locations_metadata') || '{}');
+                    if (metadata.lastSynced) {
+                      const syncDate = new Date(metadata.lastSynced);
+                      const timeAgo = Math.round((Date.now() - syncDate.getTime()) / 60000);
+                      return (
+                        <p className="text-xs text-cyan-300 mt-1 text-center">
+                          Last synced: {timeAgo < 60 ? `${timeAgo} mins ago` : syncDate.toLocaleString()} ({metadata.count || 0} locations)
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               )}
 

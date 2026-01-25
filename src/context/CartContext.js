@@ -441,9 +441,9 @@ export function CartProvider({ children }) {
       discountedSubtotal,
       tax,
       total,
-      itemCount: state.activeCart.items.reduce((sum, item) => sum + item.quantity, 0),
+      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
     };
-  }, [state.activeCart.items, state.activeCart.discountPercent, state.activeCart.appliedPromotion, state.activeCart.fixedDiscount]);
+  }, [state.activeCart]);
 
   // =========================================================================
   // CONTEXT VALUE

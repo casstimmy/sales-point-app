@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import Image from 'next/image';
 
 export default function ThankYouNote({ 
   isOpen = false,
@@ -32,14 +33,17 @@ export default function ThankYouNote({
         {/* Logo Container - Always displays with fallback */}
         <div className="mb-8 flex justify-center">
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
-            <img 
+            <Image 
               src={companyLogo} 
               alt="Company Logo"
-              className="w-20 h-20 object-contain"
+              width={80}
+              height={80}
+              className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = '/images/placeholder.jpg';
               }}
+              unoptimized
             />
           </div>
         </div>
@@ -89,7 +93,7 @@ export default function ThankYouNote({
           <div className="mt-8 pt-8 border-t border-white border-opacity-40">
             <p className="text-sm opacity-90 mb-4 font-semibold">{qrDescription}</p>
             <div className="bg-white rounded-lg p-3 w-24 h-24 mx-auto flex items-center justify-center shadow-lg">
-              <img src={qrUrl} alt="QR Code" className="w-full h-full object-contain" />
+              <Image src={qrUrl} alt="QR Code" width={96} height={96} className="object-contain" unoptimized />
             </div>
           </div>
         )}

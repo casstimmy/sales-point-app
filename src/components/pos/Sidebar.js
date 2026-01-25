@@ -12,6 +12,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBars,
@@ -154,15 +155,18 @@ export default function Sidebar({ isOpen, onToggle }) {
       {/* Logo Section */}
       <div className="p-4 bg-white border-b-2 border-primary-200 shadow-sm">
         <div className="flex items-center gap-3">
-          <img 
+          <Image 
             src="/images/st-micheals-logo.png" 
             alt="Store Logo" 
-            className="w-10 h-10 object-contain rounded-lg"
+            width={40}
+            height={40}
+            className="object-contain rounded-lg"
             onError={(e) => {
               e.target.onerror = null;
               e.target.style.display = 'none';
               e.target.nextSibling.style.display = 'flex';
             }}
+            unoptimized
           />
           <div className="w-10 h-10 bg-primary-600 rounded-lg items-center justify-center hidden text-white font-bold text-lg">
             SP

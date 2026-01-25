@@ -51,6 +51,15 @@ const CATEGORY_ICONS = {
   'Wine': faWineGlass,
 };
 
+// Default categories to show if API fails and no cache exists
+const DEFAULT_CATEGORIES = [
+  { _id: '1', name: 'Bakery' },
+  { _id: '2', name: 'Drinks' },
+  { _id: '3', name: 'Food' },
+  { _id: '4', name: 'Hotel' },
+  { _id: '5', name: 'Wine' },
+];
+
 export default function MenuScreen() {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -116,15 +125,6 @@ export default function MenuScreen() {
   useEffect(() => {
     console.log("🛍️ Products state updated:", products.length, "products");
   }, [products]);
-
-  // Default categories to show if API fails and no cache exists
-  const DEFAULT_CATEGORIES = [
-    { _id: '1', name: 'Bakery' },
-    { _id: '2', name: 'Drinks' },
-    { _id: '3', name: 'Food' },
-    { _id: '4', name: 'Hotel' },
-    { _id: '5', name: 'Wine' },
-  ];
 
   // Fetch categories on mount and when location changes
   useEffect(() => {
@@ -241,7 +241,7 @@ export default function MenuScreen() {
     };
 
     fetchCategories();
-  }, [location?._id]); // Re-fetch when location changes
+  }, [location]); // Re-fetch when location changes
 
   // Load ALL products from local DB on mount for global search
   useEffect(() => {
@@ -359,7 +359,7 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline]);
+  }, [selectedCategory, isOnline, allProducts.length]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {

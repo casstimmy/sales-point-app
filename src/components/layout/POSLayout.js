@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import TopBar from "../pos/TopBar";
 import TabNavigation from "../pos/TabNavigation";
@@ -75,14 +76,17 @@ export default function POSLayout({ children }) {
         <div className="text-center">
           {/* Logo */}
           <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
-            <img 
+            <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              className="w-16 h-16 object-contain"
+              width={64}
+              height={64}
+              className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = '/images/placeholder.jpg';
               }}
+              unoptimized
             />
           </div>
           <div className="text-white font-semibold text-lg mb-2">Not Logged In</div>
@@ -103,14 +107,17 @@ export default function POSLayout({ children }) {
         <div className="text-center">
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
-            <img 
+            <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              className="w-20 h-20 object-contain"
+              width={80}
+              height={80}
+              className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
                 e.target.src = '/images/placeholder.jpg';
               }}
+              unoptimized
             />
           </div>
           
