@@ -662,7 +662,7 @@ export default function StaffLogin() {
                     <button
                       onClick={() => handleQuickLogin(till)}
                       disabled={loading}
-                      className="ml-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded whitespace-nowrap transition disabled:opacity-50"
+                      className="ml-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded whitespace-nowrap transition disabled:opacity-50"
                     >
                       {loading ? "..." : "RESUME"}
                     </button>
@@ -698,7 +698,7 @@ export default function StaffLogin() {
                 <button
                   onClick={handleRefreshData}
                   disabled={loadingData}
-                  className="w-full px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
+                  className="w-full px-4 py-3 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
                 >
                   <FontAwesomeIcon icon={faSync} className={loadingData ? 'animate-spin' : ''} />
                   {loadingData ? 'Syncing...' : (isOnline ? 'Sync Data from Cloud' : 'Load Cached Data')}
@@ -855,7 +855,7 @@ export default function StaffLogin() {
               <button
                 key={num}
                 onClick={() => handlePinClick(num.toString())}
-                className="py-4 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
+                className="py-3 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
               >
                 {num}
               </button>
@@ -864,13 +864,13 @@ export default function StaffLogin() {
             {/* 0 and Backspace */}
             <button
               onClick={() => handlePinClick("0")}
-              className="col-span-2 py-4 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
+              className="col-span-2 py-3 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
-              className="py-4 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
+              className="py-3 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
             >
               ⌫
             </button>
