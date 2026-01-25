@@ -49,6 +49,7 @@ import AdjustFloatModal from "./AdjustFloatModal";
 export default function CartPanel() {
   const [selectedItemId, setSelectedItemId] = useState(null);
   const [expandedItemId, setExpandedItemId] = useState(null);
+  const [prevItemsLength, setPrevItemsLength] = useState(0);
   const selectedItemRef = useRef(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -71,13 +72,18 @@ export default function CartPanel() {
   const totals = calculateTotals();
   const isEmpty = activeCart.items.length === 0;
 
-  // Auto-highlight the last added item ONLY if no item is currently selected
+  // Auto-highlight the last added item ONLY when a new item is added (not on deselect)
   useEffect(() => {
-    if (!isEmpty && activeCart.items.length > 0 && selectedItemId === null) {
-      const lastItem = activeCart.items[activeCart.items.length - 1];
+    const currentLength = activeCart.items.length;
+    
+    // Only auto-select if items were ADDED (length increased), not on deselect
+    if (currentLength > prevItemsLength && currentLength > 0) {
+      const lastItem = activeCart.items[currentLength - 1];
       setSelectedItemId(lastItem.id);
     }
-  }, [activeCart.items.length, isEmpty, selectedItemId]);
+    
+    setPrevItemsLength(currentLength);
+  }, [activeCart.items.length, prevItemsLength]);
 
   // Auto-scroll to selected item
   useEffect(() => {
