@@ -81,11 +81,19 @@ export default async function handler(req, res) {
         $unwind: "$normalizedPayments"
       },
       // Group by tender name and sum amounts
+      // IMPORTANT: Count unique transactions, not payment entries (split payments should count as 1 transaction)
       {
         $group: {
           _id: "$normalizedPayments.tenderName",
           totalAmount: { $sum: "$normalizedPayments.amount" },
-          transactionCount: { $sum: 1 }
+          // Collect unique transaction IDs to count actual transactions, not split payments
+          uniqueTransactions: { $addToSet: "$_id" }
+        }
+      },
+      // Add transaction count from unique transactions
+      {
+        $addFields: {
+          transactionCount: { $size: "$uniqueTransactions" }
         }
       },
       {
