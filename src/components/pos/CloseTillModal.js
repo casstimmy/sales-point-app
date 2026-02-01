@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
 import { getOnlineStatus } from "../../lib/offlineSync";
+import NumKeypad from "../common/NumKeypad";
 
 // Helper to get offline till data from IndexedDB
 const getOfflineTillData = async (tillId) => {
@@ -71,6 +72,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [summary, setSummary] = useState(null);
   const [fetchingTill, setFetchingTill] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [activeTenderKeypad, setActiveTenderKeypad] = useState(null);
 
   // Track online/offline status
   useEffect(() => {
@@ -345,44 +347,60 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                 const physicalCount = parseFloat(tenderCounts[tender.id]) || 0;
                 const variance = physicalCount - processedAmount;
                 const hasValue = tenderCounts[tender.id] !== undefined && tenderCounts[tender.id] !== "";
+                const isActive = activeTenderKeypad === tender.id;
                 
                 return (
-                  <div
-                    key={tender.id}
-                    className="bg-white rounded-lg border-2 border-gray-200 p-3"
-                    style={{ borderLeftColor: tender.buttonColor || "#06b6d4", borderLeftWidth: "4px" }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-bold text-gray-800">{tender.name}</span>
-                      <span className="text-sm text-gray-500">Expected: ₦{processedAmount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                  <div key={tender.id}>
+                    <div
+                      className="bg-white rounded-lg border-2 border-gray-200 p-3 cursor-pointer hover:border-cyan-400 transition-all"
+                      style={{ borderLeftColor: tender.buttonColor || "#06b6d4", borderLeftWidth: "4px" }}
+                      onClick={() => setActiveTenderKeypad(tender.id)}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-bold text-gray-800">{tender.name}</span>
+                        <span className="text-sm text-gray-500">Expected: ₦{processedAmount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={tenderCounts[tender.id] !== undefined ? tenderCounts[tender.id] : ""}
+                            readOnly
+                            placeholder="Tap to enter"
+                            className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none text-gray-700 bg-gray-50"
+                          />
+                        </div>
+                        <div className={`w-24 flex flex-col items-center justify-center rounded-lg text-sm font-bold ${
+                          !hasValue ? "bg-gray-100 text-gray-400" :
+                          variance === 0 ? "bg-green-100 text-green-700" :
+                          variance > 0 ? "bg-yellow-100 text-yellow-700" :
+                          "bg-red-100 text-red-700"
+                        }`}>
+                          {!hasValue ? "—" : (
+                            <>
+                              <span>{variance >= 0 ? "+" : ""}₦{variance.toFixed(2)}</span>
+                              <span className="text-xs">{variance === 0 ? "✓ OK" : variance > 0 ? "Over" : "Short"}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={tenderCounts[tender.id] !== undefined ? tenderCounts[tender.id] : ""}
-                          onChange={(e) => setTenderCounts(prev => ({ ...prev, [tender.id]: e.target.value }))}
-                          placeholder="Physical count"
-                          className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none focus:border-cyan-500 focus:ring-2 focus:ring-cyan-200"
+                    
+                    {/* Keypad appears below active tender */}
+                    {isActive && (
+                      <div className="mt-2 p-3 bg-gray-50 rounded-lg border-2 border-cyan-400">
+                        <NumKeypad
+                          onKeyPress={(value) => {
+                            setTenderCounts(prev => ({ ...prev, [tender.id]: value }));
+                          }}
+                          onClear={() => {
+                            setTenderCounts(prev => ({ ...prev, [tender.id]: "" }));
+                          }}
+                          value={tenderCounts[tender.id] || ""}
                           disabled={loading}
                         />
                       </div>
-                      <div className={`w-24 flex flex-col items-center justify-center rounded-lg text-sm font-bold ${
-                        !hasValue ? "bg-gray-100 text-gray-400" :
-                        variance === 0 ? "bg-green-100 text-green-700" :
-                        variance > 0 ? "bg-yellow-100 text-yellow-700" :
-                        "bg-red-100 text-red-700"
-                      }`}>
-                        {!hasValue ? "—" : (
-                          <>
-                            <span>{variance >= 0 ? "+" : ""}₦{variance.toFixed(2)}</span>
-                            <span className="text-xs">{variance === 0 ? "✓ OK" : variance > 0 ? "Over" : "Short"}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                    )}
                   </div>
                 );
               })}

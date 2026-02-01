@@ -46,11 +46,12 @@ const menuSections = [
     icon: faGear,
     items: [
       { label: 'Adjust Float', icon: faClock },
-      { label: 'Back Office', icon: faFileAlt },
       { label: 'Close Till', icon: faTimesCircle },
-      { label: 'No Sale', icon: faPiggyBank },
-      { label: 'Petty Cash', icon: faPiggyBank },
-      { label: 'Change Till Location', icon: faExchangeAlt },
+      // Hidden for now - showing only core till operations
+      // { label: 'Back Office', icon: faFileAlt, hidden: true },
+      // { label: 'No Sale', icon: faPiggyBank, hidden: true },
+      // { label: 'Petty Cash', icon: faPiggyBank, hidden: true },
+      // { label: 'Change Till Location', icon: faExchangeAlt, hidden: true },
     ],
   },
   {

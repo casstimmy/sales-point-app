@@ -65,7 +65,10 @@ export default async function handler(req, res) {
         // Match transactions in the till's transaction array
         {
           $match: {
-            _id: { $in: transactionIds }
+            _id: { $in: transactionIds },
+            // IMPORTANT: Only include actual sales transactions (amount > 0)
+            // This prevents open-till operations or void transactions from being counted
+            total: { $gt: 0 }
           }
         },
         // Add a debug stage to see what we're matching

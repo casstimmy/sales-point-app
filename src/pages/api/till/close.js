@@ -61,7 +61,10 @@ export default async function handler(req, res) {
     const tenderAggregation = await Transaction.aggregate([
       {
         $match: {
-          _id: { $in: till.transactions.map(id => new mongoose.Types.ObjectId(id)) }
+          _id: { $in: till.transactions.map(id => new mongoose.Types.ObjectId(id)) },
+          // IMPORTANT: Only include actual sales transactions (amount > 0)
+          // This prevents open-till operations or void transactions from being counted
+          total: { $gt: 0 }
         }
       },
       // Normalize both payment methods to a common format

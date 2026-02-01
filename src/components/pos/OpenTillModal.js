@@ -1,6 +1,7 @@
 // components/pos/OpenTillModal.js
 import { useState, useEffect } from "react";
 import { useStaff } from "../../context/StaffContext";
+import NumKeypad from "../common/NumKeypad";
 
 export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData = null, locationData = null }) {
   const contextStaff = useStaff();
@@ -215,22 +216,21 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
           </div>
         )}
 
-        {/* Opening Balance Input */}
+        {/* Opening Balance Input with Keypad */}
         <div className="mb-6">
           <label className="block text-gray-700 font-semibold mb-3 text-lg">
             Opening Balance (Cash in Till)
           </label>
-          <input
-            type="number"
-            step="0.01"
-            min="0"
+          
+          {/* Keypad */}
+          <NumKeypad 
             value={openingBalance}
-            onChange={(e) => setOpeningBalance(e.target.value)}
-            placeholder="0.00"
-            className="w-full border border-gray-300 rounded px-4 py-4 text-2xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onChange={setOpeningBalance}
+            placeholder="Amount in ₦"
             disabled={loading}
           />
-          <p className="text-base text-gray-500 mt-2">
+          
+          <p className="text-base text-gray-500 mt-3">
             Enter the amount of cash currently in the till
           </p>
         </div>

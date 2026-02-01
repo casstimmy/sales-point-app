@@ -177,7 +177,8 @@ export default async function handler(req, res) {
             currentTill.transactions.push(savedTransaction._id);
           }
           currentTill.totalSales = (currentTill.totalSales || 0) + total;
-          currentTill.transactionCount = (currentTill.transactionCount || 0) + 1;
+          // DO NOT manually increment transactionCount - it should always equal transactions.length
+          currentTill.transactionCount = currentTill.transactions.length;
           
           // Mark tenderBreakdown as modified so Mongoose saves it
           currentTill.markModified('tenderBreakdown');
@@ -193,6 +194,20 @@ export default async function handler(req, res) {
       }
     } else {
       console.warn(`⚠️ No tillId provided - transaction will not be linked to till`);
+    }
+
+    // Update product quantities after successful transaction save
+    try {
+      console.log('📦 Updating product quantities for items:', mappedItems);
+      await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/products/update-quantities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: mappedItems }),
+      });
+      console.log('✅ Product quantities updated');
+    } catch (quantityErr) {
+      console.warn('⚠️ Warning: Failed to update product quantities:', quantityErr.message);
+      // Don't fail the transaction if quantity update fails
     }
 
     return res.status(200).json({

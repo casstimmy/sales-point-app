@@ -101,7 +101,7 @@ export default async function handler(req, res) {
           tillId,
           {
             $addToSet: { transactions: transaction._id },
-            $inc: { transactionCount: 1 }
+            // NOTE: transactionCount will be recalculated from transactions.length, don't increment it here
           },
           { new: true }
         );
@@ -114,6 +114,25 @@ export default async function handler(req, res) {
       } catch (linkError) {
         console.error(`❌ Error linking synced transaction to till:`, linkError);
       }
+    }
+
+    // Update product quantities after successful transaction sync
+    try {
+      const mappedItems = items.map(item => ({
+        productId: item.productId || item.id,
+        name: item.name,
+        qty: item.quantity || item.qty,
+      }));
+      console.log('📦 Updating product quantities for synced items:', mappedItems);
+      await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/products/update-quantities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: mappedItems }),
+      });
+      console.log('✅ Product quantities updated from sync');
+    } catch (quantityErr) {
+      console.warn('⚠️ Warning: Failed to update product quantities from sync:', quantityErr.message);
+      // Don't fail the transaction if quantity update fails
     }
 
     return res.status(200).json({

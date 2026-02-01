@@ -150,7 +150,8 @@ export default async function handler(req, res) {
           
           till.transactions.push(savedTransaction._id);
           till.totalSales = (till.totalSales || 0) + total;
-          till.transactionCount = (till.transactionCount || 0) + 1;
+          // DO NOT manually increment transactionCount - it should always equal transactions.length
+          till.transactionCount = till.transactions.length;
           
           // Ensure tenderBreakdown is initialized
           if (!till.tenderBreakdown) {

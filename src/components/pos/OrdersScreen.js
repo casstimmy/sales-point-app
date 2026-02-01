@@ -18,8 +18,10 @@ import {
   faX,
   faChevronDown,
   faSync,
+  faUndo,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
+import { useStaff } from '../../context/StaffContext';
 import { getCompletedTransactions } from '../../lib/offlineSync';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
@@ -31,7 +33,15 @@ export default function OrdersScreen() {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [completedTransactions, setCompletedTransactions] = useState([]);
   const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundLoading, setRefundLoading] = useState(false);
+  const [refundError, setRefundError] = useState(null);
   const { isOnline, lastSyncTime, resumeOrder, orders } = useCart();
+  const { staff } = useStaff();
+
+  // Check if current staff has refund access (admin, manager, senior staff)
+  const canRefund = staff && ['admin', 'manager', 'senior staff'].includes(staff.role?.toLowerCase?.());
 
   // Fetch completed transactions from server (online) or IndexedDB (offline)
   const fetchCompletedTransactions = useCallback(async () => {
@@ -40,13 +50,24 @@ export default function OrdersScreen() {
       let completed = [];
 
       if (isOnline) {
-        // Online: Fetch from server API
+        // Online: Fetch from server API - filter by today's date
         try {
-          const response = await fetch('/api/transactions/completed');
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
+          const params = new URLSearchParams({
+            startDate: today.toISOString(),
+            endDate: tomorrow.toISOString(),
+            limit: 500,
+          });
+
+          const response = await fetch(`/api/transactions/completed?${params}`);
           if (response.ok) {
             const result = await response.json();
             completed = result.data || result || [];
-            console.log(`✅ Fetched ${completed.length} completed transactions from server`);
+            console.log(`✅ Fetched ${completed.length} completed transactions from server (today)`);
           } else {
             console.warn('Failed to fetch from server, falling back to IndexedDB');
             completed = await getCompletedTransactions();
@@ -56,9 +77,20 @@ export default function OrdersScreen() {
           completed = await getCompletedTransactions();
         }
       } else {
-        // Offline: Fetch from IndexedDB
+        // Offline: Fetch from IndexedDB filtered by today
         console.log('🔴 Offline mode - fetching from IndexedDB');
-        completed = await getCompletedTransactions();
+        let allCompleted = await getCompletedTransactions();
+        
+        // Filter for today's transactions
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        completed = allCompleted.filter(tx => {
+          const txDate = new Date(tx.createdAt);
+          return txDate >= today && txDate < tomorrow;
+        });
       }
 
       setCompletedTransactions(completed);
@@ -76,6 +108,57 @@ export default function OrdersScreen() {
       fetchCompletedTransactions();
     }
   }, [activeStatus, fetchCompletedTransactions, isOnline]);
+
+  // Handle refund request
+  const handleRefund = async (order, action) => {
+    if (!canRefund) {
+      alert('You do not have permission to refund transactions.');
+      return;
+    }
+
+    setRefundLoading(true);
+    setRefundError(null);
+
+    try {
+      const payload = {
+        transactionId: order.id,
+        action: action, // 'recall' (to cart, no save) or 'process' (mark as edited/deleted)
+        refundReason: '',
+        staffId: staff._id,
+      };
+
+      if (action === 'process') {
+        // Ask user if they want to process or discard
+        const response = await fetch('/api/transactions/refund', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.message || 'Failed to process refund');
+        }
+
+        const data = await response.json();
+        alert(`Transaction marked as ${data.refundStatus}`);
+        
+        // Refresh completed transactions
+        await fetchCompletedTransactions();
+      } else if (action === 'recall') {
+        // Recall to cart without saving as refund
+        resumeOrder(order.id);
+        alert('Transaction recalled to cart. Make edits and complete again to save as edited.');
+      }
+
+      setShowRefundModal(false);
+      setSelectedOrder(null);
+    } catch (err) {
+      setRefundError(err.message);
+    } finally {
+      setRefundLoading(false);
+    }
+  };
 
   // Filter orders by status
   useEffect(() => {
@@ -233,19 +316,37 @@ export default function OrdersScreen() {
               <th className="text-left p-3 text-gray-700">STAFF MEMBER</th>
               <th className="text-left p-3 text-gray-700">TENDER TYPE</th>
               <th className="text-right p-3 text-gray-700">TOTAL</th>
+              {activeStatus === 'COMPLETE' && canRefund && <th className="text-center p-3 text-gray-700">ACTION</th>}
             </tr>
           </thead>
           <tbody>
             {filteredOrders.map(order => (
               <tr
                 key={order.id}
-                onClick={() => handleOrderSelect(order)}
-                className="border-b border-gray-200 hover:bg-blue-50 cursor-pointer transition-colors touch-manipulation"
+                className="border-b border-gray-200 hover:bg-blue-50 transition-colors touch-manipulation"
               >
-                <td className="p-3 text-gray-800 font-medium">{order.time}</td>
-                <td className="p-3 text-gray-800">{order.customer}</td>
-                <td className="p-3 text-gray-800">{order.staffMember}</td>
-                <td className="p-3 text-gray-800 uppercase text-xs font-semibold">
+                <td 
+                  className="p-3 text-gray-800 font-medium cursor-pointer"
+                  onClick={() => handleOrderSelect(order)}
+                >
+                  {order.time}
+                </td>
+                <td 
+                  className="p-3 text-gray-800 cursor-pointer"
+                  onClick={() => handleOrderSelect(order)}
+                >
+                  {order.customer}
+                </td>
+                <td 
+                  className="p-3 text-gray-800 cursor-pointer"
+                  onClick={() => handleOrderSelect(order)}
+                >
+                  {order.staffMember}
+                </td>
+                <td 
+                  className="p-3 text-gray-800 uppercase text-xs font-semibold cursor-pointer"
+                  onClick={() => handleOrderSelect(order)}
+                >
                   {order.tenderType ? (
                     <span
                       className={`px-2 py-1 rounded ${
@@ -262,7 +363,27 @@ export default function OrdersScreen() {
                     </span>
                   )}
                 </td>
-                <td className="p-3 text-gray-800 font-bold text-right">₦{order.total.toLocaleString()}</td>
+                <td 
+                  className="p-3 text-gray-800 font-bold text-right cursor-pointer"
+                  onClick={() => handleOrderSelect(order)}
+                >
+                  ₦{order.total.toLocaleString()}
+                </td>
+                {activeStatus === 'COMPLETE' && canRefund && (
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedOrder(order);
+                        setShowRefundModal(true);
+                      }}
+                      className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-semibold flex items-center gap-1 mx-auto transition-colors"
+                    >
+                      <FontAwesomeIcon icon={faUndo} className="w-3 h-3" />
+                      Refund
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -277,6 +398,71 @@ export default function OrdersScreen() {
           </div>
         )}
       </div>
+
+      {/* Refund Modal */}
+      {showRefundModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-6 py-4">
+              <h3 className="text-lg font-bold">Refund Transaction</h3>
+              <p className="text-orange-100 text-sm">Order ID: {selectedOrder.id?.toString().slice(-8)}</p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600">Total Amount</p>
+                <p className="text-2xl font-bold text-gray-800">₦{selectedOrder.total.toLocaleString()}</p>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  <strong>Recall to Cart:</strong> Make edits and reprocess (saved as "edited")
+                </p>
+              </div>
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800">
+                  <strong>Process Refund:</strong> Mark transaction as "deleted" and void
+                </p>
+              </div>
+
+              {refundError && (
+                <div className="bg-red-50 border border-red-300 rounded-lg p-3">
+                  <p className="text-sm text-red-700">{refundError}</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => handleRefund(selectedOrder, 'recall')}
+                  disabled={refundLoading}
+                  className="flex-1 px-4 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  Recall to Cart
+                </button>
+                <button
+                  onClick={() => handleRefund(selectedOrder, 'process')}
+                  disabled={refundLoading}
+                  className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {refundLoading ? 'Processing...' : 'Process Refund'}
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  setShowRefundModal(false);
+                  setSelectedOrder(null);
+                  setRefundError(null);
+                }}
+                disabled={refundLoading}
+                className="w-full px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold rounded-lg transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
