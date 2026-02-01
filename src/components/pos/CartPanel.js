@@ -229,8 +229,8 @@ export default function CartPanel() {
             await saveTransactionOffline(transaction);
           } else {
             console.log("✅ Transaction sent directly to server");
-            // Still save to IndexedDB as backup
-            await saveTransactionOffline(transaction);
+            // Do NOT save to IndexedDB when already saved to server - this causes double counting!
+            // The transaction is already in the database, no need for offline backup
           }
         } catch (err) {
           console.warn("Error sending transaction, queuing for sync:", err);

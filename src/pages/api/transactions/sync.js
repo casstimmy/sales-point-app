@@ -51,6 +51,28 @@ export default async function handler(req, res) {
       });
     }
 
+    // DUPLICATE PREVENTION: Check if this transaction already exists
+    // Based on createdAt timestamp, total, tillId, and staffName
+    if (createdAt && tillId) {
+      const mongoose = require('mongoose');
+      const existingTransaction = await Transaction.findOne({
+        createdAt: new Date(createdAt),
+        total: total,
+        tillId: new mongoose.Types.ObjectId(tillId),
+        staffName: staffName
+      });
+      
+      if (existingTransaction) {
+        console.log(`⚠️ Duplicate sync transaction detected - already exists as ${existingTransaction._id}`);
+        return res.status(200).json({
+          success: true,
+          message: 'Transaction already exists (duplicate prevented)',
+          transactionId: existingTransaction._id,
+          duplicate: true
+        });
+      }
+    }
+
     // Create transaction record - support both payment methods
     const transaction = new Transaction({
       externalId: id,

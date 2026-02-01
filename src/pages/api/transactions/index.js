@@ -79,6 +79,27 @@ export default async function handler(req, res) {
       });
     }
 
+    // DUPLICATE PREVENTION: Check if this transaction already exists
+    // Based on createdAt timestamp, total, tillId, and staffName
+    if (createdAt && tillId) {
+      const existingTransaction = await Transaction.findOne({
+        createdAt: new Date(createdAt),
+        total: total,
+        tillId: new (require('mongoose')).Types.ObjectId(tillId),
+        staffName: staffName
+      });
+      
+      if (existingTransaction) {
+        console.log(`⚠️ Duplicate transaction detected - already exists as ${existingTransaction._id}`);
+        return res.status(200).json({
+          success: true,
+          message: 'Transaction already exists (duplicate prevented)',
+          transactionId: existingTransaction._id,
+          duplicate: true
+        });
+      }
+    }
+
     // Map items to schema format (qty, salePriceIncTax)
     const mappedItems = items.map(item => ({
       productId: item.productId,
