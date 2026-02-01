@@ -416,12 +416,12 @@ export default function OrdersScreen() {
 
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-sm text-blue-800">
-                  <strong>Recall to Cart:</strong> Make edits and reprocess (saved as "edited")
+                  <strong>Recall to Cart:</strong> Make edits and reprocess (saved as &quot;edited&quot;)
                 </p>
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-800">
-                  <strong>Process Refund:</strong> Mark transaction as "deleted" and void
+                  <strong>Process Refund:</strong> Mark transaction as &quot;deleted&quot; and void
                 </p>
               </div>
 
