@@ -33,6 +33,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useCart } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
+import { useErrorHandler } from "../../hooks/useErrorHandler";
 import {
   saveTransactionOffline,
   getOnlineStatus,
@@ -56,6 +57,7 @@ export default function CartPanel() {
   const [showAdjustFloatModal, setShowAdjustFloatModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState({});
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
+  const { handleError, forceLoginRedirect } = useErrorHandler();
   const {
     activeCart,
     updateQuantity,
@@ -273,7 +275,17 @@ export default function CartPanel() {
       }
     } catch (error) {
       console.error("❌ Error processing payment:", error);
-      alert("Error saving transaction. Please try again.");
+      // Use centralized error handler - will redirect to login if critical error
+      const redirected = handleError(error, {
+        context: 'CartPanel - handlePaymentConfirm',
+        showAlert: true,
+        alertMessage: 'Error saving transaction. Please try again.'
+      });
+      
+      // If not redirected, just show the error (already handled above)
+      if (!redirected) {
+        // Error was shown, no additional action needed
+      }
     }
   };
 

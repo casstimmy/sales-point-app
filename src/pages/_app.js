@@ -3,6 +3,7 @@ import Head from "next/head";
 import { useEffect } from "react";
 import Layout from "@/src/components/layout/Layout";
 import { StaffProvider } from "@/src/context/StaffContext";
+import POSErrorBoundary from "@/src/components/common/POSErrorBoundary";
 
 export default function App({ Component, pageProps }) {
   // Register service worker for offline support
@@ -47,9 +48,11 @@ export default function App({ Component, pageProps }) {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Layout>
-        <Component {...pageProps} />
-      </Layout>
+      <POSErrorBoundary>
+        <Layout>
+          <Component {...pageProps} />
+        </Layout>
+      </POSErrorBoundary>
     </StaffProvider>
   );
 }

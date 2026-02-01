@@ -15,10 +15,12 @@ import TabNavigation from "../pos/TabNavigation";
 import Sidebar from "../pos/Sidebar";
 import CartPanel from "../pos/CartPanel";
 import { CartProvider } from "../../context/CartContext";
+import { useErrorHandler } from "../../hooks/useErrorHandler";
 
 export default function POSLayout({ children }) {
   const router = useRouter();
   const { staff, logout } = useStaff();
+  const { handleApiError, forceLoginRedirect } = useErrorHandler();
   const [storeData, setStoreData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("MENU");
@@ -38,10 +40,27 @@ export default function POSLayout({ children }) {
     const fetchStoreData = async () => {
       try {
         const response = await fetch("/api/store/init");
-        if (response.ok) {
-          const data = await response.json();
-          setStoreData(data);
+        
+        // Check for auth errors
+        const { ok: isOk, error } = await handleApiError(response, {
+          context: 'POSLayout - fetchStoreData',
+          showAlert: false
+        });
+        
+        if (!isOk) {
+          // If auth error, handleApiError will trigger logout
+          // Use defaults for other errors
+          setStoreData({
+            name: "Store Name",
+            tillId: "Till_001",
+            location: "Store Location",
+          });
+          setLoading(false);
+          return;
         }
+        
+        const data = await response.json();
+        setStoreData(data);
       } catch (err) {
         console.error("Failed to fetch store data:", err);
         // Use defaults if API fails
@@ -56,7 +75,7 @@ export default function POSLayout({ children }) {
     };
 
     fetchStoreData();
-  }, []);
+  }, [handleApiError]);
 
   const handleLogout = () => {
     localStorage.removeItem('staffMember');
