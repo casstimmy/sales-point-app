@@ -39,6 +39,7 @@ const TransactionSchema = new mongoose.Schema({
   
   // References
   staff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
+  staffName: String, // Staff name for quick lookup (denormalized)
   location: String, // Store location as string (location name or 'online')
   
   // Device & Table info

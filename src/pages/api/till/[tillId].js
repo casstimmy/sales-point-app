@@ -151,10 +151,28 @@ export default async function handler(req, res) {
       console.log(`   Fallback breakdown:`, tenderBreakdownForResponse);
     }
 
+    // Calculate totalSales from the tender breakdown (sum of all tender amounts)
+    // This ensures totalSales matches the actual transaction data, not just stored value
+    const calculatedTotalSales = Object.values(tenderBreakdownForResponse).reduce((sum, amount) => sum + (amount || 0), 0);
+    
+    // Also get accurate transaction count from the transactions array
+    const actualTransactionCount = till.transactions?.length || 0;
+    
+    console.log(`\n📊 Calculated values from transactions:`);
+    console.log(`   Total Sales (calculated): ₦${calculatedTotalSales.toLocaleString('en-NG')}`);
+    console.log(`   Total Sales (stored): ₦${till.totalSales || 0}`);
+    console.log(`   Transaction Count (actual): ${actualTransactionCount}`);
+    console.log(`   Transaction Count (stored): ${till.transactionCount || 0}`);
+
     const tillResponse = till.toObject();
     tillResponse.tenderBreakdown = tenderBreakdownForResponse;
+    // Use calculated values instead of stored values for accuracy
+    tillResponse.totalSales = calculatedTotalSales > 0 ? calculatedTotalSales : (till.totalSales || 0);
+    tillResponse.transactionCount = actualTransactionCount > 0 ? actualTransactionCount : (till.transactionCount || 0);
 
-    console.log(`\n✅ Returning till with tenderBreakdown containing ${Object.keys(tenderBreakdownForResponse).length} tender types\n`);
+    console.log(`\n✅ Returning till with tenderBreakdown containing ${Object.keys(tenderBreakdownForResponse).length} tender types`);
+    console.log(`   Final totalSales: ₦${tillResponse.totalSales}`);
+    console.log(`   Final transactionCount: ${tillResponse.transactionCount}\n`);
 
     return res.status(200).json({
       message: "Till found",

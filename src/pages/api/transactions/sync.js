@@ -59,7 +59,7 @@ export default async function handler(req, res) {
         createdAt: new Date(createdAt),
         total: total,
         tillId: new mongoose.Types.ObjectId(tillId),
-        staffName: staffName
+        staffName: staffName || 'Unknown'
       });
       
       if (existingTransaction) {

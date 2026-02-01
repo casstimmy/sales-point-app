@@ -78,14 +78,14 @@ export default async function handler(req, res) {
     }
 
     // DUPLICATE PREVENTION: Check if this transaction already exists
-    // Based on createdAt timestamp, total, tillId, and staffName
+    // Based on createdAt timestamp, total, tillId, and location
     if (createdAt && tillId) {
       const mongoose = require('mongoose');
       const existingTransaction = await Transaction.findOne({
         createdAt: new Date(createdAt),
         total: total,
         tillId: new mongoose.Types.ObjectId(tillId),
-        staffName: staffName
+        location: location
       });
       
       if (existingTransaction) {
@@ -121,6 +121,7 @@ export default async function handler(req, res) {
       items: mappedItems,
       
       staff: staffId || null,
+      staffName: staffName || 'Unknown', // Store staff name for quick lookup
       location: location || 'Default Location',
       device: device || 'web',
       status: status || 'completed',
@@ -144,17 +145,45 @@ export default async function handler(req, res) {
     if (tillId) {
       try {
         console.log(`🔗 Linking transaction to till: ${tillId}`);
-        const updateResult = await Till.findByIdAndUpdate(
-          tillId,
-          {
-            $addToSet: { transactions: savedTransaction._id }, // Add to transactions array (prevents duplicates)
-            $inc: { transactionCount: 1 } // Increment transaction count
-          },
-          { new: true }
-        );
         
-        if (updateResult) {
-          console.log(`✅ Transaction linked to till - Till now has ${updateResult.transactions.length} transactions`);
+        // First, get the current till to update tenderBreakdown
+        const currentTill = await Till.findById(tillId);
+        
+        if (currentTill) {
+          // Initialize tenderBreakdown if needed
+          if (!currentTill.tenderBreakdown) {
+            currentTill.tenderBreakdown = new Map();
+          }
+          
+          // Update tender breakdown based on payment method
+          if (hasMultiplePayments) {
+            // Handle split payments - add amount to each tender
+            console.log(`   Processing ${tenderPayments.length} split payments for tender breakdown`);
+            tenderPayments.forEach(payment => {
+              const currentAmount = currentTill.tenderBreakdown.get(payment.tenderName) || 0;
+              currentTill.tenderBreakdown.set(payment.tenderName, currentAmount + payment.amount);
+              console.log(`   💳 ${payment.tenderName}: +₦${payment.amount} (now ₦${currentAmount + payment.amount})`);
+            });
+          } else if (hasSingleTender) {
+            // Handle single tender (legacy)
+            const tenderKey = tenderType || 'CASH';
+            const currentAmount = currentTill.tenderBreakdown.get(tenderKey) || 0;
+            currentTill.tenderBreakdown.set(tenderKey, currentAmount + total);
+            console.log(`   💳 ${tenderKey}: +₦${total} (now ₦${currentAmount + total})`);
+          }
+          
+          // Add transaction to array and update counts
+          if (!currentTill.transactions.includes(savedTransaction._id)) {
+            currentTill.transactions.push(savedTransaction._id);
+          }
+          currentTill.totalSales = (currentTill.totalSales || 0) + total;
+          currentTill.transactionCount = (currentTill.transactionCount || 0) + 1;
+          
+          // Mark tenderBreakdown as modified so Mongoose saves it
+          currentTill.markModified('tenderBreakdown');
+          
+          await currentTill.save();
+          console.log(`✅ Till updated - Total sales: ₦${currentTill.totalSales}, Transactions: ${currentTill.transactions.length}`);
         } else {
           console.warn(`⚠️ Till ${tillId} not found - transaction not linked`);
         }

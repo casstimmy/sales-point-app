@@ -80,13 +80,13 @@ export default async function handler(req, res) {
     }
 
     // DUPLICATE PREVENTION: Check if this transaction already exists
-    // Based on createdAt timestamp, total, tillId, and staffName
+    // Based on createdAt timestamp, total, tillId, and location
     if (createdAt && tillId) {
       const existingTransaction = await Transaction.findOne({
         createdAt: new Date(createdAt),
         total: total,
         tillId: new (require('mongoose')).Types.ObjectId(tillId),
-        staffName: staffName
+        location: location
       });
       
       if (existingTransaction) {
@@ -117,6 +117,7 @@ export default async function handler(req, res) {
       amountPaid: amountPaid || total,
       total: total,
       staff: staffId || null,
+      staffName: staffName || 'Unknown', // Store staff name for quick lookup
       location: location,
       device: device,
       tableName: tableName,
