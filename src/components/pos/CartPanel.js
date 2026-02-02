@@ -182,7 +182,7 @@ export default function CartPanel() {
         tenderType: paymentDetails.tenderType, // Primary tender type (legacy, for backwards compatibility)
         tenderPayments: paymentDetails.tenderPayments, // New: split payments array [{tenderId, tenderName, amount}]
         tenders: paymentDetails.tenders, // All tender breakdowns (for display)
-        staffName: staff?.name || "Unknown Staff",
+        staffName: staff?.name || staff?.fullName || "POS Staff",
         staffId: staff?._id, // Include staff ObjectId
         location: location?.name || "Default Location", // Use store location from login
         device: "POS",

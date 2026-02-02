@@ -184,7 +184,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+      <div className="bg-white rounded-lg shadow-lg p-5 w-full max-w-md">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-3xl font-bold text-gray-800">Open Till</h2>
           {!isOnline && (
@@ -237,7 +237,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-4 rounded mb-4 flex items-start gap-2">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded mb-3 flex items-start gap-2 text-sm">
             <span className="text-2xl mt-0.5">⚠️</span>
             <div>
               <p className="font-semibold text-base">{error}</p>
@@ -255,14 +255,14 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 px-4 py-4 border-2 border-gray-300 rounded font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-lg min-h-14"
+            className="flex-1 px-3 py-2 border-2 border-gray-300 rounded font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-base min-h-10"
           >
             Cancel
           </button>
           <button
             onClick={handleOpenTill}
             disabled={loading || (!openingBalance && !error?.includes("already open"))}
-            className="flex-1 px-4 py-4 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:opacity-50 text-lg min-h-14"
+            className="flex-1 px-3 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:opacity-50 text-base min-h-10"
           >
             {loading ? "Processing..." : error?.includes("already open") ? "Continue" : "Open Till"}
           </button>

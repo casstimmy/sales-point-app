@@ -22,7 +22,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
-import { getCompletedTransactions } from '../../lib/offlineSync';
+import { getCompletedTransactions, cacheCompletedTransactions, getCachedCompletedTransactions } from '../../lib/offlineSync';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
@@ -49,6 +49,16 @@ export default function OrdersScreen() {
     try {
       let completed = [];
 
+      // Try to use cached data first (much faster)
+      const cached = getCachedCompletedTransactions();
+      if (cached.length > 0) {
+        completed = cached;
+        console.log(`⚡ Using ${cached.length} cached transactions`);
+        setCompletedTransactions(completed);
+        setIsLoadingCompleted(false);
+        return; // Use cache while fetching fresh data
+      }
+
       if (isOnline) {
         // Online: Fetch from server API - filter by today's date
         try {
@@ -68,6 +78,8 @@ export default function OrdersScreen() {
             const result = await response.json();
             completed = result.data || result || [];
             console.log(`✅ Fetched ${completed.length} completed transactions from server (today)`);
+            // Cache the fresh data
+            cacheCompletedTransactions(completed);
           } else {
             console.warn('Failed to fetch from server, falling back to IndexedDB');
             completed = await getCompletedTransactions();

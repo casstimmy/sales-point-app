@@ -8,6 +8,7 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
+import Product from '@/src/models/Product';
 
 export default async function handler(req, res) {
   // Support GET for health check and POST for creating transactions
@@ -196,12 +197,18 @@ export default async function handler(req, res) {
 
     // Update product quantities after successful transaction save
     try {
-      await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/products/update-quantities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: mappedItems }),
-      });
-      console.log('✅ Product quantities updated');
+      console.log('📦 Updating product quantities for items:', mappedItems);
+      for (const item of mappedItems) {
+        if (!item.productId || !item.qty) continue;
+        const productResult = await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { quantity: -item.qty } },
+          { new: true }
+        );
+        if (productResult) {
+          console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+        }
+      }
     } catch (updateErr) {
       console.warn('⚠️ Failed to update product quantities:', updateErr.message);
       // Don't fail the transaction if quantity update fails

@@ -9,6 +9,7 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
+import Product from '@/src/models/Product';
 
 export default async function handler(req, res) {
   // Only POST method allowed
@@ -45,6 +46,9 @@ export default async function handler(req, res) {
       tillId,
       sessionId
     } = req.body;
+    
+    // Normalize staff name - don't leave it as 'Unknown'
+    const finalStaffName = staffName && staffName !== 'Unknown' ? staffName : 'POS Staff';
     
     console.log(`💰 Processing direct transaction - amount: ${total}, till: ${tillId}`);
 
@@ -121,7 +125,7 @@ export default async function handler(req, res) {
       items: mappedItems,
       
       staff: staffId || null,
-      staffName: staffName || 'Unknown', // Store staff name for quick lookup
+      staffName: finalStaffName, // Use normalized staff name
       location: location || 'Default Location',
       device: device || 'web',
       status: status || 'completed',
@@ -199,12 +203,17 @@ export default async function handler(req, res) {
     // Update product quantities after successful transaction save
     try {
       console.log('📦 Updating product quantities for items:', mappedItems);
-      await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/products/update-quantities`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: mappedItems }),
-      });
-      console.log('✅ Product quantities updated');
+      for (const item of mappedItems) {
+        if (!item.productId || !item.qty) continue;
+        const productResult = await Product.findByIdAndUpdate(
+          item.productId,
+          { $inc: { quantity: -item.qty } },
+          { new: true }
+        );
+        if (productResult) {
+          console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+        }
+      }
     } catch (quantityErr) {
       console.warn('⚠️ Warning: Failed to update product quantities:', quantityErr.message);
       // Don't fail the transaction if quantity update fails

@@ -456,3 +456,48 @@ export async function getCompletedTransactions() {
     return [];
   }
 }
+
+/**
+ * Cache completed transactions to localStorage for fast loading
+ * @param {Array} transactions - Array of transactions to cache
+ */
+export async function cacheCompletedTransactions(transactions) {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const cacheKey = `completed_transactions_${today}`;
+    
+    // Only cache today's transactions
+    localStorage.setItem(cacheKey, JSON.stringify(transactions));
+    localStorage.setItem('completed_transactions_cache_time', new Date().getTime().toString());
+    
+    console.log(`✅ Cached ${transactions.length} completed transactions for ${today}`);
+  } catch (err) {
+    console.warn('⚠️ Failed to cache completed transactions:', err);
+  }
+}
+
+/**
+ * Get cached completed transactions
+ * @returns {Array} Cached transactions if available and fresh, empty array otherwise
+ */
+export function getCachedCompletedTransactions() {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const cacheKey = `completed_transactions_${today}`;
+    const cacheTime = parseInt(localStorage.getItem('completed_transactions_cache_time') || '0');
+    const now = new Date().getTime();
+    
+    // Cache is valid if less than 5 minutes old
+    if (now - cacheTime < 5 * 60 * 1000) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const transactions = JSON.parse(cached);
+        console.log(`✅ Using cached ${transactions.length} completed transactions`);
+        return transactions;
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ Failed to retrieve cached transactions:', err);
+  }
+  return [];
+}
