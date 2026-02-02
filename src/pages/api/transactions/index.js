@@ -40,7 +40,7 @@ export default async function handler(req, res) {
       tenderPayments,       // New: array of split payments [{tenderId, tenderName, amount}]
       amountPaid,
       change,
-      staffName = 'Unknown',
+      staffName: rawStaffName = 'Unknown',
       staffId,
       discount = 0,
       location = 'Default Location',
@@ -51,6 +51,9 @@ export default async function handler(req, res) {
       status = 'completed',
       tillId // Till session ID
     } = req.body;
+    
+    // Normalize staff name - never use 'Unknown' if we can avoid it
+    const staffName = rawStaffName && rawStaffName !== 'Unknown' ? rawStaffName : 'POS Staff';
     
     // Determine which payment method is being used
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;

@@ -83,7 +83,7 @@ export default async function handler(req, res) {
       total,
       ...(hasSingleTender && { tenderType }),
       ...(hasMultiplePayments && { tenderPayments }),
-      staffName: staffName || 'Unknown',
+      staffName: staffName && staffName !== 'Unknown' ? staffName : 'POS Staff',
       ...(tillId && { tillId }),
       createdAt: createdAt ? new Date(createdAt) : new Date(),
       completedAt: completedAt ? new Date(completedAt) : new Date(),
@@ -102,13 +102,16 @@ export default async function handler(req, res) {
           tillId,
           {
             $addToSet: { transactions: transaction._id },
-            // NOTE: transactionCount will be recalculated from transactions.length, don't increment it here
+            $inc: { totalSales: total || 0 },
           },
           { new: true }
         );
         
         if (updateResult) {
-          console.log(`✅ Synced transaction linked to till - Till now has ${updateResult.transactions.length} transactions`);
+          // Update transaction count based on actual array length
+          updateResult.transactionCount = updateResult.transactions.length;
+          await updateResult.save();
+          console.log(`✅ Synced transaction linked to till - Till now has ${updateResult.transactions.length} transactions, total sales: ${updateResult.totalSales}`);
         } else {
           console.warn(`⚠️ Till ${tillId} not found - synced transaction not linked`);
         }

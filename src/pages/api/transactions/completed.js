@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     const { 
       staffId,
       location,
+      tillId,
       startDate,
       endDate,
       limit = 100,
@@ -42,6 +43,9 @@ export default async function handler(req, res) {
     }
     if (location) {
       filters.location = location;
+    }
+    if (tillId) {
+      filters.tillId = tillId;
     }
 
     // Date range filter
@@ -79,6 +83,7 @@ export default async function handler(req, res) {
       customerName: tx.customerName || 'Walk-in',
       staffName: tx.staffName || 'Unknown',
       staffId: tx.staff?.toString() || tx.staffId,
+      tillId: tx.tillId?.toString() || tx.tillId,
       location: tx.location || 'Default Location',
       tenderType: tx.tenderType, // Legacy single tender
       tenderPayments: tx.tenderPayments, // New split payments

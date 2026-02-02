@@ -40,7 +40,7 @@ export default function OrdersScreen() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
   const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
-  const { staff } = useStaff();
+  const { staff, till } = useStaff();
 
   // Check if current staff has refund access (admin, manager, senior staff)
   const canRefund = staff && ['admin', 'manager', 'senior staff'].includes(staff.role?.toLowerCase?.());
@@ -71,6 +71,10 @@ export default function OrdersScreen() {
             endDate: tomorrow.toISOString(),
             limit: 500,
           });
+          // Filter by current till session if available
+          if (till?._id) {
+            params.append('tillId', till._id);
+          }
 
           const response = await fetch(`/api/transactions/completed?${params}`);
           if (response.ok) {
@@ -88,7 +92,7 @@ export default function OrdersScreen() {
           completed = await getCompletedTransactions();
         }
       } else {
-        // Offline: Fetch from IndexedDB filtered by today
+        // Offline: Fetch from IndexedDB filtered by today and current till
         console.log('🔴 Offline mode - fetching from IndexedDB');
         let allCompleted = await getCompletedTransactions();
         
@@ -100,7 +104,10 @@ export default function OrdersScreen() {
         
         completed = allCompleted.filter(tx => {
           const txDate = new Date(tx.createdAt);
-          return txDate >= today && txDate < tomorrow;
+          const isToday = txDate >= today && txDate < tomorrow;
+          // Also filter by tillId if available
+          const matchesTill = till?._id ? (tx.tillId === till._id || tx.tillId?.toString() === till._id) : true;
+          return isToday && matchesTill;
         });
       }
 
@@ -111,7 +118,7 @@ export default function OrdersScreen() {
     } finally {
       setIsLoadingCompleted(false);
     }
-  }, [isOnline]);
+  }, [isOnline, till]);
 
   // Load completed transactions on mount and when switching to COMPLETE tab or online status changes
   useEffect(() => {
@@ -453,25 +460,25 @@ export default function OrdersScreen() {
       {showDetailPanel && detailOrder && (
         <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowDetailPanel(false)}>
           <div 
-            className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col"
+            className="absolute right-0 top-0 h-full w-full max-w-xs bg-white shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-3 py-2 flex items-center justify-between flex-shrink-0">
               <div>
-                <h3 className="text-base font-bold">Transaction Details</h3>
+                <h3 className="text-sm font-bold">Transaction Details</h3>
                 <p className="text-blue-100 text-xs">{detailOrder.time}</p>
               </div>
               <button
                 onClick={() => setShowDetailPanel(false)}
                 className="p-1 hover:bg-white/20 rounded transition-colors"
               >
-                <FontAwesomeIcon icon={faX} className="w-4 h-4" />
+                <FontAwesomeIcon icon={faX} className="w-3 h-3" />
               </button>
             </div>
 
             {/* Transaction Info */}
-            <div className="p-3 bg-gray-50 border-b border-gray-200 space-y-2 flex-shrink-0">
+            <div className="p-2 bg-gray-50 border-b border-gray-200 space-y-1 flex-shrink-0">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-500">Order ID</span>
                 <span className="font-medium text-gray-800">{detailOrder.id?.toString().slice(-8)}</span>
@@ -491,19 +498,19 @@ export default function OrdersScreen() {
             </div>
 
             {/* Items List */}
-            <div className="flex-1 overflow-y-auto p-3">
-              <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Items ({detailOrder.items?.length || 0})</h4>
-              <div className="space-y-2">
+            <div className="flex-1 overflow-y-auto p-2">
+              <h4 className="text-xs font-bold text-gray-700 uppercase mb-1">Items ({detailOrder.items?.length || 0})</h4>
+              <div className="space-y-1">
                 {detailOrder.items && detailOrder.items.map((item, idx) => (
-                  <div key={idx} className="bg-white border border-gray-200 rounded p-2 flex justify-between items-center">
+                  <div key={idx} className="bg-white border border-gray-200 rounded p-1.5 flex justify-between items-center">
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                      <p className="text-xs font-medium text-gray-800">{item.name}</p>
                       <p className="text-xs text-gray-500">
-                        Qty: {item.qty || item.quantity} × ₦{(item.salePriceIncTax || item.price || 0).toLocaleString()}
+                        {item.qty || item.quantity} × ₦{(item.salePriceIncTax || item.price || 0).toLocaleString()}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-gray-800">
+                      <p className="text-xs font-bold text-gray-800">
                         ₦{((item.qty || item.quantity || 1) * (item.salePriceIncTax || item.price || 0)).toLocaleString()}
                       </p>
                     </div>
@@ -513,7 +520,7 @@ export default function OrdersScreen() {
             </div>
 
             {/* Totals */}
-            <div className="p-3 bg-gray-100 border-t border-gray-200 space-y-1 flex-shrink-0">
+            <div className="p-2 bg-gray-100 border-t border-gray-200 space-y-0.5 flex-shrink-0">
               <div className="flex justify-between text-xs text-gray-600">
                 <span>Subtotal</span>
                 <span>₦{(detailOrder.subtotal || detailOrder.total || 0).toLocaleString()}</span>
@@ -530,13 +537,13 @@ export default function OrdersScreen() {
                   <span>₦{detailOrder.tax.toLocaleString()}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm font-bold text-gray-800 pt-1 border-t border-gray-300">
+              <div className="flex justify-between text-xs font-bold text-gray-800 pt-1 border-t border-gray-300">
                 <span>Total</span>
                 <span>₦{(detailOrder.total || 0).toLocaleString()}</span>
               </div>
               {detailOrder.tenderPayments && detailOrder.tenderPayments.length > 1 && (
-                <div className="pt-2 mt-2 border-t border-gray-300">
-                  <p className="text-xs font-bold text-gray-700 mb-1">Split Payment Breakdown:</p>
+                <div className="pt-1 mt-1 border-t border-gray-300">
+                  <p className="text-xs font-bold text-gray-700 mb-0.5">Split Payment:</p>
                   {detailOrder.tenderPayments.map((tp, idx) => (
                     <div key={idx} className="flex justify-between text-xs text-gray-600">
                       <span>{tp.tenderName}</span>
@@ -548,7 +555,7 @@ export default function OrdersScreen() {
             </div>
 
             {/* Actions */}
-            <div className="p-3 bg-white border-t border-gray-200 flex gap-2 flex-shrink-0">
+            <div className="p-2 bg-white border-t border-gray-200 flex gap-1.5 flex-shrink-0">
               {canRefund && (
                 <button
                   onClick={() => {
@@ -556,15 +563,15 @@ export default function OrdersScreen() {
                     setSelectedOrder(detailOrder);
                     setShowRefundModal(true);
                   }}
-                  className="flex-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-bold transition-colors"
+                  className="flex-1 px-2 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-semibold transition-colors"
                 >
-                  <FontAwesomeIcon icon={faUndo} className="mr-1" />
+                  <FontAwesomeIcon icon={faUndo} className="mr-1 w-3 h-3" />
                   Refund
                 </button>
               )}
               <button
                 onClick={() => setShowDetailPanel(false)}
-                className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-xs font-bold transition-colors"
+                className="flex-1 px-2 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-xs font-semibold transition-colors"
               >
                 Close
               </button>
