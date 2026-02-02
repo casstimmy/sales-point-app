@@ -37,7 +37,7 @@ export default function OrdersScreen() {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
-  const { isOnline, lastSyncTime, resumeOrder, orders } = useCart();
+  const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
   const { staff } = useStaff();
 
   // Check if current staff has refund access (admin, manager, senior staff)
@@ -52,11 +52,8 @@ export default function OrdersScreen() {
       // Try to use cached data first (much faster)
       const cached = getCachedCompletedTransactions();
       if (cached.length > 0) {
-        completed = cached;
         console.log(`⚡ Using ${cached.length} cached transactions`);
-        setCompletedTransactions(completed);
-        setIsLoadingCompleted(false);
-        return; // Use cache while fetching fresh data
+        setCompletedTransactions(cached);
       }
 
       if (isOnline) {
@@ -121,6 +118,18 @@ export default function OrdersScreen() {
     }
   }, [activeStatus, fetchCompletedTransactions, isOnline]);
 
+  // Refresh completed transactions on external updates
+  useEffect(() => {
+    const handleCompletedUpdate = () => {
+      if (activeStatus === 'COMPLETE') {
+        fetchCompletedTransactions();
+      }
+    };
+
+    window.addEventListener('transactions:completed', handleCompletedUpdate);
+    return () => window.removeEventListener('transactions:completed', handleCompletedUpdate);
+  }, [activeStatus, fetchCompletedTransactions]);
+
   // Handle refund request
   const handleRefund = async (order, action) => {
     if (!canRefund) {
@@ -159,7 +168,7 @@ export default function OrdersScreen() {
         await fetchCompletedTransactions();
       } else if (action === 'recall') {
         // Recall to cart without saving as refund
-        resumeOrder(order.id);
+        recallTransactionToCart(order);
         alert('Transaction recalled to cart. Make edits and complete again to save as edited.');
       }
 

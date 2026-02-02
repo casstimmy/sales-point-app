@@ -245,6 +245,11 @@ export default function CartPanel() {
       // Complete order (clear cart)
       completeOrder("CASH");
 
+      // Dispatch event to notify OrdersScreen that transaction completed
+      window.dispatchEvent(new CustomEvent('transactions:completed', { 
+        detail: { transaction } 
+      }));
+
       // Hide modal
       setShowPaymentModal(false);
 

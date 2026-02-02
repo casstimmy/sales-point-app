@@ -324,6 +324,39 @@ export function CartProvider({ children }) {
     }));
   }, [state.orders]);
 
+  const recallTransactionToCart = useCallback((transaction) => {
+    if (!transaction || !Array.isArray(transaction.items)) {
+      console.error('Invalid transaction for recall:', transaction);
+      return;
+    }
+
+    const mappedItems = transaction.items.map((item) => ({
+      id: item.productId || item.id,
+      name: item.name,
+      category: item.category,
+      price: item.salePriceIncTax || item.price || 0,
+      quantity: item.qty || item.quantity || 1,
+      discount: item.discount || 0,
+      notes: item.note || item.notes || '',
+    }));
+
+    setState(prev => ({
+      ...prev,
+      activeCart: {
+        ...INITIAL_CART,
+        id: transaction.id || transaction._id || null,
+        items: mappedItems,
+        discountPercent: transaction.discount || 0,
+        subtotal: transaction.subtotal || 0,
+        tax: transaction.tax || 0,
+        total: transaction.total || 0,
+        status: 'DRAFT',
+        customer: transaction.customerName ? { name: transaction.customerName } : null,
+        createdAt: transaction.createdAt || new Date().toISOString(),
+      },
+    }));
+  }, []);
+
   const deleteOrder = useCallback((orderId) => {
     setState(prev => ({
       ...prev,
@@ -473,6 +506,7 @@ export function CartProvider({ children }) {
     // Order operations
     holdOrder,
     resumeOrder,
+    recallTransactionToCart,
     deleteOrder,
     completeOrder,
 

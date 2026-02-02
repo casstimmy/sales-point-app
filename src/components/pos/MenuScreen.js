@@ -107,14 +107,32 @@ export default function MenuScreen() {
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+
+    // Listen for transaction completion to refresh products
+    const handleTransactionCompleted = async () => {
+      console.log('📲 Transaction completed event received, refreshing products...');
+      // Trigger sync to get updated quantities from server
+      await syncProducts([]);
+      // Reload current category products
+      if (selectedCategory) {
+        const categoryId = selectedCategory._id || selectedCategory.id;
+        const localProducts = await getLocalProductsByCategory(categoryId);
+        if (localProducts && localProducts.length > 0) {
+          setProducts(localProducts);
+        }
+      }
+    };
+
+    window.addEventListener('transactions:completed', handleTransactionCompleted);
     
     setIsOnline(getOnlineStatus());
     
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('transactions:completed', handleTransactionCompleted);
     };
-  }, []);
+  }, [selectedCategory]);;
 
   // Log when categories change
   useEffect(() => {
