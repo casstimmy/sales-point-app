@@ -298,12 +298,12 @@ export default function CartPanel() {
     <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200">
       {isEmpty ? (
         // Empty Cart State
-        <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-4 text-center">
-          <div className="text-6xl mb-3 opacity-40">🍽️</div>
-          <div className="text-lg font-bold mb-1 text-neutral-600">
+        <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-3 text-center">
+          <div className="text-5xl mb-2 opacity-40">🍽️</div>
+          <div className="text-base font-bold mb-1 text-neutral-600">
             Add a Dish or Drink
           </div>
-          <div className="text-sm text-neutral-500">
+          <div className="text-xs text-neutral-500">
             Tap a product to add to the bill
           </div>
           <div className="mt-6 w-24 h-0.5 bg-neutral-300 rounded-full"></div>
@@ -365,7 +365,7 @@ export default function CartPanel() {
                   {selectedItemId !== item.id ? (
                     <div
                       onClick={() => setSelectedItemId(item.id)}
-                      className="grid grid-cols-12 gap-1 px-3 py-3 items-center hover:bg-primary-50 cursor-pointer transition-colors duration-base"
+                      className="grid grid-cols-12 gap-1 px-2 py-2 items-center hover:bg-primary-50 cursor-pointer transition-colors duration-base"
                     >
                       <div className="col-span-5">
                         <div className="text-sm font-medium text-neutral-700 line-clamp-1">
@@ -591,7 +591,7 @@ export default function CartPanel() {
           </div>
 
           {/* Collapse Button */}
-          <div className="bg-neutral-50 border-b border-neutral-200 flex justify-center py-3">
+          <div className="bg-neutral-50 border-b border-neutral-200 flex justify-center py-2">
             <button
               onClick={() => setSelectedItemId(null)}
               className="text-neutral-600 hover:text-neutral-900 transition-colors duration-base"
@@ -615,13 +615,13 @@ export default function CartPanel() {
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">ITEMS</span>
-                <span className="text-neutral-900 font-bold text-lg">
+                <span className="text-neutral-900 font-bold text-base">
                   {totals.itemCount}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">SUBTOTAL</span>
-                <span className="text-neutral-700 font-bold text-lg">
+                <span className="text-neutral-700 font-bold text-base">
                   ₦{totals.subtotal.toLocaleString()}
                 </span>
               </div>
@@ -635,7 +635,7 @@ export default function CartPanel() {
                       : "SAVINGS"}
                   </span>
                   <span
-                    className={`font-bold text-lg ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
+                    className={`font-bold text-base ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
                   >
                     {activeCart.appliedPromotion?.valueType === "INCREMENT"
                       ? "+"
@@ -648,7 +648,7 @@ export default function CartPanel() {
                 <span className="text-neutral-900 font-bold text-base">
                   TOTAL DUE
                 </span>
-                <span className="text-cyan-700 font-black text-xl">
+                <span className="text-cyan-700 font-black text-lg">
                   ₦{Math.round(totals.total).toLocaleString()}
                 </span>
               </div>

@@ -71,63 +71,63 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
       )}
 
       {/* Main Top Bar - Primary Section with Store Info */}
-      <div className="px-4 py-4 flex items-center justify-between gap-4">
+      <div className="px-3 py-3 flex items-center justify-between gap-3">
         {/* Left: Hamburger + Store & Staff Info */}
-        <div className="flex items-center gap-4 flex-1">
+        <div className="flex items-center gap-3 flex-1">
           {/* Hamburger - Visible on all screens */}
           <button
             onClick={onToggleSidebar}
-            className="p-3 hover:bg-white/20 rounded-lg transition-colors duration-base touch-manipulation min-h-12 min-w-12"
+            className="p-2 hover:bg-white/20 rounded transition-colors duration-base touch-manipulation min-h-10 min-w-10"
             title="Toggle menu"
           >
-            <FontAwesomeIcon icon={faBars} className="w-6 h-6" />
+            <FontAwesomeIcon icon={faBars} className="w-5 h-5" />
           </button>
 
           {/* Store & Location Info */}
           <div className="flex-1">
-            <div className="text-base font-semibold">{storeName}</div>
-            <div className="text-sm opacity-90">{locationName}</div>
+            <div className="text-sm font-semibold">{storeName}</div>
+            <div className="text-xs opacity-90">{locationName}</div>
           </div>
 
           {/* Staff Details */}
-          <div className="hidden sm:block border-l border-white/30 pl-4">
-            <div className="text-base font-semibold">{staffName}</div>
-            <div className="text-sm opacity-90">{staffRole}</div>
+          <div className="hidden sm:block border-l border-white/30 pl-3">
+            <div className="text-sm font-semibold">{staffName}</div>
+            <div className="text-xs opacity-90">{staffRole}</div>
           </div>
 
           {/* Date & Time */}
-          <div className="hidden sm:block border-l border-white/30 pl-4">
-            <div className="text-sm opacity-90">{formatDate(currentTime)}</div>
-            <div className="text-sm opacity-90">{formatTime(currentTime)}</div>
+          <div className="hidden sm:block border-l border-white/30 pl-3">
+            <div className="text-xs opacity-90">{formatDate(currentTime)}</div>
+            <div className="text-xs opacity-90">{formatTime(currentTime)}</div>
           </div>
         </div>
 
         {/* Right: Search & Logout */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {/* Online/Offline Status Indicator */}
-          <div className="text-sm flex items-center gap-2">
+          <div className="text-xs flex items-center gap-1.5">
             <FontAwesomeIcon 
               icon={isOnline ? faWifi : faX} 
-              className={`w-5 h-5 ${isOnline ? 'text-green-300' : 'text-red-300'}`}
+              className={`w-4 h-4 ${isOnline ? 'text-green-300' : 'text-red-300'}`}
             />
             {pendingSyncCount > 0 && (
-              <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+              <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-bold">
                 {pendingSyncCount}
               </span>
             )}
           </div>
           <button
-            className="p-3 hover:bg-white/20 rounded-lg transition-colors duration-base touch-manipulation min-h-12 min-w-12"
+            className="p-2 hover:bg-white/20 rounded transition-colors duration-base touch-manipulation min-h-10 min-w-10"
             title="Search products"
           >
-            <FontAwesomeIcon icon={faSearch} className="w-6 h-6" />
+            <FontAwesomeIcon icon={faSearch} className="w-5 h-5" />
           </button>
           <button
             onClick={onLogout}
-            className="p-3 hover:bg-white/20 rounded-lg transition-colors duration-base touch-manipulation min-h-12 min-w-12"
+            className="p-2 hover:bg-white/20 rounded transition-colors duration-base touch-manipulation min-h-10 min-w-10"
             title="Logout or switch user"
           >
-            <FontAwesomeIcon icon={faSignOutAlt} className="w-6 h-6" />
+            <FontAwesomeIcon icon={faSignOutAlt} className="w-5 h-5" />
           </button>
         </div>
       </div>

@@ -94,12 +94,12 @@ export default function POSLayout({ children }) {
       <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
         <div className="text-center">
           {/* Logo */}
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
+          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg overflow-hidden">
             <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              width={64}
-              height={64}
+              width={56}
+              height={56}
               className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
@@ -108,8 +108,8 @@ export default function POSLayout({ children }) {
               unoptimized
             />
           </div>
-          <div className="text-white font-semibold text-lg mb-2">Not Logged In</div>
-          <div className="text-cyan-200 text-sm">Redirecting to login page...</div>
+          <div className="text-white font-semibold text-base mb-2">Not Logged In</div>
+          <div className="text-cyan-200 text-xs">Redirecting to login page...</div>
           
           {/* Progress Bar */}
           <div className="w-40 h-1.5 bg-cyan-900 rounded-full mx-auto mt-4 overflow-hidden">
@@ -125,12 +125,12 @@ export default function POSLayout({ children }) {
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
         <div className="text-center">
           {/* Logo */}
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
             <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              width={80}
-              height={80}
+              width={70}
+              height={70}
               className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
@@ -141,10 +141,10 @@ export default function POSLayout({ children }) {
           </div>
           
           {/* Loading Text */}
-          <p className="text-white font-semibold text-lg mb-4">Loading POS System...</p>
+          <p className="text-white font-semibold text-base mb-3">Loading POS System...</p>
           
           {/* Progress Bar */}
-          <div className="w-48 h-2 bg-cyan-900 rounded-full mx-auto overflow-hidden">
+          <div className="w-40 h-1.5 bg-cyan-900 rounded-full mx-auto overflow-hidden">
             <div className="h-full bg-cyan-300 rounded-full animate-pulse" style={{ width: '60%' }}></div>
           </div>
         </div>

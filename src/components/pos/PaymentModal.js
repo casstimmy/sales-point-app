@@ -258,33 +258,33 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2">
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+        <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-3 flex justify-between items-center flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-bold">Complete Payment</h2>
-            <p className="text-cyan-100 text-sm">Select payment method and enter amount</p>
+            <h2 className="text-lg font-bold">Complete Payment</h2>
+            <p className="text-cyan-100 text-xs">Select payment method and enter amount</p>
           </div>
           <button
             onClick={onCancel}
-            className="hover:bg-white/20 p-2 rounded-lg transition-all active:scale-95"
+            className="hover:bg-white/20 p-1.5 rounded transition-all active:scale-95"
           >
-            <FontAwesomeIcon icon={faXmark} className="w-6 h-6" />
+            <FontAwesomeIcon icon={faXmark} className="w-5 h-5" />
           </button>
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 p-4 grid grid-cols-3 gap-4 overflow-hidden">
+        <div className="flex-1 p-3 grid grid-cols-3 gap-3 overflow-hidden">
           {/* Left Column: Amount Summary */}
-          <div className="space-y-3">
+          <div className="space-y-2">
             {/* Total Due Card */}
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-gray-200 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-3">
               <p className="text-xs text-gray-500 font-semibold uppercase">Total Due</p>
-              <p className="text-3xl font-black text-gray-800">
+              <p className="text-xl font-black text-gray-800">
                 {formatNaira(total)}
               </p>
             </div>
 
             {/* Amount Paid Card */}
-            <div className={`rounded-xl p-4 border-2 ${
+            <div className={`rounded-lg p-3 border ${
               isPaymentComplete 
                 ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-300' 
                 : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300'
@@ -292,16 +292,16 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
               <p className={`text-xs font-semibold uppercase ${isPaymentComplete ? 'text-green-600' : 'text-orange-600'}`}>
                 Amount Paid
               </p>
-              <p className={`text-3xl font-black ${isPaymentComplete ? 'text-green-700' : 'text-orange-700'}`}>
+              <p className={`text-xl font-black ${isPaymentComplete ? 'text-green-700' : 'text-orange-700'}`}>
                 {formatNaira(totalPaid)}
               </p>
             </div>
 
             {/* Change Display */}
             {isPaymentComplete && (
-              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-300 rounded-xl p-4">
+              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded-lg p-3">
                 <p className="text-xs text-cyan-600 font-semibold uppercase">Change Due</p>
-                <p className="text-3xl font-black text-cyan-700">
+                <p className="text-xl font-black text-cyan-700">
                   {formatNaira(change)}
                 </p>
               </div>
@@ -309,9 +309,9 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
 
             {/* Remaining */}
             {!isPaymentComplete && totalPaid > 0 && (
-              <div className="bg-gradient-to-br from-red-50 to-red-100 border-2 border-red-300 rounded-xl p-4">
+              <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-lg p-3">
                 <p className="text-xs text-red-600 font-semibold uppercase">Still Needed</p>
-                <p className="text-3xl font-black text-red-700">
+                <p className="text-xl font-black text-red-700">
                   {formatNaira(total - totalPaid)}
                 </p>
               </div>
@@ -413,16 +413,16 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
           </div>
 
           {/* Right Column: Numeric Keypad */}
-          <div className="flex flex-col space-y-2">
+          <div className="flex flex-col space-y-1.5">
             <p className="text-xs font-bold text-gray-600 uppercase text-center">Keypad</p>
 
             {/* Number Grid */}
-            <div className="grid grid-cols-3 gap-2 flex-1">
+            <div className="grid grid-cols-3 gap-1.5 flex-1">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
                 <button
                   key={num}
                   onClick={() => handleNumberClick(num)}
-                  className="bg-gray-100 hover:bg-gray-200 border-2 border-gray-200 rounded-xl font-bold text-2xl transition-all active:scale-95 active:bg-cyan-100"
+                  className="bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold text-lg transition-all active:scale-95 active:bg-cyan-100"
                 >
                   {num}
                 </button>
@@ -431,35 +431,35 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
               {/* Zero and Decimal */}
               <button
                 onClick={() => handleNumberClick(0)}
-                className="col-span-2 bg-gray-100 hover:bg-gray-200 border-2 border-gray-200 rounded-xl font-bold text-2xl transition-all active:scale-95"
+                className="col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold text-lg transition-all active:scale-95"
               >
                 0
               </button>
               <button
                 onClick={handleDecimal}
-                className="bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 text-cyan-700 rounded-xl font-bold text-2xl transition-all active:scale-95"
+                className="bg-cyan-100 hover:bg-cyan-200 border border-cyan-300 text-cyan-700 rounded-lg font-bold text-lg transition-all active:scale-95"
               >
                 .
               </button>
             </div>
 
             {/* Action Buttons */}
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <button
                 onClick={handleBackspace}
-                className="w-full py-3 bg-orange-100 hover:bg-orange-200 border-2 border-orange-300 text-orange-700 rounded-xl font-bold transition-all active:scale-[0.98]"
+                className="w-full py-2 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-700 rounded-lg font-bold text-sm transition-all active:scale-[0.98]"
               >
                 ← BACK
               </button>
               <button
                 onClick={handleClear}
-                className="w-full py-3 bg-gray-200 hover:bg-gray-300 border-2 border-gray-300 text-gray-700 rounded-xl font-bold transition-all active:scale-[0.98]"
+                className="w-full py-2 bg-gray-200 hover:bg-gray-300 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm transition-all active:scale-[0.98]"
               >
                 CLEAR
               </button>
               <button
                 onClick={handleAdd}
-                className="w-full py-4 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl font-bold text-lg shadow-lg transition-all active:scale-[0.98]"
+                className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-bold text-base shadow-lg transition-all active:scale-[0.98]"
               >
                 + ADD AMOUNT
               </button>
@@ -468,31 +468,31 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
         </div>
 
         {/* Footer - Action Buttons */}
-        <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 grid grid-cols-2 gap-4 flex-shrink-0">
+        <div className="px-3 py-2 bg-gray-100 border-t border-gray-200 grid grid-cols-2 gap-3 flex-shrink-0">
           <button
             onClick={onCancel}
-            className="flex items-center justify-center gap-2 py-4 bg-gray-200 hover:bg-gray-300 rounded-xl transition-all active:scale-[0.98]"
+            className="flex items-center justify-center gap-2 py-3 bg-gray-200 hover:bg-gray-300 rounded-lg transition-all active:scale-[0.98]"
           >
-            <div className="w-12 h-12 bg-gray-600 rounded-full flex items-center justify-center">
-              <FontAwesomeIcon icon={faTimes} className="w-6 h-6 text-white" />
+            <div className="w-10 h-10 bg-gray-600 rounded-full flex items-center justify-center">
+              <FontAwesomeIcon icon={faTimes} className="w-5 h-5 text-white" />
             </div>
-            <span className="text-gray-700 font-bold">Cancel</span>
+            <span className="text-gray-700 font-bold text-sm">Cancel</span>
           </button>
           <button
             onClick={handleConfirm}
             disabled={!isPaymentComplete || isProcessing}
-            className={`flex items-center justify-center gap-2 py-4 rounded-xl transition-all active:scale-[0.98] ${
+            className={`flex items-center justify-center gap-2 py-3 rounded-lg transition-all active:scale-[0.98] ${
               isPaymentComplete && !isProcessing
-                ? 'bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300'
-                : 'bg-gray-100 cursor-not-allowed opacity-50 border-2 border-gray-200'
+                ? 'bg-cyan-100 hover:bg-cyan-200 border border-cyan-300'
+                : 'bg-gray-100 cursor-not-allowed opacity-50 border border-gray-200'
             }`}
           >
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
               isPaymentComplete && !isProcessing ? 'bg-cyan-600' : 'bg-gray-400'
             }`}>
-              <FontAwesomeIcon icon={faCheckCircle} className="w-6 h-6 text-white" />
+              <FontAwesomeIcon icon={faCheckCircle} className="w-5 h-5 text-white" />
             </div>
-            <span className={`font-bold ${isPaymentComplete && !isProcessing ? 'text-cyan-700' : 'text-gray-400'}`}>
+            <span className={`font-bold text-sm ${isPaymentComplete && !isProcessing ? 'text-cyan-700' : 'text-gray-400'}`}>
               {isProcessing ? 'Processing...' : 'Confirm'}
             </span>
           </button>

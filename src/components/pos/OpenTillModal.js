@@ -184,41 +184,41 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-5 w-full max-w-md">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-3xl font-bold text-gray-800">Open Till</h2>
+      <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-md">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-800">Open Till</h2>
           {!isOnline && (
-            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-3 py-1 rounded text-sm font-semibold flex items-center gap-2">
-              <span className="inline-block w-2 h-2 bg-yellow-600 rounded-full animate-pulse"></span>
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 bg-yellow-600 rounded-full animate-pulse"></span>
               OFFLINE
             </div>
           )}
         </div>
 
         {/* Staff & Location Info */}
-        <div className="bg-gray-50 p-5 rounded mb-6">
-          <p className="text-base text-gray-600 mb-2">
+        <div className="bg-gray-50 p-3 rounded mb-4">
+          <p className="text-sm text-gray-600 mb-1">
             <strong>Staff:</strong> {staff?.name || "Unknown"}
           </p>
-          <p className="text-base text-gray-600 mb-2">
+          <p className="text-sm text-gray-600 mb-1">
             <strong>Location:</strong> {location?.name || "Unknown"}
           </p>
-          <p className="text-base text-gray-600">
+          <p className="text-sm text-gray-600">
             <strong>Date:</strong> {new Date().toLocaleDateString()}
           </p>
         </div>
 
         {/* Offline Notice */}
         {!isOnline && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded mb-4 text-sm">
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 px-3 py-2 rounded mb-3 text-xs">
             <p className="font-semibold">📴 Offline Mode</p>
-            <p className="mt-1">Till will be created locally and synced when back online.</p>
+            <p className="mt-0.5">Till will be created locally and synced when back online.</p>
           </div>
         )}
 
         {/* Opening Balance Input with Keypad */}
-        <div className="mb-6">
-          <label className="block text-gray-700 font-semibold mb-3 text-lg">
+        <div className="mb-4">
+          <label className="block text-gray-700 font-semibold mb-2 text-sm">
             Opening Balance (Cash in Till)
           </label>
           
@@ -230,19 +230,19 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
             disabled={loading}
           />
           
-          <p className="text-base text-gray-500 mt-3">
+          <p className="text-xs text-gray-500 mt-2">
             Enter the amount of cash currently in the till
           </p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded mb-3 flex items-start gap-2 text-sm">
-            <span className="text-2xl mt-0.5">⚠️</span>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-2 py-1.5 rounded mb-2 flex items-start gap-1.5 text-xs">
+            <span className="text-base mt-0.5">⚠️</span>
             <div>
-              <p className="font-semibold text-base">{error}</p>
+              <p className="font-semibold text-sm">{error}</p>
               {error.includes("already open") && (
-                <p className="text-sm mt-2 text-red-600">
+                <p className="text-xs mt-1 text-red-600">
                   The till for this location is already open. Click &quot;Continue&quot; to proceed with the existing till session.
                 </p>
               )}
@@ -251,18 +251,18 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
         )}
 
         {/* Buttons */}
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 px-3 py-2 border-2 border-gray-300 rounded font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-base min-h-10"
+            className="flex-1 px-2 py-1.5 border border-gray-300 rounded font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50 text-sm min-h-9"
           >
             Cancel
           </button>
           <button
             onClick={handleOpenTill}
             disabled={loading || (!openingBalance && !error?.includes("already open"))}
-            className="flex-1 px-3 py-2 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:opacity-50 text-base min-h-10"
+            className="flex-1 px-2 py-1.5 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:opacity-50 text-sm min-h-9"
           >
             {loading ? "Processing..." : error?.includes("already open") ? "Continue" : "Open Till"}
           </button>

@@ -35,6 +35,8 @@ export default function OrdersScreen() {
   const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
+  const [showDetailPanel, setShowDetailPanel] = useState(false);
+  const [detailOrder, setDetailOrder] = useState(null);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
   const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
@@ -187,16 +189,37 @@ export default function OrdersScreen() {
 
     if (activeStatus === 'COMPLETE') {
       // Use completed transactions from IndexedDB
-      sourceOrders = completedTransactions.map(tx => ({
-        id: tx.id || tx._id,
-        time: tx.createdAt ? new Date(tx.createdAt).toLocaleString() : 'N/A',
-        customer: tx.customerName || 'Walk-in',
-        staffMember: tx.staffName || 'Unknown',
-        tenderType: tx.tenderType || (tx.tenderPayments?.[0]?.tenderName) || null,
-        total: tx.total || 0,
-        status: 'COMPLETE',
-        items: tx.items || [],
-      }));
+      sourceOrders = completedTransactions.map(tx => {
+        // Handle multi-tender display - show all tenders
+        let tenderDisplay = null;
+        if (tx.tenderPayments && Array.isArray(tx.tenderPayments) && tx.tenderPayments.length > 0) {
+          // Multiple tenders - show "Split" or list them
+          if (tx.tenderPayments.length === 1) {
+            tenderDisplay = tx.tenderPayments[0].tenderName;
+          } else {
+            tenderDisplay = tx.tenderPayments.map(p => p.tenderName).join(', ');
+          }
+        } else if (tx.tenderType) {
+          tenderDisplay = tx.tenderType;
+        }
+
+        return {
+          id: tx.id || tx._id,
+          time: tx.createdAt ? new Date(tx.createdAt).toLocaleString() : 'N/A',
+          customer: tx.customerName || 'Walk-in',
+          staffMember: tx.staffName || 'Unknown',
+          tenderType: tenderDisplay,
+          tenderPayments: tx.tenderPayments || [],
+          total: tx.total || 0,
+          subtotal: tx.subtotal || 0,
+          tax: tx.tax || 0,
+          discount: tx.discount || 0,
+          status: 'COMPLETE',
+          items: tx.items || [],
+          amountPaid: tx.amountPaid || tx.total,
+          change: tx.change || 0,
+        };
+      });
     } else {
       // Use held orders from CartContext
       if (!orders || orders.length === 0) {
@@ -233,8 +256,14 @@ export default function OrdersScreen() {
   }, [activeStatus, selectedDate, orders, completedTransactions]);
 
   const handleOrderSelect = (order) => {
-    // Convert mock order to cart format and load it
-    resumeOrder(order.id);
+    if (activeStatus === 'COMPLETE') {
+      // Show detail panel for completed transactions
+      setDetailOrder(order);
+      setShowDetailPanel(true);
+    } else {
+      // Resume held orders to cart
+      resumeOrder(order.id);
+    }
   };
 
   const formatSyncTime = (isoString) => {
@@ -264,12 +293,12 @@ export default function OrdersScreen() {
       )}
 
       {/* Status Tabs */}
-      <div className="bg-blue-600 text-white px-4 py-3 flex gap-2 overflow-x-auto">
+      <div className="bg-blue-600 text-white px-3 py-2 flex gap-1.5 overflow-x-auto">
         {ORDER_STATUS_TABS.map(status => (
           <button
             key={status}
             onClick={() => setActiveStatus(status)}
-            className={`px-4 py-2 font-semibold text-sm whitespace-nowrap rounded transition-colors touch-manipulation ${
+            className={`px-3 py-1.5 font-semibold text-xs whitespace-nowrap rounded transition-colors touch-manipulation ${
               activeStatus === status
                 ? 'bg-blue-800 text-white'
                 : 'bg-blue-700 hover:bg-blue-500 text-blue-100'
@@ -281,35 +310,35 @@ export default function OrdersScreen() {
       </div>
 
       {/* Filter Controls */}
-      <div className="bg-white border-b border-gray-200 p-3 flex gap-2 flex-wrap">
-        <div className="flex-1 min-w-48">
-          <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300">
-            <FontAwesomeIcon icon={faCalendar} className="w-4 h-4 text-gray-600" />
+      <div className="bg-white border-b border-gray-200 p-2 flex gap-1.5 flex-wrap">
+        <div className="flex-1 min-w-44">
+          <label className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 rounded border border-gray-300">
+            <FontAwesomeIcon icon={faCalendar} className="w-3 h-3 text-gray-600" />
             <input
               type="date"
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
-              className="bg-transparent text-sm w-full outline-none"
+              className="bg-transparent text-xs w-full outline-none"
               placeholder="Choose Date"
             />
           </label>
         </div>
 
-        <div className="flex-1 min-w-48">
-          <label className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded border border-gray-300">
-            <FontAwesomeIcon icon={faClock} className="w-4 h-4 text-gray-600" />
+        <div className="flex-1 min-w-44">
+          <label className="flex items-center gap-1.5 px-2 py-1.5 bg-gray-50 rounded border border-gray-300">
+            <FontAwesomeIcon icon={faClock} className="w-3 h-3 text-gray-600" />
             <input
               type="time"
               value={selectedTime}
               onChange={e => setSelectedTime(e.target.value)}
-              className="bg-transparent text-sm w-full outline-none"
+              className="bg-transparent text-xs w-full outline-none"
               placeholder="Choose Time"
             />
           </label>
         </div>
 
-        <button className="px-4 py-2 bg-blue-500 text-white rounded font-semibold text-sm hover:bg-blue-600 flex items-center gap-2 transition-colors touch-manipulation">
-          <FontAwesomeIcon icon={faSliders} className="w-4 h-4" />
+        <button className="px-3 py-1.5 bg-blue-500 text-white rounded font-semibold text-xs hover:bg-blue-600 flex items-center gap-1.5 transition-colors touch-manipulation">
+          <FontAwesomeIcon icon={faSliders} className="w-3 h-3" />
           <span className="hidden sm:inline">ADVANCED FILTER</span>
           <span className="sm:hidden">FILTER</span>
         </button>
@@ -319,9 +348,9 @@ export default function OrdersScreen() {
           <button 
             onClick={fetchCompletedTransactions}
             disabled={isLoadingCompleted}
-            className="px-4 py-2 bg-green-500 text-white rounded font-semibold text-sm hover:bg-green-600 flex items-center gap-2 transition-colors touch-manipulation disabled:opacity-50"
+            className="px-3 py-1.5 bg-green-500 text-white rounded font-semibold text-xs hover:bg-green-600 flex items-center gap-1.5 transition-colors touch-manipulation disabled:opacity-50"
           >
-            <FontAwesomeIcon icon={faSync} className={`w-4 h-4 ${isLoadingCompleted ? 'animate-spin' : ''}`} />
+            <FontAwesomeIcon icon={faSync} className={`w-3 h-3 ${isLoadingCompleted ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">REFRESH</span>
           </button>
         )}
@@ -329,15 +358,15 @@ export default function OrdersScreen() {
 
       {/* Orders Table */}
       <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-xs">
           <thead className="bg-gray-200 sticky top-0">
             <tr className="border-b border-gray-300">
-              <th className="text-left p-3 text-gray-700">TIME</th>
-              <th className="text-left p-3 text-gray-700">CUSTOMER</th>
-              <th className="text-left p-3 text-gray-700">STAFF MEMBER</th>
-              <th className="text-left p-3 text-gray-700">TENDER TYPE</th>
-              <th className="text-right p-3 text-gray-700">TOTAL</th>
-              {activeStatus === 'COMPLETE' && canRefund && <th className="text-center p-3 text-gray-700">ACTION</th>}
+              <th className="text-left p-2 text-gray-700">TIME</th>
+              <th className="text-left p-2 text-gray-700">CUSTOMER</th>
+              <th className="text-left p-2 text-gray-700">STAFF MEMBER</th>
+              <th className="text-left p-2 text-gray-700">TENDER TYPE</th>
+              <th className="text-right p-2 text-gray-700">TOTAL</th>
+              {activeStatus === 'COMPLETE' && canRefund && <th className="text-center p-2 text-gray-700">ACTION</th>}
             </tr>
           </thead>
           <tbody>
@@ -347,25 +376,25 @@ export default function OrdersScreen() {
                 className="border-b border-gray-200 hover:bg-blue-50 transition-colors touch-manipulation"
               >
                 <td 
-                  className="p-3 text-gray-800 font-medium cursor-pointer"
+                  className="p-2 text-gray-800 font-medium cursor-pointer"
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.time}
                 </td>
                 <td 
-                  className="p-3 text-gray-800 cursor-pointer"
+                  className="p-2 text-gray-800 cursor-pointer"
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.customer}
                 </td>
                 <td 
-                  className="p-3 text-gray-800 cursor-pointer"
+                  className="p-2 text-gray-800 cursor-pointer"
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.staffMember}
                 </td>
                 <td 
-                  className="p-3 text-gray-800 uppercase text-xs font-semibold cursor-pointer"
+                  className="p-2 text-gray-800 uppercase text-xs font-semibold cursor-pointer"
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.tenderType ? (
@@ -385,22 +414,22 @@ export default function OrdersScreen() {
                   )}
                 </td>
                 <td 
-                  className="p-3 text-gray-800 font-bold text-right cursor-pointer"
+                  className="p-2 text-gray-800 font-bold text-right cursor-pointer"
                   onClick={() => handleOrderSelect(order)}
                 >
                   ₦{order.total.toLocaleString()}
                 </td>
                 {activeStatus === 'COMPLETE' && canRefund && (
-                  <td className="p-3 text-center">
+                  <td className="p-2 text-center">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedOrder(order);
                         setShowRefundModal(true);
                       }}
-                      className="px-3 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-semibold flex items-center gap-1 mx-auto transition-colors"
+                      className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-semibold flex items-center gap-1 mx-auto transition-colors"
                     >
-                      <FontAwesomeIcon icon={faUndo} className="w-3 h-3" />
+                      <FontAwesomeIcon icon={faUndo} className="w-2.5 h-2.5" />
                       Refund
                     </button>
                   </td>
@@ -411,14 +440,138 @@ export default function OrdersScreen() {
         </table>
 
         {filteredOrders.length === 0 && (
-          <div className="flex items-center justify-center h-64 text-gray-400">
+          <div className="flex items-center justify-center h-48 text-gray-400">
             <div className="text-center">
-              <div className="text-3xl mb-2">📋</div>
-              <div>No {activeStatus.toLowerCase()} orders</div>
+              <div className="text-2xl mb-1">📋</div>
+              <div className="text-xs">No {activeStatus.toLowerCase()} orders</div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Transaction Detail Slide-Out Panel */}
+      {showDetailPanel && detailOrder && (
+        <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowDetailPanel(false)}>
+          <div 
+            className="absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="text-base font-bold">Transaction Details</h3>
+                <p className="text-blue-100 text-xs">{detailOrder.time}</p>
+              </div>
+              <button
+                onClick={() => setShowDetailPanel(false)}
+                className="p-1 hover:bg-white/20 rounded transition-colors"
+              >
+                <FontAwesomeIcon icon={faX} className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Transaction Info */}
+            <div className="p-3 bg-gray-50 border-b border-gray-200 space-y-2 flex-shrink-0">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Order ID</span>
+                <span className="font-medium text-gray-800">{detailOrder.id?.toString().slice(-8)}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Customer</span>
+                <span className="font-medium text-gray-800">{detailOrder.customer}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Staff</span>
+                <span className="font-medium text-gray-800">{detailOrder.staffMember}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Payment</span>
+                <span className="font-medium text-gray-800">{detailOrder.tenderType || 'N/A'}</span>
+              </div>
+            </div>
+
+            {/* Items List */}
+            <div className="flex-1 overflow-y-auto p-3">
+              <h4 className="text-xs font-bold text-gray-700 uppercase mb-2">Items ({detailOrder.items?.length || 0})</h4>
+              <div className="space-y-2">
+                {detailOrder.items && detailOrder.items.map((item, idx) => (
+                  <div key={idx} className="bg-white border border-gray-200 rounded p-2 flex justify-between items-center">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-800">{item.name}</p>
+                      <p className="text-xs text-gray-500">
+                        Qty: {item.qty || item.quantity} × ₦{(item.salePriceIncTax || item.price || 0).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-gray-800">
+                        ₦{((item.qty || item.quantity || 1) * (item.salePriceIncTax || item.price || 0)).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Totals */}
+            <div className="p-3 bg-gray-100 border-t border-gray-200 space-y-1 flex-shrink-0">
+              <div className="flex justify-between text-xs text-gray-600">
+                <span>Subtotal</span>
+                <span>₦{(detailOrder.subtotal || detailOrder.total || 0).toLocaleString()}</span>
+              </div>
+              {detailOrder.discount > 0 && (
+                <div className="flex justify-between text-xs text-orange-600">
+                  <span>Discount</span>
+                  <span>-₦{detailOrder.discount.toLocaleString()}</span>
+                </div>
+              )}
+              {detailOrder.tax > 0 && (
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Tax</span>
+                  <span>₦{detailOrder.tax.toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-sm font-bold text-gray-800 pt-1 border-t border-gray-300">
+                <span>Total</span>
+                <span>₦{(detailOrder.total || 0).toLocaleString()}</span>
+              </div>
+              {detailOrder.tenderPayments && detailOrder.tenderPayments.length > 1 && (
+                <div className="pt-2 mt-2 border-t border-gray-300">
+                  <p className="text-xs font-bold text-gray-700 mb-1">Split Payment Breakdown:</p>
+                  {detailOrder.tenderPayments.map((tp, idx) => (
+                    <div key={idx} className="flex justify-between text-xs text-gray-600">
+                      <span>{tp.tenderName}</span>
+                      <span>₦{(tp.amount || 0).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="p-3 bg-white border-t border-gray-200 flex gap-2 flex-shrink-0">
+              {canRefund && (
+                <button
+                  onClick={() => {
+                    setShowDetailPanel(false);
+                    setSelectedOrder(detailOrder);
+                    setShowRefundModal(true);
+                  }}
+                  className="flex-1 px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-bold transition-colors"
+                >
+                  <FontAwesomeIcon icon={faUndo} className="mr-1" />
+                  Refund
+                </button>
+              )}
+              <button
+                onClick={() => setShowDetailPanel(false)}
+                className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded text-xs font-bold transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Refund Modal */}
       {showRefundModal && selectedOrder && (

@@ -496,13 +496,13 @@ export default function MenuScreen() {
       
       {/* Customer/Promotion Indicator Banner */}
       {activeCart.customer && (
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0 shadow-md">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl">👤</span>
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-2 flex items-center justify-between flex-shrink-0 shadow-md">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">👤</span>
             <div>
-              <div className="font-bold text-lg">
+              <div className="font-bold text-base">
                 {activeCart.customer.name}
-                <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-sm">
+                <span className="ml-2 px-1.5 py-0.5 bg-white/20 rounded text-xs">
                   {activeCart.customer.type || 'Customer'}
                 </span>
               </div>
@@ -512,22 +512,22 @@ export default function MenuScreen() {
       )}
       
       {/* Sync Button + Status Bar */}
-      <div className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
+      <div className="bg-white border-b border-neutral-200 px-3 py-2 flex items-center justify-between flex-shrink-0">
+        <div className="flex items-center gap-1.5">
           {/* Online Status */}
-          <div className={`flex items-center gap-1 px-3 py-2 rounded-lg ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
+          <div className={`flex items-center gap-1 px-2 py-1.5 rounded ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
             <FontAwesomeIcon 
               icon={isOnline ? faWifi : faX} 
-              className={`w-5 h-5 ${isOnline ? 'text-green-600' : 'text-neutral-400'}`} 
+              className={`w-4 h-4 ${isOnline ? 'text-green-600' : 'text-neutral-400'}`} 
             />
-            <span className={`text-sm font-semibold ${isOnline ? 'text-green-700' : 'text-neutral-600'}`}>
+            <span className={`text-xs font-semibold ${isOnline ? 'text-green-700' : 'text-neutral-600'}`}>
               {isOnline ? 'Online' : 'Offline'}
             </span>
           </div>
 
           {/* Last Sync Time */}
           {lastSyncTime && (
-            <span className="text-sm text-neutral-500">
+            <span className="text-xs text-neutral-500">
               Last sync: {lastSyncTime.toLocaleTimeString()}
             </span>
           )}
@@ -537,7 +537,7 @@ export default function MenuScreen() {
         <button
           onClick={handleManualSync}
           disabled={isSyncing || !isOnline}
-          className="flex items-center gap-2 px-4 py-3 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-12"
+          className="flex items-center gap-1.5 px-3 py-2 bg-primary-600 text-white text-xs font-semibold rounded hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-10"
         >
           <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
           {isSyncing ? 'Syncing...' : 'Sync Products'}
@@ -545,26 +545,26 @@ export default function MenuScreen() {
       </div>
 
       {/* Search Bar - Redesigned */}
-      <div className="bg-white border-b-2 border-primary-200 px-4 py-4 flex-shrink-0 shadow-sm">
-        <div className="relative flex gap-2">
+      <div className="bg-white border-b-2 border-primary-200 px-3 py-2 flex-shrink-0 shadow-sm">
+        <div className="relative flex gap-1.5">
           <div className="relative flex-1">
             <FontAwesomeIcon 
               icon={faSearch} 
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500"
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500"
             />
             <input
               type="text"
               placeholder="Search products or categories..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 text-base border-2 border-neutral-200 rounded-xl focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 transition-all font-medium"
+              className="w-full pl-8 pr-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
             />
           </div>
           <button
             onClick={handleSearchClick}
-            className="px-4 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors duration-base flex items-center gap-2"
+            className="px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-sm transition-colors duration-base flex items-center gap-1.5"
           >
-            <FontAwesomeIcon icon={faSearch} className="w-5 h-5" />
+            <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
             <span className="hidden md:inline">Search</span>
           </button>
         </div>
@@ -634,18 +634,18 @@ export default function MenuScreen() {
                       className="relative bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
                     >
                       {/* Top Row: Image + Details Side by Side */}
-                      <div className="flex h-20">
+                      <div className="flex h-16">
                         {/* Product Image */}
-                        <div className="w-20 h-20 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                        <div className="w-16 h-16 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                           {!isOnline && (
                             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
-                              <div className="text-2xl">📦</div>
+                              <div className="text-xl">📦</div>
                             </div>
                           )}
                           
                           {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
                             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                              <div className="animate-pulse text-xl">⏳</div>
+                              <div className="animate-pulse text-lg">⏳</div>
                             </div>
                           )}
                           
@@ -660,7 +660,7 @@ export default function MenuScreen() {
                               onError={() => handleImageError(product._id || product.id)}
                             />
                           ) : (
-                            <div className="text-2xl">📦</div>
+                            <div className="text-xl">📦</div>
                           )}
                           
                           {/* Search Badge */}
@@ -690,8 +690,8 @@ export default function MenuScreen() {
                       </div>
 
                       {/* Bottom Row: Price Full Width */}
-                      <div className="bg-gradient-to-r from-green-500 to-green-600 px-3 py-2">
-                        <div className="text-lg font-black text-white text-center">
+                      <div className="bg-gradient-to-r from-green-500 to-green-600 px-2 py-1.5">
+                        <div className="text-base font-black text-white text-center">
                           ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                         </div>
                       </div>
@@ -699,7 +699,7 @@ export default function MenuScreen() {
                   ))}
                 </div>
               ) : (
-                <div className="text-sm text-neutral-400 py-3 text-center">
+                <div className="text-xs text-neutral-400 py-2 text-center">
                   No products match &quot;{searchTerm}&quot;
                 </div>
               );
@@ -721,7 +721,7 @@ export default function MenuScreen() {
               ) : products;
               
               return filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 auto-rows-max">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 auto-rows-max">
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
@@ -732,21 +732,21 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative bg-white rounded-lg border-2 border-gray-200 hover:border-cyan-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] max-w-[200px]"
+                    className="relative bg-white rounded border border-gray-200 hover:border-cyan-400 hover:shadow-md transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] max-w-[180px]"
                   >
                     {/* Top Row: Image + Details Side by Side */}
-                    <div className="flex h-22">
+                    <div className="flex h-16">
                       {/* Product Image */}
-                      <div className="w-20 h-20 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                      <div className="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {!isOnline && (
                           <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
-                            <div className="text-2xl">📦</div>
+                            <div className="text-xl">📦</div>
                           </div>
                         )}
                         
                         {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
                           <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
-                            <div className="animate-pulse text-xl">⏳</div>
+                            <div className="animate-pulse text-lg">⏳</div>
                           </div>
                         )}
                         
@@ -761,24 +761,24 @@ export default function MenuScreen() {
                             onError={() => handleImageError(product._id || product.id)}
                           />
                         ) : (
-                          <div className="text-2xl">📦</div>
+                          <div className="text-xl">📦</div>
                         )}
                       </div>
 
                       {/* Product Details */}
-                      <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
-                        <div className="text-sm sm:text-base lg:text-lg font-bold text-gray-800 leading-tight line-clamp-2">
+                      <div className="flex-1 p-1.5 flex flex-col justify-between min-w-0">
+                        <div className="text-xs font-bold text-gray-800 leading-tight line-clamp-2">
                           {product.name}
                         </div>
-                        <div className="flex items-center justify-end mt-1">
+                        <div className="flex items-center justify-end mt-0.5">
                           {/* Stock Badge - Right Aligned */}
                           {product.quantity !== undefined && (
-                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            <span className={`px-1 py-0.5 rounded text-xs font-bold ${
                               product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                               product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
                               'bg-green-100 text-green-700'
                             }`}>
-                              {product.quantity <= 0 ? 'Out' : `${product.quantity} left`}
+                              {product.quantity <= 0 ? 'Out' : `${product.quantity}`}
                             </span>
                           )}
                         </div>
@@ -786,8 +786,8 @@ export default function MenuScreen() {
                     </div>
 
                     {/* Bottom Row: Price Full Width */}
-                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-3 py-2">
-                      <div className="text-lg font-black text-white text-center">
+                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-2 py-1.5">
+                      <div className="text-base font-black text-white text-center">
                         ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                       </div>
                     </div>
@@ -795,7 +795,7 @@ export default function MenuScreen() {
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-gray-400 py-3 text-center">
+              <div className="text-xs text-gray-400 py-2 text-center">
                 {searchTerm ? 'No products match your search' : 'No products in this category'}
               </div>
             );
@@ -805,10 +805,10 @@ export default function MenuScreen() {
 
         {/* Empty State */}
         {!selectedCategory && (
-          <div className="flex items-center justify-center text-gray-400 text-center py-8">
+          <div className="flex items-center justify-center text-gray-400 text-center py-6">
             <div>
-              <div className="text-3xl mb-1">📦</div>
-              <div className="text-sm">Select a category above</div>
+              <div className="text-2xl mb-1">📦</div>
+              <div className="text-xs">Select a category above</div>
             </div>
           </div>
         )}
