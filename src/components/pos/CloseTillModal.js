@@ -73,6 +73,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [fetchingTill, setFetchingTill] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [activeTenderKeypad, setActiveTenderKeypad] = useState(null);
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   // Track online/offline status
   useEffect(() => {
@@ -194,6 +195,12 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
       return;
     }
 
+    // Show confirmation modal instead of proceeding directly
+    setShowConfirmation(true);
+  };
+
+  const handleConfirmCloseTill = async () => {
+    setShowConfirmation(false);
     setLoading(true);
     setError(null);
 
@@ -426,21 +433,75 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
 
         {/* Footer - Buttons */}
-        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex gap-3 flex-shrink-0">
+        <div className="px-4 py-4 bg-gray-50 border-t border-gray-200 flex gap-3 flex-shrink-0">
           <button
             onClick={onClose}
-            disabled={loading}
-            className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg text-sm transition-all active:scale-95 disabled:opacity-50"
+            disabled={loading || showConfirmation}
+            className="flex-1 px-4 py-3.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg text-base transition-all active:scale-95 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleCloseTill}
-            disabled={isButtonDisabled}
-            className="flex-1 px-4 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isButtonDisabled || showConfirmation}
+            className="flex-1 px-4 py-3.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-base transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Closing Till..." : "Close Till & Logout"}
           </button>
+        </div>
+      </div>
+    </div>
+
+    {/* Confirmation Modal */}
+    {showConfirmation && (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+          {/* Warning Icon & Title */}
+          <div className="flex items-start gap-3">
+            <div className="text-3xl">⚠️</div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-800">Confirm Till Closure</h3>
+              <p className="text-sm text-gray-600 mt-1">Are you sure you want to close this till? This action cannot be undone.</p>
+            </div>
+          </div>
+
+          {/* Summary Info */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-1">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-700">Total Sales:</span>
+              <span className="font-bold text-gray-800">₦{Number(summary?.totalSales || 0).toLocaleString('en-NG')}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-700">Expected Closing:</span>
+              <span className="font-bold text-gray-800">₦{Number(summary?.expectedClosingBalance || 0).toLocaleString('en-NG')}</span>
+            </div>
+            {closingNotes && (
+              <div className="pt-2 border-t border-blue-200 mt-2">
+                <p className="text-xs text-gray-600 font-semibold">Notes:</p>
+                <p className="text-sm text-gray-700 mt-0.5">{closingNotes}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setShowConfirmation(false)}
+              className="flex-1 px-4 py-2.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg transition-all active:scale-95"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmCloseTill}
+              disabled={loading}
+              className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            >
+              {loading ? "Processing..." : "Yes, Close Till"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
         </div>
       </div>
     </div>
