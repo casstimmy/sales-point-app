@@ -11,7 +11,7 @@ import POSLayout from "./POSLayout";
 import { useStaff } from "../../context/StaffContext";
 
 const Layout = ({ children }) => {
-  const { staff } = useStaff();
+  const { staff, location } = useStaff();
   const [isMounted, setIsMounted] = useState(false);
 
   // Prevent hydration mismatch - ensure client-side rendering
@@ -36,7 +36,7 @@ const Layout = ({ children }) => {
   }
 
   // Show login if not authenticated
-  if (!staff) {
+  if (!staff || !location) {
     return <StaffLogin />;
   }
 

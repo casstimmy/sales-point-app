@@ -306,6 +306,40 @@ export default function StaffLogin() {
     }
   }, [isOnline]);
 
+  const attemptOfflineLogin = useCallback((reason) => {
+    console.log(`📱 OFFLINE LOGIN - ${reason}`);
+    console.log(`   Available locations from cache: ${locations.map(l => l.name).join(', ')}`);
+    console.log(`   Available staff from cache: ${staff.map(s => s.name).join(', ')}`);
+
+    const selectedStaffData = staff.find(s => s._id === selectedStaff);
+    const selectedLocationData = locations.find(loc => loc._id === selectedLocation);
+
+    if (!selectedStaffData || !selectedLocationData) {
+      const missingItem = !selectedStaffData ? 'Staff' : 'Location';
+      console.error(`❌ ${missingItem} not found in local cached data`);
+      setError(`${missingItem} data not available offline. Please sync with server when online.`);
+      return false;
+    }
+
+    console.log("✅ Login successful (OFFLINE MODE)!");
+    console.log("📍 Staff:", selectedStaffData.name, "Location:", selectedLocationData.name);
+    console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped");
+
+    const savedTill = localStorage.getItem("till");
+    if (savedTill) {
+      const till = JSON.parse(savedTill);
+      console.log("✅ Found persisted till:", till._id);
+      login(selectedStaffData, selectedLocationData);
+      setCurrentTill(till);
+      router.push("/");
+      return true;
+    }
+
+    login(selectedStaffData, selectedLocationData);
+    router.push("/");
+    return true;
+  }, [locations, staff, selectedStaff, selectedLocation, login, setCurrentTill, router, setError]);
+
   const handleLogin = useCallback(async () => {
     if (!selectedStore || !selectedLocation || !selectedStaff || pin.length !== 4) {
       setError("Please select store, location, staff, and enter 4-digit passcode");
@@ -365,66 +399,29 @@ export default function StaffLogin() {
           }
         } else {
           console.error("❌ Login failed:", data.message);
+          if (!navigator.onLine && attemptOfflineLogin("Connection lost during login")) {
+            return;
+          }
           setError(data.message || "Invalid passcode. Please try again.");
         }
       } else {
         // OFFLINE MODE - Use cached staff and till data
-        console.log("📱 OFFLINE MODE - Attempting local login");
-        console.log(`   Available locations from cache: ${locations.map(l => l.name).join(', ')}`);
-        console.log(`   Available staff from cache: ${staff.map(s => s.name).join(', ')}`);
-        
-        const selectedStaffData = staff.find(s => s._id === selectedStaff);
-        const selectedLocationData = locations.find(loc => loc._id === selectedLocation);
-
-        if (!selectedStaffData || !selectedLocationData) {
-          const missingItem = !selectedStaffData ? 'Staff' : 'Location';
-          console.error(`❌ ${missingItem} not found in local cached data`);
-          setError(`${missingItem} data not available offline. Please sync with server when online.`);
+        if (attemptOfflineLogin("Offline mode")) {
           return;
-        }
-
-        // In offline mode, we can't validate PIN against server, so we accept the login
-        // The staff member is responsible for their own PIN security
-        console.log("✅ Login successful (OFFLINE MODE)!");
-        console.log("📍 Staff:", selectedStaffData.name, "Location:", selectedLocationData.name);
-        console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped (using locally cached locations)");
-        
-        // Check if there's a persisted till in localStorage
-        const savedTill = localStorage.getItem("till");
-        
-        if (savedTill) {
-          const till = JSON.parse(savedTill);
-          console.log("✅ Found persisted till:", till._id);
-          login(selectedStaffData, selectedLocationData);
-          setCurrentTill(till);
-          router.push("/");
-        } else {
-          // No till found, proceed to POS (they'll need to open a till with offline handling)
-          login(selectedStaffData, selectedLocationData);
-          router.push("/");
         }
       }
     } catch (error) {
       console.error("❌ Login error:", error);
-      
-      if (!isOnline) {
-        // In offline mode, try to proceed with cached data even if there's an error
-        console.log("📱 Offline error - attempting to use cached data");
-        const selectedStaffData = staff.find(s => s._id === selectedStaff);
-        const selectedLocationData = locations.find(loc => loc._id === selectedLocation);
 
-        if (selectedStaffData && selectedLocationData) {
-          login(selectedStaffData, selectedLocationData);
-          router.push("/");
-          return;
-        }
+      if (attemptOfflineLogin("Network error")) {
+        return;
       }
-      
+
       setError("Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, staff, locations, login, setCurrentTill, router]);
+  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, login, setCurrentTill, router, attemptOfflineLogin]);
 
   const handlePinClick = (digit) => {
     if (pin.length < 4) {

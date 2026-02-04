@@ -99,7 +99,7 @@ export default function NumKeypad({ value, onChange, placeholder = "0.00", disab
           disabled={disabled}
           className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded py-1 font-bold text-sm"
         >
-          <FontAwesomeIcon icon={faBackspace} />
+          <FontAwesomeIcon icon={faBackspace} className="w-4 h-4" />
         </button>
 
         {/* Row 3: 1 2 3 . */}
@@ -152,7 +152,7 @@ export default function NumKeypad({ value, onChange, placeholder = "0.00", disab
           disabled={disabled}
           className="bg-gray-400 hover:bg-gray-500 disabled:opacity-50 text-white rounded py-1 font-bold text-sm"
         >
-          <FontAwesomeIcon icon={faTimes} />
+          <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
         </button>
       </div>
     </div>
