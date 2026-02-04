@@ -502,8 +502,5 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
       </div>
     )}
-        </div>
-      </div>
-    </div>
   );
 }
