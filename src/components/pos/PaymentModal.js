@@ -92,9 +92,9 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
   const change = Math.max(0, totalPaid - total);
   const isPaymentComplete = totalPaid >= total;
 
-  // Format Nigerian Naira
+  // Format Nigerian Naira with comma separators
   const formatNaira = (amount) => {
-    return `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₦${Number(amount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Handle numeric input
@@ -382,7 +382,7 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
                 Entering for: {availableTenders.find(t => t.id === selectedTender)?.name || 'Select Method'}
               </p>
               <p className="text-4xl font-black text-cyan-700 text-right font-mono">
-                ₦{displayAmount}
+                ₦{Number(displayAmount || 0).toLocaleString('en-NG')}
               </p>
             </div>
 

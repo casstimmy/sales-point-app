@@ -310,17 +310,17 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           <div className="space-y-3">
             <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded p-2">
               <p className="text-xs text-cyan-700 font-semibold uppercase">Opening Balance</p>
-              <p className="text-base font-bold text-cyan-800">₦{summary.openingBalance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-bold text-cyan-800">₦{Number(summary.openingBalance).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             
             <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-300 rounded p-2">
               <p className="text-xs text-green-700 font-semibold uppercase">Total Sales</p>
-              <p className="text-base font-bold text-green-800">₦{summary.totalSales.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-bold text-green-800">₦{Number(summary.totalSales).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-300 rounded p-2">
               <p className="text-xs text-purple-700 font-semibold uppercase">Expected Closing</p>
-              <p className="text-base font-bold text-purple-800">₦{summary.expectedClosingBalance.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</p>
+              <p className="text-base font-bold text-purple-800">₦{Number(summary.expectedClosingBalance).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             </div>
             
             <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-300 rounded p-2">
@@ -358,7 +358,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                     >
                       <div className="flex items-center justify-between mb-2">
                         <span className="font-bold text-gray-800">{tender.name}</span>
-                        <span className="text-sm text-gray-500">Expected: ₦{processedAmount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-sm text-gray-500">Expected: ₦{Number(processedAmount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex gap-2">
                         <div className="flex-1">
@@ -378,7 +378,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                         }`}>
                           {!hasValue ? "—" : (
                             <>
-                              <span>{variance >= 0 ? "+" : ""}₦{variance.toFixed(2)}</span>
+                              <span>₦{Number(variance).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                               <span className="text-xs">{variance === 0 ? "✓ OK" : variance > 0 ? "Over" : "Short"}</span>
                             </>
                           )}
