@@ -451,6 +451,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           </button>
         </div>
       </div>
+      </div>
 
       {/* Confirmation Modal */}
       {showConfirmation && (
