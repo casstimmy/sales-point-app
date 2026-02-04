@@ -426,18 +426,18 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
 
         {/* Footer - Buttons */}
-        <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 flex gap-2 flex-shrink-0">
+        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200 flex gap-3 flex-shrink-0">
           <button
             onClick={onClose}
             disabled={loading}
-            className="flex-1 px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded text-xs transition-all active:scale-[0.98] disabled:opacity-50"
+            className="flex-1 px-4 py-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold rounded-lg text-sm transition-all active:scale-95 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleCloseTill}
             disabled={isButtonDisabled}
-            className="flex-1 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded text-xs transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-3 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-sm transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Closing Till..." : "Close Till & Logout"}
           </button>
