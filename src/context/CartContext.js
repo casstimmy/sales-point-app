@@ -18,6 +18,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { addLocalTransaction, getUnsyncedTransactions } from '../lib/indexedDB';
 import { autoSyncTransactions } from '../services/syncService';
+import { saveTransactionOffline, getOnlineStatus } from '../lib/offlineSync';
 
 // ============================================================================
 // CONTEXT DEFINITION
@@ -302,6 +303,51 @@ export function CartProvider({ children }) {
     };
 
     console.log('📋 Holding order with total:', subtotal);
+
+    // =====================================================================
+    // SAVE HELD ORDER AS TRANSACTION FOR INVENTORY REVIEW
+    // =====================================================================
+    // Convert cart items to transaction format
+    const transactionItems = items.map(item => ({
+      productId: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      discount: item.discount || 0,
+      salePriceIncTax: item.price,
+      qty: item.quantity,
+    }));
+
+    // Create transaction object with "held" status
+    const heldTransaction = {
+      items: transactionItems,
+      total: subtotal,
+      subtotal: subtotal,
+      tax: 0,
+      discount: state.activeCart.discountAmount || 0,
+      staffName: staffInfo?.name || staffInfo || 'POS Staff',
+      staffId: staffInfo?.id || null,
+      location: locationInfo || state.activeCart.location || 'Default Location',
+      device: state.activeCart.device || 'POS',
+      tableName: state.activeCart.tableName || null,
+      customerName: state.activeCart.customer?.name || null,
+      status: 'held', // This marks it as a held transaction for inventory review
+      tenderType: null, // No payment tender for held orders
+      amountPaid: 0,
+      change: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      tillId: state.activeCart.tillId || null,
+    };
+
+    // Save held transaction offline so it's available for inventory review
+    saveTransactionOffline(heldTransaction)
+      .then(() => {
+        console.log('✅ Held order saved as transaction for inventory review');
+      })
+      .catch(err => {
+        console.error('⚠️ Failed to save held order as transaction:', err);
+      });
 
     setState(prev => ({
       ...prev,
