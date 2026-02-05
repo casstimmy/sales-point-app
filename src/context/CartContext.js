@@ -340,14 +340,42 @@ export function CartProvider({ children }) {
       tillId: state.activeCart.tillId || null,
     };
 
-    // Save held transaction offline so it's available for inventory review
-    saveTransactionOffline(heldTransaction)
-      .then(() => {
-        console.log('✅ Held order saved as transaction for inventory review');
-      })
-      .catch(err => {
-        console.error('⚠️ Failed to save held order as transaction:', err);
-      });
+    // Save held transaction to database (online) or queue offline
+    if (getOnlineStatus()) {
+      // Online: Send directly to server
+      try {
+        fetch('/api/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(heldTransaction),
+        })
+          .then(response => {
+            if (response.ok) {
+              console.log('✅ Held order saved to database for inventory review');
+            } else {
+              console.warn('⚠️ Failed to save held order to database, queuing offline');
+              saveTransactionOffline(heldTransaction);
+            }
+          })
+          .catch(err => {
+            console.warn('⚠️ Error saving held order online, queuing offline:', err);
+            saveTransactionOffline(heldTransaction);
+          });
+      } catch (err) {
+        console.error('⚠️ Failed to save held order:', err);
+        saveTransactionOffline(heldTransaction);
+      }
+    } else {
+      // Offline: Queue to IndexedDB
+      console.log('🔴 Offline - Queuing held order for sync');
+      saveTransactionOffline(heldTransaction)
+        .then(() => {
+          console.log('✅ Held order queued for database sync');
+        })
+        .catch(err => {
+          console.error('⚠️ Failed to queue held order:', err);
+        });
+    }
 
     setState(prev => ({
       ...prev,
