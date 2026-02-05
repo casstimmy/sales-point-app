@@ -58,12 +58,15 @@ export default async function handler(req, res) {
     // Determine which payment method is being used
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
+    const isHeldTransaction = status === 'held'; // Held transactions don't require payment info
     
-    console.log(`📦 Processing transaction - till: ${tillId}, amount: ${total}`);
+    console.log(`📦 Processing transaction - till: ${tillId}, amount: ${total}, status: ${status}`);
     if (hasMultiplePayments) {
       console.log(`   Multiple payments: ${tenderPayments.map(tp => `${tp.tenderName}:${tp.amount}`).join(', ')}`);
     } else if (hasSingleTender) {
       console.log(`   Single tender: ${tenderType}`);
+    } else if (isHeldTransaction) {
+      console.log(`   Held transaction - no payment yet`);
     }
 
     // Validate required fields
@@ -75,7 +78,8 @@ export default async function handler(req, res) {
       });
     }
 
-    if (total === undefined || (!hasSingleTender && !hasMultiplePayments)) {
+    // For held transactions, payment info is not required. For other statuses, it is.
+    if (total === undefined || (!isHeldTransaction && !hasSingleTender && !hasMultiplePayments)) {
       console.error('❌ Invalid transaction: total and (tenderType or tenderPayments) required');
       return res.status(400).json({
         success: false,

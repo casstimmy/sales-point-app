@@ -319,6 +319,11 @@ export function CartProvider({ children }) {
     }));
 
     // Create transaction object with "held" status
+    // Handle location - it might be a string or an object with a name property
+    const locationString = typeof locationInfo === 'string' 
+      ? locationInfo 
+      : (locationInfo?.name || locationInfo?.code || 'Default Location');
+    
     const heldTransaction = {
       items: transactionItems,
       total: subtotal,
@@ -327,7 +332,7 @@ export function CartProvider({ children }) {
       discount: state.activeCart.discountAmount || 0,
       staffName: staffInfo?.name || staffInfo || 'POS Staff',
       staffId: staffInfo?.id || null,
-      location: locationInfo || state.activeCart.location || 'Default Location',
+      location: locationString,
       device: state.activeCart.device || 'POS',
       tableName: state.activeCart.tableName || null,
       customerName: state.activeCart.customer?.name || null,
