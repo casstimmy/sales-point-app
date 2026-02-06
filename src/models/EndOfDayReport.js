@@ -4,6 +4,7 @@ const EndOfDayReportSchema = new mongoose.Schema({
   // References
   storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true },
   locationId: { type: mongoose.Schema.Types.ObjectId, required: true },
+  locationName: { type: String, default: "Unknown" },
   tillId: { type: mongoose.Schema.Types.ObjectId, ref: "Till", required: true },
   
   // Staff Info

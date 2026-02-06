@@ -43,6 +43,7 @@ export default async function handler(req, res) {
 
     const reports = await EndOfDayReport.find(filter)
       .populate("storeId", "storeName")
+      .populate("locationId", "name")
       .populate("staffId", "name")
       .sort({ closedAt: -1 })
       .skip(skip)

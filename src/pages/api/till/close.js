@@ -4,6 +4,7 @@ import Till from "@/src/models/Till";
 import { Transaction } from "@/src/models/Transactions";
 import EndOfDayReport from "@/src/models/EndOfDayReport";
 import Tender from "@/src/models/Tender";
+import Store from "@/src/models/Store";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {
@@ -198,9 +199,25 @@ export default async function handler(req, res) {
 
     // Create EndOfDayReport for inventory manager access
     try {
+      // Fetch actual location name from Store
+      let locationName = "Unknown";
+      if (till.storeId && till.locationId) {
+        const store = await Store.findById(till.storeId);
+        if (store && store.locations) {
+          const location = store.locations.find(
+            (loc) => loc._id.toString() === till.locationId.toString()
+          );
+          if (location) {
+            locationName = location.name;
+          }
+        }
+      }
+      console.log(`📍 Location Name: ${locationName}`);
+
       const report = new EndOfDayReport({
         storeId: till.storeId,
         locationId: till.locationId,
+        locationName: locationName,
         tillId: till._id,
         staffId: till.staffId,
         staffName: till.staffName,
