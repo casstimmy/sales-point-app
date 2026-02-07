@@ -7,7 +7,7 @@
 
 export async function cleanupOldTransactions() {
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', 2);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {

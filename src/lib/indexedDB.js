@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SalesPOS";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Store names
 const STORES = {
@@ -13,6 +13,7 @@ const STORES = {
   TRANSACTIONS: "transactions",
   SYNC_META: "sync_meta", // Track sync status
   TILL_CLOSES: "till_closes", // Track offline till closes
+  TILL_OPENS: "till_opens", // Track offline till opens / mappings
 };
 
 let db = null;
@@ -74,6 +75,14 @@ export async function initIndexedDB() {
         tillCloseStore.createIndex("synced", "synced", { unique: false });
         tillCloseStore.createIndex("closedAt", "closedAt", { unique: false });
         console.log("📦 Till closes store created");
+      }
+
+      // Till opens store (offline till open mapping)
+      if (!database.objectStoreNames.contains(STORES.TILL_OPENS)) {
+        const tillOpenStore = database.createObjectStore(STORES.TILL_OPENS, { keyPath: "_id" });
+        tillOpenStore.createIndex("synced", "synced", { unique: false });
+        tillOpenStore.createIndex("openedAt", "openedAt", { unique: false });
+        console.log("📦 Till opens store created");
       }
     };
   });

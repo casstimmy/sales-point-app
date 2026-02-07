@@ -78,6 +78,7 @@ export default function PaymentPanel() {
         tenders: paymentDetails.tenders,
         staffName: staff?.name || staff?.fullName || "POS Staff",
         staffId: staff?._id,
+        storeId: staff?.storeId || "default-store",
         location: location?.name || "Default Location",
         locationId: location?._id,
         locationName: location?.name,

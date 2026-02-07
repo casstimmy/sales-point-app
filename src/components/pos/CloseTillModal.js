@@ -3,13 +3,13 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
-import { getOnlineStatus } from "../../lib/offlineSync";
+import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
 import NumKeypad from "../common/NumKeypad";
 
 // Helper to get offline till data from IndexedDB
 const getOfflineTillData = async (tillId) => {
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', 2);
     
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -93,7 +93,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   // Save till close to IndexedDB (offline)
   const saveTillCloseOffline = async (closeData) => {
     try {
-      const request = indexedDB.open('SalesPOS', 1);
+      const request = indexedDB.open('SalesPOS', 2);
       
       return new Promise((resolve, reject) => {
         request.onsuccess = (event) => {
@@ -210,8 +210,16 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         tenderCountsForAPI[tender.id] = parseFloat(tenderCounts[tender.id]) || 0;
       });
 
+      let resolvedTillId = till._id;
+      if (isOnline && String(till._id).startsWith('offline-till-')) {
+        const mapped = await resolveTillId(till._id, till);
+        if (mapped) {
+          resolvedTillId = mapped;
+        }
+      }
+
       const payload = {
-        tillId: String(till._id),
+        tillId: String(resolvedTillId),
         tenderCounts: tenderCountsForAPI,
         closingNotes: closingNotes.trim(),
         summary: summary,
@@ -235,6 +243,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         const tillCloseData = {
           _id: till._id,
           staffId: contextTill?.staffId || till.staffId,
+          staffName: contextTill?.staffName || till.staffName,
+          storeId: till.storeId || contextTill?.storeId,
           locationId: location?._id,
           tenderCounts: tenderCountsForAPI,
           closingNotes: closingNotes.trim(),

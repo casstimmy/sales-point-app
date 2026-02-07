@@ -9,6 +9,7 @@
  */
 
 const SYNC_INTERVAL = 30000; // Auto-sync every 30 seconds
+const DB_VERSION = 2;
 let syncInterval = null;
 let isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
 
@@ -25,6 +26,7 @@ export function initOfflineSync() {
     // Sync immediately when coming back online
     (async () => {
       try {
+        await syncPendingTillOpens();
         await syncPendingTransactions();
         await syncPendingTillCloses();
       } catch (err) {
@@ -77,7 +79,7 @@ export async function saveTransactionOffline(transaction) {
       throw new Error('Cannot save transaction without staff name and location');
     }
 
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
     
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -124,7 +126,7 @@ export async function syncPendingTransactions() {
   }
 
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -172,6 +174,16 @@ export async function syncPendingTransactions() {
                 continue;
               }
 
+              if (tx.tillId && String(tx.tillId).startsWith('offline-till-')) {
+                const resolved = await resolveTillId(tx.tillId, tx);
+                if (!resolved) {
+                  failed++;
+                  console.warn(`⚠️ Skipping transaction ${tx.id} - till not mapped yet`);
+                  continue;
+                }
+                tx.tillId = resolved;
+              }
+
               console.log(`📊 Syncing transaction:`, tx);
               const response = await fetch('/api/transactions', {
                 method: 'POST',
@@ -215,7 +227,7 @@ export async function syncPendingTransactions() {
  */
 export async function markTransactionSynced(transactionId) {
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -250,7 +262,7 @@ export async function markTransactionSynced(transactionId) {
  */
 export async function getPendingTransactionsCount() {
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -286,10 +298,11 @@ export async function syncPendingTillCloses() {
   }
 
   try {
-    // Ensure transactions are synced before closing tills
+    // Ensure till opens + transactions are synced before closing tills
+    await syncPendingTillOpens();
     await syncPendingTransactions();
 
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -320,11 +333,21 @@ export async function syncPendingTillCloses() {
             try {
               console.log(`🔄 Syncing till close: ${tillClose._id}`);
               
+              let resolvedTillId = tillClose._id;
+              if (String(tillClose._id).startsWith('offline-till-')) {
+                const mapped = await resolveTillId(tillClose._id, tillClose);
+                if (!mapped) {
+                  console.warn(`⚠️ Till close skipped - till not mapped yet: ${tillClose._id}`);
+                  continue;
+                }
+                resolvedTillId = mapped;
+              }
+              
               const response = await fetch('/api/till/close', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  tillId: String(tillClose._id),
+                  tillId: String(resolvedTillId),
                   tenderCounts: tillClose.tenderCounts,
                   closingNotes: tillClose.closingNotes,
                   summary: tillClose.summary,
@@ -366,7 +389,7 @@ export async function syncPendingTillCloses() {
  */
 export async function markTillCloseSynced(tillId) {
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -406,6 +429,192 @@ export async function markTillCloseSynced(tillId) {
 }
 
 /**
+ * Save offline till open (for later sync)
+ */
+export async function saveTillOpenOffline(openData) {
+  try {
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
+
+    return new Promise((resolve, reject) => {
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+        const store = db.transaction(['till_opens'], 'readwrite')
+          .objectStore('till_opens');
+
+        const record = {
+          ...openData,
+          synced: false,
+          savedAt: new Date().toISOString(),
+        };
+
+        const addRequest = store.put(record);
+        addRequest.onsuccess = () => resolve(addRequest.result);
+        addRequest.onerror = () => reject(addRequest.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('❌ Error saving till open offline:', err);
+    throw err;
+  }
+}
+
+/**
+ * Sync pending till opens to cloud
+ */
+export async function syncPendingTillOpens() {
+  if (!isOnline) return;
+
+  try {
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
+
+    return new Promise((resolve, reject) => {
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+        const store = db.transaction(['till_opens'], 'readonly')
+          .objectStore('till_opens');
+
+        const getAllRequest = store.getAll();
+        getAllRequest.onsuccess = async () => {
+          const allOpens = getAllRequest.result || [];
+          const pending = allOpens.filter(open => !open.synced);
+
+          for (const open of pending) {
+            await syncSingleTillOpen(open);
+          }
+          resolve();
+        };
+        getAllRequest.onerror = () => reject(getAllRequest.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('❌ Error syncing till opens:', err);
+  }
+}
+
+async function syncSingleTillOpen(openRecord) {
+  try {
+    const response = await fetch('/api/till/open', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        staffId: openRecord.staffId,
+        staffName: openRecord.staffName,
+        storeId: openRecord.storeId,
+        locationId: openRecord.locationId,
+        openingBalance: openRecord.openingBalance,
+      }),
+    });
+
+    let serverTillId = null;
+    if (response.ok) {
+      const data = await response.json();
+      serverTillId = data?.till?._id;
+    } else {
+      const data = await response.json();
+      if (data?.existingTill?._id) {
+        serverTillId = data.existingTill._id;
+      } else {
+        console.warn('⚠️ Till open sync failed:', data?.message || response.status);
+        return;
+      }
+    }
+
+    await markTillOpenSynced(openRecord._id, serverTillId);
+
+    // Update local stored till if it matches offline id
+    try {
+      const savedTill = localStorage.getItem('till');
+      if (savedTill) {
+        const till = JSON.parse(savedTill);
+        if (till && till._id === openRecord._id) {
+          till._id = serverTillId;
+          localStorage.setItem('till', JSON.stringify(till));
+        }
+      }
+    } catch (err) {
+      // ignore
+    }
+  } catch (err) {
+    console.error('❌ Error syncing till open:', err);
+  }
+}
+
+async function markTillOpenSynced(offlineId, serverTillId) {
+  const request = indexedDB.open('SalesPOS', DB_VERSION);
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const store = db.transaction(['till_opens'], 'readwrite')
+        .objectStore('till_opens');
+
+      const getRequest = store.get(offlineId);
+      getRequest.onsuccess = () => {
+        const record = getRequest.result;
+        if (record) {
+          record.synced = true;
+          record.serverTillId = serverTillId;
+          record.syncedAt = new Date().toISOString();
+          store.put(record);
+        }
+        resolve();
+      };
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function getTillOpenRecord(offlineId) {
+  const request = indexedDB.open('SalesPOS', DB_VERSION);
+  return new Promise((resolve, reject) => {
+    request.onsuccess = (event) => {
+      const db = event.target.result;
+      const store = db.transaction(['till_opens'], 'readonly')
+        .objectStore('till_opens');
+      const getRequest = store.get(offlineId);
+      getRequest.onsuccess = () => resolve(getRequest.result || null);
+      getRequest.onerror = () => reject(getRequest.error);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Resolve offline till id to server till id
+ */
+export async function resolveTillId(offlineId, fallbackData) {
+  if (!String(offlineId).startsWith('offline-till-')) return offlineId;
+
+  const record = await getTillOpenRecord(offlineId);
+  if (record?.serverTillId) return record.serverTillId;
+
+  if (record && !record.synced) {
+    await syncSingleTillOpen(record);
+    const refreshed = await getTillOpenRecord(offlineId);
+    return refreshed?.serverTillId || null;
+  }
+
+  if (!record && fallbackData) {
+    const openRecord = {
+      _id: offlineId,
+      staffId: fallbackData.staffId,
+      staffName: fallbackData.staffName,
+      storeId: fallbackData.storeId || 'default-store',
+      locationId: fallbackData.locationId,
+      openingBalance: fallbackData.openingBalance || 0,
+    };
+    await saveTillOpenOffline(openRecord);
+    await syncSingleTillOpen(openRecord);
+    const refreshed = await getTillOpenRecord(offlineId);
+    return refreshed?.serverTillId || null;
+  }
+
+  return null;
+}
+
+/**
  * Get image URL with fallback
  * Returns placeholder when offline, real URL when online
  */
@@ -433,7 +642,7 @@ export function shouldShowPlaceholder(product) {
  */
 export async function getCompletedTransactions() {
   try {
-    const request = indexedDB.open('SalesPOS', 1);
+    const request = indexedDB.open('SalesPOS', DB_VERSION);
 
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -516,3 +725,4 @@ export function getCachedCompletedTransactions() {
   }
   return [];
 }
+

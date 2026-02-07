@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { useStaff } from "../../context/StaffContext";
 import NumKeypad from "../common/NumKeypad";
 import { getUiSettings } from "@/src/lib/uiSettings";
+import { saveTillOpenOffline } from "../../lib/offlineSync";
 
 export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData = null, locationData = null }) {
   const contextStaff = useStaff();
@@ -154,6 +155,16 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
           locationName: location.name,
           openingBalance: parseFloat(effectiveOpeningBalance),
         });
+
+        await saveTillOpenOffline({
+          _id: localTill._id,
+          staffId: staff._id,
+          staffName: staff.name,
+          storeId: staff.storeId || "default-store",
+          locationId: location._id,
+          openingBalance: parseFloat(effectiveOpeningBalance),
+          openedAt: localTill.openedAt,
+        });
         
         setCurrentTill(localTill);
         setOpeningBalance("");
@@ -177,6 +188,16 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
             locationId: location._id,
             locationName: location.name,
             openingBalance: parseFloat(effectiveOpeningBalance),
+          });
+
+          await saveTillOpenOffline({
+            _id: localTill._id,
+            staffId: staff._id,
+            staffName: staff.name,
+            storeId: staff.storeId || "default-store",
+            locationId: location._id,
+            openingBalance: parseFloat(effectiveOpeningBalance),
+            openedAt: localTill.openedAt,
           });
           
           setCurrentTill(localTill);
