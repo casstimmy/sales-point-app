@@ -91,22 +91,12 @@ export default function PaymentPanel() {
         tillId: till?._id,
       };
 
-      if (getOnlineStatus()) {
-        try {
-          const response = await fetch("/api/transactions/save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(transaction),
-          });
+      // Always save locally first for full offline/online reconciliation
+      await saveTransactionOffline(transaction);
 
-          if (!response.ok) {
-            await saveTransactionOffline(transaction);
-          }
-        } catch (err) {
-          await saveTransactionOffline(transaction);
-        }
-      } else {
-        await saveTransactionOffline(transaction);
+      if (getOnlineStatus()) {
+        // Best-effort immediate sync
+        syncPendingTransactions().catch(() => {});
       }
 
       completeOrder("CASH");

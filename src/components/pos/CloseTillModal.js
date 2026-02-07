@@ -226,6 +226,14 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
       };
 
       if (isOnline) {
+        // Ensure all local transactions are synced before closing till
+        try {
+          const { syncPendingTransactions } = await import('../../lib/offlineSync');
+          await syncPendingTransactions();
+        } catch (err) {
+          console.warn('⚠️ Could not sync pending transactions before closing till:', err?.message || err);
+        }
+
         const response = await fetch("/api/till/close", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
