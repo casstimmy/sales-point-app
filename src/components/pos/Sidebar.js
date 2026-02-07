@@ -96,7 +96,8 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
   const [checkingPrinter, setCheckingPrinter] = useState(false);
   const [uiSettings, setUiSettings] = useState(getUiSettings());
   const { lastSyncTime, isOnline, pendingSyncCount, manualSync } = useCart();
-  const { till } = useStaff();
+  const { till, setCurrentTill } = useStaff();
+  const [effectiveTill, setEffectiveTill] = useState(till || null);
 
   // Check printer availability on mount only (not periodically)
   useEffect(() => {
@@ -134,6 +135,28 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     window.addEventListener('uiSettings:updated', handleSettingsUpdate);
     return () => window.removeEventListener('uiSettings:updated', handleSettingsUpdate);
   }, []);
+
+  useEffect(() => {
+    if (till) {
+      setEffectiveTill(till);
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    try {
+      const persistedTill = localStorage.getItem('till');
+      if (persistedTill) {
+        const parsedTill = JSON.parse(persistedTill);
+        setEffectiveTill(parsedTill);
+        if (!till) {
+          setCurrentTill(parsedTill);
+        }
+        return;
+      }
+    } catch (error) {
+      console.warn('Failed to load persisted till:', error);
+    }
+    setEffectiveTill(null);
+  }, [till, setCurrentTill]);
 
   const toggleSection = (sectionId) => {
     setExpandedSections(prev => ({
@@ -246,7 +269,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                         setShowAdjustFloatModal(true);
                       }
                     }}
-                    disabled={(item.label === 'Close Till' || item.label === 'Adjust Float') && !till}
+                    disabled={(item.label === 'Close Till' || item.label === 'Adjust Float') && !effectiveTill}
                     className="w-full flex items-center gap-3 px-5 py-4 hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left text-base font-semibold text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <FontAwesomeIcon icon={item.icon} className="w-5 h-5 text-primary-500" />

@@ -161,6 +161,22 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     }
   }, [isOpen, contextTill, isOnline]);
 
+  useEffect(() => {
+    if (!isOpen || contextTill?._id) return;
+    if (typeof window === 'undefined') return;
+    try {
+      const persistedTill = localStorage.getItem('till');
+      if (!persistedTill) return;
+      const parsedTill = JSON.parse(persistedTill);
+      if (parsedTill?._id) {
+        setCurrentTill(parsedTill);
+        setTill(parsedTill);
+      }
+    } catch (error) {
+      console.warn('Failed to hydrate till for close modal:', error);
+    }
+  }, [isOpen, contextTill, setCurrentTill]);
+
   // Calculate summary when till data is available
   useEffect(() => {
     if (till && isOpen) {

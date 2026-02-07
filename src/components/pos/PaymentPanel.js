@@ -22,9 +22,11 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { getUiSettings } from "@/src/lib/uiSettings";
 import ThankYouNote from "./ThankYouNote";
+import OpenTillModal from "./OpenTillModal";
 
 export default function PaymentPanel() {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const [showOpenTillModal, setShowOpenTillModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState({});
   const { staff, location, till } = useStaff();
   const { handleError } = useErrorHandler();
@@ -59,6 +61,9 @@ export default function PaymentPanel() {
       if (!staff?._id || !staff?.name || !location?._id || !location?.name) {
         throw new Error("Staff or location missing. Please log in again.");
       }
+      if (!till?._id) {
+        throw new Error("Till not open. Please open a till before payment.");
+      }
 
       const transaction = {
         items: activeCart.items.map((item) => ({
@@ -88,7 +93,7 @@ export default function PaymentPanel() {
         status: "completed",
         transactionType: "pos",
         createdAt: new Date().toISOString(),
-        tillId: till?._id,
+        tillId: till._id,
       };
 
       // Always save locally first for full offline/online reconciliation
@@ -144,6 +149,10 @@ export default function PaymentPanel() {
     large: "text-[18px]",
   }[paymentContentSize] || "text-[16px]";
 
+  const handleTillOpened = () => {
+    setShowOpenTillModal(false);
+  };
+
   return (
     <div className={`min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-10rem)] flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden ${scaleClass} ${contentSizeClass}`}>
       {/* Payment Header */}
@@ -160,12 +169,27 @@ export default function PaymentPanel() {
 
       {/* Payment Body */}
       <div className="flex-1 p-4">
-        <PaymentModal
-          inline
-          total={totals.total}
-          onConfirm={handlePaymentConfirm}
-          onCancel={() => setShowPaymentPanel(false)}
-        />
+        {!till ? (
+          <div className="h-full flex flex-col items-center justify-center text-center border-2 border-dashed border-cyan-300 bg-white/80 rounded-2xl p-6">
+            <div className="text-lg font-semibold text-neutral-900">Open a till to accept payment</div>
+            <div className="text-sm text-neutral-600 mt-2 max-w-md">
+              This session has no active till. Open a till first so sales can be recorded correctly.
+            </div>
+            <button
+              onClick={() => setShowOpenTillModal(true)}
+              className="mt-4 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition"
+            >
+              Open Till
+            </button>
+          </div>
+        ) : (
+          <PaymentModal
+            inline
+            total={totals.total}
+            onConfirm={handlePaymentConfirm}
+            onCancel={() => setShowPaymentPanel(false)}
+          />
+        )}
 
         {isEmpty && (
           <div className="mt-3 text-sm text-red-600 font-semibold">
@@ -180,6 +204,14 @@ export default function PaymentPanel() {
         onClose={() => setShowThankYouModal(false)}
         receiptSettings={receiptSettings}
         companyLogo={receiptSettings.companyLogo}
+      />
+
+      <OpenTillModal
+        isOpen={showOpenTillModal}
+        onClose={() => setShowOpenTillModal(false)}
+        onTillOpened={handleTillOpened}
+        staffData={staff}
+        locationData={location}
       />
     </div>
   );
