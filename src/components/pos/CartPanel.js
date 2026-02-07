@@ -165,6 +165,10 @@ export default function CartPanel() {
       console.log("   Is till null?", till === null);
       console.log("   Is till undefined?", till === undefined);
 
+      if (!staff?._id || !staff?.name || !location?._id || !location?.name) {
+        throw new Error("Staff or location missing. Please log in again.");
+      }
+
       // Create transaction object matching schema
       const transaction = {
         items: activeCart.items.map((item) => ({
@@ -185,6 +189,8 @@ export default function CartPanel() {
         staffName: staff?.name || staff?.fullName || "POS Staff",
         staffId: staff?._id, // Include staff ObjectId
         location: location?.name || "Default Location", // Use store location from login
+        locationId: location?._id,
+        locationName: location?.name,
         device: "POS",
         tableName: null,
         customerName: activeCart.customer?.name,
@@ -296,7 +302,18 @@ export default function CartPanel() {
 
   return (
     <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200">
-      {isEmpty ? (
+      {showPaymentModal && (
+        <div className="flex-1 overflow-y-auto p-3 bg-neutral-50">
+          <PaymentModal
+            inline
+            total={totals.total}
+            onConfirm={handlePaymentConfirm}
+            onCancel={() => setShowPaymentModal(false)}
+          />
+        </div>
+      )}
+
+      {!showPaymentModal && (isEmpty ? (
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-3 text-center">
           <div className="text-5xl mb-2 opacity-40">🍽️</div>
@@ -705,16 +722,7 @@ export default function CartPanel() {
             </div>
           </div>
         </>
-      )}
-
-      {/* Payment Modal */}
-      {showPaymentModal && (
-        <PaymentModal
-          total={totals.total}
-          onConfirm={handlePaymentConfirm}
-          onCancel={() => setShowPaymentModal(false)}
-        />
-      )}
+      ))}
 
       {/* Thank You Modal */}
       <ThankYouNote

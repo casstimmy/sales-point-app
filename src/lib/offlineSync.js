@@ -71,6 +71,10 @@ export function getOnlineStatus() {
  */
 export async function saveTransactionOffline(transaction) {
   try {
+    if (!transaction?.staffName || !transaction?.location) {
+      throw new Error('Cannot save transaction without staff name and location');
+    }
+
     const request = indexedDB.open('SalesPOS', 1);
     
     return new Promise((resolve, reject) => {
@@ -160,6 +164,12 @@ export async function syncPendingTransactions() {
 
           for (const tx of transactions) {
             try {
+              if (!tx.staffName || !tx.location) {
+                failed++;
+                console.warn(`⚠️ Skipping transaction ${tx.id} - missing staffName or location`);
+                continue;
+              }
+
               console.log(`📊 Syncing transaction:`, tx);
               const response = await fetch('/api/transactions', {
                 method: 'POST',

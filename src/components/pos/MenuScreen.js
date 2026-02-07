@@ -476,7 +476,7 @@ export default function MenuScreen() {
 
   // Handle search button click - apply search filter
   const handleSearchClick = () => {
-    setAppliedSearch(searchTerm);
+    setAppliedSearch(searchTerm.trim());
   };
 
   return (
@@ -556,7 +556,13 @@ export default function MenuScreen() {
               type="text"
               placeholder="Search products or categories..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setSearchTerm(value);
+                if (!value.trim()) {
+                  setAppliedSearch('');
+                }
+              }}
               className="w-full pl-8 pr-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
             />
           </div>
@@ -607,7 +613,7 @@ export default function MenuScreen() {
         </div>
 
         {/* Product List - Category view or Search Results */}
-        {appliedSearch ? (
+        {false && appliedSearch ? (
           // Search Results View - Search across all products
           <div className="bg-white rounded-lg border-2 border-green-200 p-3 mt-3">
             <div className="text-base font-bold text-neutral-900 mb-3">
@@ -705,7 +711,7 @@ export default function MenuScreen() {
               );
             })()}
           </div>
-        ) : selectedCategory && (
+        ) : (selectedCategory || appliedSearch) && (
           // Category View
           <div className="bg-white rounded-lg border-2 border-primary-200 p-3 mt-3">
             <div className="text-base font-bold text-neutral-900 mb-3">
@@ -714,11 +720,13 @@ export default function MenuScreen() {
             {loadingProducts ? (
               <div className="text-sm text-neutral-400 text-center py-4">Loading products...</div>
             ) : (() => {
-              // Filter products based on applied search term
-              const filteredProducts = appliedSearch ? products.filter(product =>
-                product.name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
-                (product.description && product.description.toLowerCase().includes(appliedSearch.toLowerCase()))
-              ) : products;
+              const searchSource = appliedSearch && allProducts.length > 0 ? allProducts : products;
+              const filteredProducts = appliedSearch
+                ? searchSource.filter(product =>
+                    product.name.toLowerCase().includes(appliedSearch.toLowerCase()) ||
+                    (product.description && product.description.toLowerCase().includes(appliedSearch.toLowerCase()))
+                  )
+                : searchSource;
               
               return filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 auto-rows-max">

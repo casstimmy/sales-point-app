@@ -24,7 +24,7 @@ const TENDER_COLOR_MAP = {
   'Other': 'bg-indigo-500',
 };
 
-export default function PaymentModal({ total, onConfirm, onCancel }) {
+export default function PaymentModal({ total, onConfirm, onCancel, inline = false }) {
   const { location } = useStaff();
   const { tenders: locationTenders, loading: tendersLoading, error: tendersError } = useLocationTenders();
   
@@ -201,11 +201,15 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
   };
 
   if (loading) {
-    return (
+    const loadingContent = (
+      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 text-center">
+        <p className="text-neutral-600">Loading available payment methods...</p>
+      </div>
+    );
+
+    return inline ? loadingContent : (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 text-center">
-          <p className="text-neutral-600">Loading available payment methods...</p>
-        </div>
+        {loadingContent}
       </div>
     );
   }
@@ -214,9 +218,8 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
     // NOTE: Do NOT auto-redirect - let user close modal and handle login through Layout
     // The Layout component will show StaffLogin when staff is null
 
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6">
+    const errorContent = (
+      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6">
           {error && <p className="text-red-600 font-semibold mb-4">Error: {error}</p>}
           {!error && availableTenders.length === 0 && !loading && (
             <>
@@ -249,26 +252,32 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
           >
             Close
           </button>
-        </div>
+      </div>
+    );
+
+    return inline ? errorContent : (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        {errorContent}
       </div>
     );
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2">
-      <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)] flex flex-col overflow-hidden">
+  const paymentContent = (
+    <div className={`${inline ? 'bg-white rounded-xl border border-neutral-200 shadow-lg w-full' : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)]'} flex flex-col overflow-hidden`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-3 flex justify-between items-center flex-shrink-0">
           <div>
             <h2 className="text-lg font-bold">Complete Payment</h2>
             <p className="text-cyan-100 text-xs">Select payment method and enter amount</p>
           </div>
-          <button
-            onClick={onCancel}
-            className="hover:bg-white/20 p-1.5 rounded transition-all active:scale-95"
-          >
-            <FontAwesomeIcon icon={faXmark} className="w-5 h-5" />
-          </button>
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="hover:bg-white/20 p-1.5 rounded transition-all active:scale-95"
+            >
+              <FontAwesomeIcon icon={faXmark} className="w-5 h-5" />
+            </button>
+          )}
         </div>
 
         {/* Main Content */}
@@ -497,7 +506,12 @@ export default function PaymentModal({ total, onConfirm, onCancel }) {
             </span>
           </button>
         </div>
-      </div>
+    </div>
+  );
+
+  return inline ? paymentContent : (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2">
+      {paymentContent}
     </div>
   );
 }
