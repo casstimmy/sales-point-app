@@ -64,6 +64,7 @@ const INITIAL_STATE = {
 export function CartProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [showPaymentPanel, setShowPaymentPanel] = useState(false);
 
   // Load persisted orders from localStorage on mount
   useEffect(() => {
@@ -597,6 +598,10 @@ export function CartProvider({ children }) {
     clearCart: () => setState(prev => ({ ...prev, activeCart: { ...INITIAL_CART } })),
     getPendingSyncCount: () => pendingSyncCount,
     manualSync: autoSyncTransactions,
+
+    // Payment UI
+    showPaymentPanel,
+    setShowPaymentPanel,
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

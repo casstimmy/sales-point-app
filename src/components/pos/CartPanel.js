@@ -33,18 +33,10 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { useCart } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
-import { useErrorHandler } from "../../hooks/useErrorHandler";
-import {
-  saveTransactionOffline,
-  getOnlineStatus,
-  syncPendingTransactions,
-} from "../../lib/offlineSync";
 import {
   printTransactionReceipt,
   getReceiptSettings,
 } from "../../lib/receiptPrinting";
-import PaymentModal from "./PaymentModal";
-import ThankYouNote from "./ThankYouNote";
 import AdjustFloatModal from "./AdjustFloatModal";
 
 export default function CartPanel() {
@@ -52,12 +44,9 @@ export default function CartPanel() {
   const [expandedItemId, setExpandedItemId] = useState(null);
   const [prevItemsLength, setPrevItemsLength] = useState(0);
   const selectedItemRef = useRef(null);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [showAdjustFloatModal, setShowAdjustFloatModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState({});
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
-  const { handleError, forceLoginRedirect } = useErrorHandler();
   const {
     activeCart,
     updateQuantity,
@@ -69,6 +58,7 @@ export default function CartPanel() {
     holdOrder,
     completeOrder,
     deleteCart,
+    setShowPaymentPanel,
   } = useCart();
 
   const totals = calculateTotals();
@@ -102,8 +92,7 @@ export default function CartPanel() {
       alert("Cart is empty. Add items to complete payment.");
       return;
     }
-    // Show payment modal instead of processing immediately
-    setShowPaymentModal(true);
+    setShowPaymentPanel(true);
   };
 
   const handlePrintCart = async () => {
@@ -155,165 +144,9 @@ export default function CartPanel() {
     }
   };
 
-  const handlePaymentConfirm = async (paymentDetails) => {
-    try {
-      console.log("🔔 handlePaymentConfirm called");
-      console.log("   Staff:", staff);
-      console.log("   Location:", location);
-      console.log("   Till from context:", till);
-      console.log("   Till?._id:", till?._id);
-      console.log("   Is till null?", till === null);
-      console.log("   Is till undefined?", till === undefined);
-
-      if (!staff?._id || !staff?.name || !location?._id || !location?.name) {
-        throw new Error("Staff or location missing. Please log in again.");
-      }
-
-      // Create transaction object matching schema
-      const transaction = {
-        items: activeCart.items.map((item) => ({
-          productId: item.id,
-          name: item.name,
-          quantity: item.quantity, // Maps to 'qty' in schema
-          price: item.price, // Maps to 'salePriceIncTax' in schema
-        })),
-        total: totals.total, // Use 'total' from calculateTotals
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-        discount: activeCart.discountPercent || 0,
-        amountPaid: paymentDetails.amountPaid, // Actual amount paid by customer
-        change: paymentDetails.change, // Calculate change
-        tenderType: paymentDetails.tenderType, // Primary tender type (legacy, for backwards compatibility)
-        tenderPayments: paymentDetails.tenderPayments, // New: split payments array [{tenderId, tenderName, amount}]
-        tenders: paymentDetails.tenders, // All tender breakdowns (for display)
-        staffName: staff?.name || staff?.fullName || "POS Staff",
-        staffId: staff?._id, // Include staff ObjectId
-        location: location?.name || "Default Location", // Use store location from login
-        locationId: location?._id,
-        locationName: location?.name,
-        device: "POS",
-        tableName: null,
-        customerName: activeCart.customer?.name,
-        status: "completed", // Mark as completed after payment confirmation
-        transactionType: "pos",
-        createdAt: new Date().toISOString(),
-        tillId: till?._id, // Link to till session by ID
-      };
-
-      console.log("💾 Transaction to save:", transaction);
-      console.log("🔍 Totals:", {
-        total: totals.total,
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-      });
-      console.log("🔍 Payment details:", paymentDetails);
-      console.log("🔍 Tender payments:", paymentDetails.tenderPayments);
-
-      if (transaction.tillId) {
-        console.log(
-          `✅ Till ID included in transaction: ${transaction.tillId}`,
-        );
-      } else {
-        console.warn(
-          "⚠️ No Till ID in transaction - till may not be set in context",
-        );
-        console.warn("   Till is:", till);
-      }
-
-      // Send transaction directly if online, queue if offline
-      if (getOnlineStatus()) {
-        // Online: Send directly to server
-        try {
-          const response = await fetch("/api/transactions/save", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(transaction),
-          });
-
-          if (!response.ok) {
-            console.warn("Failed to send transaction online, queuing for sync");
-            await saveTransactionOffline(transaction);
-          } else {
-            console.log("✅ Transaction sent directly to server");
-            // Do NOT save to IndexedDB when already saved to server - this causes double counting!
-            // The transaction is already in the database, no need for offline backup
-          }
-        } catch (err) {
-          console.warn("Error sending transaction, queuing for sync:", err);
-          await saveTransactionOffline(transaction);
-        }
-      } else {
-        // Offline: Queue to IndexedDB
-        console.log("🔴 Offline - Queuing transaction for sync");
-        await saveTransactionOffline(transaction);
-      }
-
-      // Complete order (clear cart)
-      completeOrder("CASH");
-
-      // Dispatch event to notify OrdersScreen that transaction completed
-      window.dispatchEvent(new CustomEvent('transactions:completed', { 
-        detail: { transaction } 
-      }));
-
-      // Hide modal
-      setShowPaymentModal(false);
-
-      // Show thank you modal immediately
-      setShowThankYouModal(true);
-
-      // Get receipt settings (use cached if available)
-      const settings = receiptSettings || (await getReceiptSettings());
-      setReceiptSettings(settings);
-
-      // Print receipt asynchronously (fire and forget)
-      const receiptTransaction = {
-        ...transaction,
-        _id: transaction._id || Date.now().toString(),
-      };
-
-      // Don't await printing - do it in background
-      printTransactionReceipt(receiptTransaction, settings).catch(() => {
-        // Ignore errors
-      });
-
-      // Sync if online (don't wait)
-      const onlineStatus = getOnlineStatus();
-      if (onlineStatus) {
-        syncPendingTransactions().catch(() => {
-          // Silently fail - user will see thank you modal
-        });
-      }
-    } catch (error) {
-      console.error("❌ Error processing payment:", error);
-      // Use centralized error handler - will redirect to login if critical error
-      const redirected = handleError(error, {
-        context: 'CartPanel - handlePaymentConfirm',
-        showAlert: true,
-        alertMessage: 'Error saving transaction. Please try again.'
-      });
-      
-      // If not redirected, just show the error (already handled above)
-      if (!redirected) {
-        // Error was shown, no additional action needed
-      }
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200">
-      {showPaymentModal && (
-        <div className="flex-1 overflow-y-auto p-3 bg-neutral-50">
-          <PaymentModal
-            inline
-            total={totals.total}
-            onConfirm={handlePaymentConfirm}
-            onCancel={() => setShowPaymentModal(false)}
-          />
-        </div>
-      )}
-
-      {!showPaymentModal && (isEmpty ? (
+      {isEmpty ? (
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-3 text-center">
           <div className="text-5xl mb-2 opacity-40">🍽️</div>
@@ -722,15 +555,7 @@ export default function CartPanel() {
             </div>
           </div>
         </>
-      ))}
-
-      {/* Thank You Modal */}
-      <ThankYouNote
-        isOpen={showThankYouModal}
-        onClose={() => setShowThankYouModal(false)}
-        receiptSettings={receiptSettings}
-        companyLogo={receiptSettings.companyLogo}
-      />
+      )}
 
       {/* Adjust Float Modal */}
       <AdjustFloatModal

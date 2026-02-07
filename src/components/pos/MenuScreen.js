@@ -28,6 +28,7 @@ import {
   faSearch,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
+import PaymentPanel from './PaymentPanel';
 import { useStaff } from '../../context/StaffContext';
 import { getLocalCategories, getLocalProductsByCategory, syncCategories, syncProducts, getAllLocalProducts } from '../../lib/indexedDB';
 import { initOfflineSync, getOnlineStatus, getImageUrl, shouldShowPlaceholder, syncPendingTransactions, syncPendingTillCloses } from '../../lib/offlineSync';
@@ -77,7 +78,7 @@ export default function MenuScreen() {
   const [isOnline, setIsOnline] = useState(true); // Track online status
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
   const imageObserver = useRef(null);
-  const { addItem, activeCart } = useCart();
+  const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
 
   // Initialize offline sync on mount
@@ -476,7 +477,9 @@ export default function MenuScreen() {
 
   // Handle search button click - apply search filter
   const handleSearchClick = () => {
-    setAppliedSearch(searchTerm.trim());
+    const value = searchTerm.trim();
+    setAppliedSearch(value);
+    setSearchTerm('');
   };
 
   return (
@@ -592,7 +595,11 @@ export default function MenuScreen() {
                 return (
                   <button
                     key={category._id || category.id}
-                    onClick={() => setSelectedCategory(category)}
+                    onClick={() => {
+                      setSelectedCategory(category);
+                      setAppliedSearch('');
+                      setSearchTerm('');
+                    }}
                     className={`relative h-28 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-base transform hover:scale-105 touch-manipulation ${
                       selectedCategory?._id === category._id || selectedCategory?.id === category.id ? 'ring-4 ring-primary-500' : ''
                     }`}
@@ -611,6 +618,13 @@ export default function MenuScreen() {
             </div>
           )}
         </div>
+
+        {/* Payment Panel (Content Side) */}
+        {showPaymentPanel && (
+          <div className="mb-3">
+            <PaymentPanel />
+          </div>
+        )}
 
         {/* Product List - Category view or Search Results */}
         {false && appliedSearch ? (
