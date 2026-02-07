@@ -44,8 +44,36 @@ export default async function handler(req, res) {
     console.log("✅ Till found:", till._id.toString(), "- Staff:", till.staffName);
 
     if (till.status !== "OPEN") {
-      console.error("❌ Till is not OPEN, status:", till.status);
-      return res.status(400).json({ message: "This till is not open" });
+      console.warn("⚠️ Till already closed, status:", till.status);
+
+      // Avoid duplicate EndOfDay reports if already closed
+      const existingReport = await EndOfDayReport.findOne({ tillId: till._id });
+
+      const tillResponse = till.toObject();
+      const tenderBreakdownObj = {};
+      if (till.tenderBreakdown instanceof Map) {
+        till.tenderBreakdown.forEach((value, key) => {
+          tenderBreakdownObj[key] = value;
+        });
+      } else if (till.tenderBreakdown) {
+        Object.assign(tenderBreakdownObj, till.tenderBreakdown);
+      }
+      const tenderVariancesObj = {};
+      if (till.tenderVariances instanceof Map) {
+        till.tenderVariances.forEach((value, key) => {
+          tenderVariancesObj[key] = value;
+        });
+      } else if (till.tenderVariances) {
+        Object.assign(tenderVariancesObj, till.tenderVariances);
+      }
+      tillResponse.tenderBreakdown = tenderBreakdownObj;
+      tillResponse.tenderVariances = tenderVariancesObj;
+
+      return res.status(200).json({
+        message: "Till already closed",
+        till: tillResponse,
+        reportId: existingReport?._id || null,
+      });
     }
 
     // Get all transactions for this till since it was opened
@@ -214,7 +242,11 @@ export default async function handler(req, res) {
       }
       console.log(`📍 Location Name: ${locationName}`);
 
-      const report = new EndOfDayReport({
+      const existingReport = await EndOfDayReport.findOne({ tillId: till._id });
+      if (existingReport) {
+        console.log(`📊 EndOfDayReport already exists - ID: ${existingReport._id}`);
+      } else {
+        const report = new EndOfDayReport({
         storeId: till.storeId,
         locationId: till.locationId,
         locationName: locationName,
@@ -234,10 +266,11 @@ export default async function handler(req, res) {
         closingNotes: closingNotes || "",
         status: Math.abs(totalVariance) < 0.01 ? "RECONCILED" : "VARIANCE_NOTED",
         date: new Date().setHours(0, 0, 0, 0),
-      });
+        });
 
-      await report.save();
-      console.log(`📊 EndOfDayReport created - ID: ${report._id}`);
+        await report.save();
+        console.log(`📊 EndOfDayReport created - ID: ${report._id}`);
+      }
     } catch (reportErr) {
       console.warn("⚠️ Warning: Failed to create EndOfDayReport:", reportErr.message);
       // Continue anyway - till is closed, just missing the report

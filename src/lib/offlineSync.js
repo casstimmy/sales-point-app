@@ -23,12 +23,14 @@ export function initOfflineSync() {
     console.log('🟢 Online - Syncing queued transactions and till closes');
     isOnline = true;
     // Sync immediately when coming back online
-    syncPendingTransactions().catch(err => 
-      console.error('Sync transactions after coming online failed:', err)
-    );
-    syncPendingTillCloses().catch(err => 
-      console.error('Sync till closes after coming online failed:', err)
-    );
+    (async () => {
+      try {
+        await syncPendingTransactions();
+        await syncPendingTillCloses();
+      } catch (err) {
+        console.error('Sync after coming online failed:', err);
+      }
+    })();
   });
 
   window.addEventListener('offline', () => {
@@ -284,6 +286,9 @@ export async function syncPendingTillCloses() {
   }
 
   try {
+    // Ensure transactions are synced before closing tills
+    await syncPendingTransactions();
+
     const request = indexedDB.open('SalesPOS', 1);
 
     return new Promise((resolve, reject) => {
