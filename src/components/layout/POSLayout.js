@@ -16,6 +16,7 @@ import Sidebar from "../pos/Sidebar";
 import CartPanel from "../pos/CartPanel";
 import { CartProvider } from "../../context/CartContext";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
+import { getUiSettings } from "@/src/lib/uiSettings";
 
 export default function POSLayout({ children }) {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function POSLayout({ children }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("MENU");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [uiSettings, setUiSettings] = useState(getUiSettings());
 
   // Check authentication - redirect to login if not logged in
   useEffect(() => {
@@ -77,6 +79,20 @@ export default function POSLayout({ children }) {
     fetchStoreData();
   }, [handleApiError]);
 
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event?.detail) {
+        setUiSettings(event.detail);
+      } else {
+        setUiSettings(getUiSettings());
+      }
+    };
+
+    handleSettingsUpdate();
+    window.addEventListener('uiSettings:updated', handleSettingsUpdate);
+    return () => window.removeEventListener('uiSettings:updated', handleSettingsUpdate);
+  }, []);
+
   const handleLogout = () => {
     localStorage.removeItem('staffMember');
     localStorage.removeItem('staffToken');
@@ -87,6 +103,24 @@ export default function POSLayout({ children }) {
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
   };
+
+  const densityClass = {
+    compact: "text-[15px]",
+    comfortable: "text-[17px]",
+    spacious: "text-[19px]",
+  }[uiSettings.layout?.contentDensity || "comfortable"] || "text-[17px]";
+
+  const sidebarWidths = {
+    compact: { desktop: "w-48", mobile: "w-40" },
+    standard: { desktop: "w-56", mobile: "w-48" },
+    wide: { desktop: "w-64", mobile: "w-56" },
+  }[uiSettings.layout?.sidebarWidth || "standard"] || { desktop: "w-56", mobile: "w-48" };
+
+  const cartPanelWidthClass = {
+    compact: "w-[32%] min-w-[320px]",
+    standard: "w-[37%] min-w-[360px]",
+    wide: "w-[42%] min-w-[400px]",
+  }[uiSettings.layout?.cartPanelWidth || "standard"] || "w-[37%] min-w-[360px]";
 
   // Show loading screen if not staff is not set yet
   if (!staff && loading === false) {
@@ -154,10 +188,15 @@ export default function POSLayout({ children }) {
 
   return (
     <CartProvider>
-      <div className="flex h-screen bg-neutral-50 flex-col md:flex-row">
+      <div className={`flex h-screen bg-neutral-50 flex-col md:flex-row ${densityClass}`}>
         {/* Left Sidebar - Overlay Mode */}
         <div className="fixed inset-y-0 left-0 z-50">
-          <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+          <Sidebar
+            isOpen={sidebarOpen}
+            onToggle={toggleSidebar}
+            widthClass={sidebarWidths?.desktop}
+            mobileWidthClass={sidebarWidths?.mobile}
+          />
         </div>
 
         {/* Overlay Backdrop */}
@@ -187,7 +226,7 @@ export default function POSLayout({ children }) {
           </div>
 
           {/* Right: TabNavigation + CartPanel - Full Height - 37% Width */}
-          <div className="hidden lg:flex w-[37%] min-w-[360px] bg-white flex-col border-l border-neutral-200 overflow-hidden">
+          <div className={`hidden lg:flex ${cartPanelWidthClass} bg-white flex-col border-l border-neutral-200 overflow-hidden`}>
             {/* Tab Navigation - Screen Switching */}
             <div className="px-3 py-3 flex-shrink-0">
               <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />

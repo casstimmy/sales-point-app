@@ -36,17 +36,18 @@ import {
 import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
 import { checkPrinterAvailable } from '@/src/lib/printerConfig';
+import { getUiSettings } from '@/src/lib/uiSettings';
 import CloseTillModal from './CloseTillModal';
 import AdjustFloatModal from './AdjustFloatModal';
 
-const menuSections = [
+const baseMenuSections = [
   {
     id: 'admin',
     label: 'Admin',
     icon: faGear,
     items: [
-      { label: 'Adjust Float', icon: faClock },
-      { label: 'Close Till', icon: faTimesCircle },
+      { id: 'adjustFloat', label: 'Adjust Float', icon: faClock },
+      { id: 'closeTill', label: 'Close Till', icon: faTimesCircle },
       // Hidden for now - showing only core till operations
       // { label: 'Back Office', icon: faFileAlt, hidden: true },
       // { label: 'No Sale', icon: faPiggyBank, hidden: true },
@@ -85,7 +86,7 @@ const menuSections = [
   },
 ];
 
-export default function Sidebar({ isOpen, onToggle }) {
+export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileWidthClass = 'w-48' }) {
   const router = useRouter();
   const [expandedSections, setExpandedSections] = useState({});
   const [isSyncing, setIsSyncing] = useState(false);
@@ -93,6 +94,7 @@ export default function Sidebar({ isOpen, onToggle }) {
   const [showAdjustFloatModal, setShowAdjustFloatModal] = useState(false);
   const [printerAvailable, setPrinterAvailable] = useState(null);
   const [checkingPrinter, setCheckingPrinter] = useState(false);
+  const [uiSettings, setUiSettings] = useState(getUiSettings());
   const { lastSyncTime, isOnline, pendingSyncCount, manualSync } = useCart();
   const { till } = useStaff();
 
@@ -117,6 +119,20 @@ export default function Sidebar({ isOpen, onToggle }) {
     return () => {
       // No interval to clear
     };
+  }, []);
+
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event?.detail) {
+        setUiSettings(event.detail);
+      } else {
+        setUiSettings(getUiSettings());
+      }
+    };
+
+    handleSettingsUpdate();
+    window.addEventListener('uiSettings:updated', handleSettingsUpdate);
+    return () => window.removeEventListener('uiSettings:updated', handleSettingsUpdate);
   }, []);
 
   const toggleSection = (sectionId) => {
@@ -150,6 +166,25 @@ export default function Sidebar({ isOpen, onToggle }) {
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
     return date.toLocaleDateString();
   };
+
+  const menuSections = baseMenuSections
+    .filter((section) => {
+      if (section.id === 'print') return uiSettings.sidebarSections?.print !== false;
+      if (section.id === 'stock') return uiSettings.sidebarSections?.stock !== false;
+      if (section.id === 'apps') return uiSettings.sidebarSections?.apps !== false;
+      return true;
+    })
+    .map((section) => {
+      if (section.id !== 'admin') return section;
+      const allowAdjustFloat = uiSettings.adminControls?.adjustFloat !== false;
+      return {
+        ...section,
+        items: section.items.filter((item) => {
+          if (item.id === 'adjustFloat') return allowAdjustFloat;
+          return true;
+        }),
+      };
+    });
 
   const sidebarContent = (
     <div className="flex flex-col h-full bg-gradient-to-b from-neutral-50 to-neutral-100">
@@ -262,9 +297,9 @@ export default function Sidebar({ isOpen, onToggle }) {
           {/* Settings with Printer Status */}
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => router.push('/printer-settings')}
+              onClick={() => router.push('/settings')}
               className={`flex-1 flex items-center gap-3 px-4 py-4 rounded-lg text-left text-base font-semibold transition-colors duration-base ${
-                router.pathname === '/printer-settings'
+                router.pathname === '/settings' || router.pathname === '/printer-settings'
                   ? 'bg-primary-100 text-primary-700 shadow-md'
                   : 'text-neutral-700 hover:bg-neutral-100 hover:text-primary-600'
               }`}
@@ -299,7 +334,7 @@ export default function Sidebar({ isOpen, onToggle }) {
     <>
       {/* Desktop Sidebar - Toggle with hamburger */}
       {isOpen && (
-        <aside className="hidden md:flex flex-col w-56 bg-neutral-100 border-r border-neutral-300 h-screen overflow-y-auto">
+        <aside className={`hidden md:flex flex-col ${widthClass} bg-neutral-100 border-r border-neutral-300 h-screen overflow-y-auto`}>
           {sidebarContent}
         </aside>
       )}
@@ -311,7 +346,7 @@ export default function Sidebar({ isOpen, onToggle }) {
             className="fixed inset-0 bg-black/40 z-30 md:hidden"
             onClick={onToggle}
           />
-          <aside className="fixed left-0 top-0 w-48 h-screen bg-neutral-100 z-40 overflow-y-auto md:hidden">
+          <aside className={`fixed left-0 top-0 ${mobileWidthClass} h-screen bg-neutral-100 z-40 overflow-y-auto md:hidden`}>
             {sidebarContent}
           </aside>
         </>

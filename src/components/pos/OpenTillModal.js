@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useStaff } from "../../context/StaffContext";
 import NumKeypad from "../common/NumKeypad";
+import { getUiSettings } from "@/src/lib/uiSettings";
 
 export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData = null, locationData = null }) {
   const contextStaff = useStaff();
@@ -13,6 +14,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
+  const [uiSettings, setUiSettings] = useState(getUiSettings());
 
   // Track online/offline status
   useEffect(() => {
@@ -27,6 +29,20 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
+  }, []);
+
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event?.detail) {
+        setUiSettings(event.detail);
+      } else {
+        setUiSettings(getUiSettings());
+      }
+    };
+
+    handleSettingsUpdate();
+    window.addEventListener('uiSettings:updated', handleSettingsUpdate);
+    return () => window.removeEventListener('uiSettings:updated', handleSettingsUpdate);
   }, []);
 
   // Save till to localStorage for offline use
@@ -48,8 +64,10 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
   };
 
   const handleOpenTill = async () => {
+    const effectiveOpeningBalance = openTillCashEntryEnabled ? openingBalance : "0";
+
     // Validate input
-    if (openingBalance === "" || isNaN(openingBalance)) {
+    if (openTillCashEntryEnabled && (effectiveOpeningBalance === "" || isNaN(effectiveOpeningBalance))) {
       setError("Please enter a valid opening balance");
       return;
     }
@@ -74,7 +92,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
         staffName: staff.name,
         storeId: staff.storeId || "default-store",
         locationId: location._id,
-        openingBalance: parseFloat(openingBalance),
+        openingBalance: parseFloat(effectiveOpeningBalance),
       };
       
       console.log("📋 Opening till with payload:", payload);
@@ -134,7 +152,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
           storeId: staff.storeId || "default-store",
           locationId: location._id,
           locationName: location.name,
-          openingBalance: parseFloat(openingBalance),
+          openingBalance: parseFloat(effectiveOpeningBalance),
         });
         
         setCurrentTill(localTill);
@@ -158,7 +176,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
             storeId: staff.storeId || "default-store",
             locationId: location._id,
             locationName: location.name,
-            openingBalance: parseFloat(openingBalance),
+            openingBalance: parseFloat(effectiveOpeningBalance),
           });
           
           setCurrentTill(localTill);
@@ -179,6 +197,8 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
       setLoading(false);
     }
   };
+
+  const openTillCashEntryEnabled = uiSettings.adminControls?.openTillCashEntry !== false;
 
   if (!isOpen) return null;
 
@@ -217,23 +237,29 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
         )}
 
         {/* Opening Balance Input with Keypad */}
-        <div className="mb-4">
-          <label className="block text-gray-700 font-semibold mb-2 text-sm">
-            Opening Balance (Cash in Till)
-          </label>
-          
-          {/* Keypad */}
-          <NumKeypad 
-            value={openingBalance}
-            onChange={setOpeningBalance}
-            placeholder="Amount in ₦"
-            disabled={loading}
-          />
-          
-          <p className="text-xs text-gray-500 mt-2">
-            Enter the amount of cash currently in the till
-          </p>
-        </div>
+        {openTillCashEntryEnabled ? (
+          <div className="mb-4">
+            <label className="block text-gray-700 font-semibold mb-2 text-sm">
+              Opening Balance (Cash in Till)
+            </label>
+
+            {/* Keypad */}
+            <NumKeypad 
+              value={openingBalance}
+              onChange={setOpeningBalance}
+              placeholder="Amount in ₦"
+              disabled={loading}
+            />
+
+            <p className="text-xs text-gray-500 mt-2">
+              Enter the amount of cash currently in the till
+            </p>
+          </div>
+        ) : (
+          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+            Opening cash entry is disabled in Settings. Opening balance will be set to ₦0.
+          </div>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -261,7 +287,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
           </button>
           <button
             onClick={handleOpenTill}
-            disabled={loading || (!openingBalance && !error?.includes("already open"))}
+            disabled={loading || (openTillCashEntryEnabled && !openingBalance && !error?.includes("already open"))}
             className="flex-1 px-2 py-1.5 bg-green-600 text-white rounded font-semibold hover:bg-green-700 disabled:opacity-50 text-sm min-h-9"
           >
             {loading ? "Processing..." : error?.includes("already open") ? "Continue" : "Open Till"}
