@@ -18,6 +18,7 @@ export const defaultUiSettings = {
   payment: {
     scale: 'standard', // compact | standard | large
     contentSize: 'standard', // compact | standard | large
+    keypadSize: 'standard', // compact | standard | large
     quickAmounts: {
       500: true,
       1000: true,

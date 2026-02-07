@@ -162,6 +162,7 @@ export default function SettingsPage() {
     payment: [
       `Payment scale: ${settings.payment?.scale || defaultUiSettings.payment.scale}`,
       `Payment content size: ${settings.payment?.contentSize || defaultUiSettings.payment.contentSize}`,
+      `Keypad size: ${settings.payment?.keypadSize || defaultUiSettings.payment.keypadSize}`,
       `Quick amounts: ${Object.entries(settings.payment?.quickAmounts || defaultUiSettings.payment.quickAmounts)
         .filter(([, enabled]) => enabled)
         .map(([label]) => (label === 'exact' ? 'Exact' : `₦${label}`))
@@ -207,8 +208,11 @@ export default function SettingsPage() {
           )}
 
           {success && (
-            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-              {success}
+            <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center justify-between">
+              <span>{success}</span>
+              <span className="text-xs font-semibold bg-green-100 text-green-700 px-2 py-1 rounded-full border border-green-200">
+                Saved
+              </span>
             </div>
           )}
 
@@ -421,6 +425,23 @@ export default function SettingsPage() {
                     <select
                       value={settings.payment?.contentSize || 'standard'}
                       onChange={(e) => updatePaymentSetting('contentSize', e.target.value)}
+                      className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500"
+                    >
+                      {PAYMENT_SCALE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Keypad Size
+                    </label>
+                    <select
+                      value={settings.payment?.keypadSize || 'standard'}
+                      onChange={(e) => updatePaymentSetting('keypadSize', e.target.value)}
                       className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500"
                     >
                       {PAYMENT_SCALE_OPTIONS.map((option) => (

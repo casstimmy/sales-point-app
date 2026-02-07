@@ -110,11 +110,17 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
 
   const quickAmountSettings = uiSettings.payment?.quickAmounts || {};
   const paymentContentSize = uiSettings.payment?.contentSize || "standard";
+  const keypadSize = uiSettings.payment?.keypadSize || "standard";
   const contentSizeClass = {
     compact: "text-[14px]",
     standard: "text-[16px]",
     large: "text-[18px]",
   }[paymentContentSize] || "text-[16px]";
+  const keypadButtonClass = {
+    compact: "text-lg py-2.5",
+    standard: "text-2xl py-3.5",
+    large: "text-3xl py-4.5",
+  }[keypadSize] || "text-2xl py-3.5";
 
   // Format Nigerian Naira with comma separators
   const formatNaira = (amount) => {
@@ -459,7 +465,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
                 <button
                   key={num}
                   onClick={() => handleNumberClick(num)}
-                  className="bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold text-lg transition-all active:scale-95 active:bg-cyan-100"
+                  className={`bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold transition-all active:scale-95 active:bg-cyan-100 ${keypadButtonClass}`}
                 >
                   {num}
                 </button>
@@ -468,13 +474,13 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
               {/* Zero and Decimal */}
               <button
                 onClick={() => handleNumberClick(0)}
-                className="col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold text-lg transition-all active:scale-95"
+                className={`col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold transition-all active:scale-95 ${keypadButtonClass}`}
               >
                 0
               </button>
               <button
                 onClick={handleDecimal}
-                className="bg-cyan-100 hover:bg-cyan-200 border border-cyan-300 text-cyan-700 rounded-lg font-bold text-lg transition-all active:scale-95"
+                className={`bg-cyan-100 hover:bg-cyan-200 border border-cyan-300 text-cyan-700 rounded-lg font-bold transition-all active:scale-95 ${keypadButtonClass}`}
               >
                 .
               </button>
