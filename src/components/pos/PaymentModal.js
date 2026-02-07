@@ -109,6 +109,12 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   }, []);
 
   const quickAmountSettings = uiSettings.payment?.quickAmounts || {};
+  const paymentContentSize = uiSettings.payment?.contentSize || "standard";
+  const contentSizeClass = {
+    compact: "text-[14px]",
+    standard: "text-[16px]",
+    large: "text-[18px]",
+  }[paymentContentSize] || "text-[16px]";
 
   // Format Nigerian Naira with comma separators
   const formatNaira = (amount) => {
@@ -281,7 +287,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   }
 
   const paymentContent = (
-    <div className={`${inline ? 'bg-white rounded-xl border border-neutral-200 shadow-lg w-full' : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)]'} flex flex-col overflow-hidden`}>
+    <div className={`${inline ? 'bg-white rounded-xl border border-neutral-200 shadow-lg w-full' : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)]'} flex flex-col overflow-hidden ${contentSizeClass}`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-3 flex justify-between items-center flex-shrink-0">
           <div>
@@ -415,7 +421,9 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
 
             {/* Quick Amount Buttons */}
             <div className="grid grid-cols-4 gap-1.5">
-              {[500, 1000, 2000, 5000, 10000, 20000, 50000].map(amount => (
+              {[500, 1000, 2000, 5000, 10000, 20000, 50000]
+                .filter(amount => quickAmountSettings[amount] !== false)
+                .map(amount => (
                 <button
                   key={amount}
                   onClick={() => {
@@ -427,15 +435,17 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
                   ₦{amount >= 1000 ? `${amount / 1000}K` : amount}
                 </button>
               ))}
-              <button
-                onClick={() => {
-                  setCurrentAmount(total.toString());
-                  setDisplayAmount(total.toString());
-                }}
-                className="py-2 px-1 bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 rounded-lg text-xs font-bold text-cyan-700 transition-all active:scale-95"
-              >
-                EXACT
-              </button>
+              {quickAmountSettings.exact !== false && (
+                <button
+                  onClick={() => {
+                    setCurrentAmount(total.toString());
+                    setDisplayAmount(total.toString());
+                  }}
+                  className="py-2 px-1 bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 rounded-lg text-xs font-bold text-cyan-700 transition-all active:scale-95"
+                >
+                  EXACT
+                </button>
+              )}
             </div>
           </div>
 
