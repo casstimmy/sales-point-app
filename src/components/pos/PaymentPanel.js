@@ -4,7 +4,7 @@
  * Renders the payment flow inline on the content side.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useCart } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
@@ -20,6 +20,7 @@ import {
 import PaymentModal from "./PaymentModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
+import { getUiSettings } from "@/src/lib/uiSettings";
 import ThankYouNote from "./ThankYouNote";
 
 export default function PaymentPanel() {
@@ -122,8 +123,39 @@ export default function PaymentPanel() {
 
   if (!showPaymentPanel) return null;
 
+  const [uiSettings, setUiSettings] = useState(getUiSettings());
+
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event?.detail) {
+        setUiSettings(event.detail);
+      } else {
+        setUiSettings(getUiSettings());
+      }
+    };
+
+    handleSettingsUpdate();
+    window.addEventListener("uiSettings:updated", handleSettingsUpdate);
+    return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
+  }, []);
+
+  const paymentScale = uiSettings.payment?.scale || "standard";
+  const paymentContentSize = uiSettings.payment?.contentSize || "standard";
+
+  const scaleClass = {
+    compact: "scale-[0.98]",
+    standard: "scale-100",
+    large: "scale-[1.02]",
+  }[paymentScale] || "scale-100";
+
+  const contentSizeClass = {
+    compact: "text-[14px]",
+    standard: "text-[16px]",
+    large: "text-[18px]",
+  }[paymentContentSize] || "text-[16px]";
+
   return (
-    <div className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden">
+    <div className={`min-h-[calc(100vh-10rem)] flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden ${scaleClass} ${contentSizeClass}`}>
       {/* Payment Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-neutral-200">
         <button

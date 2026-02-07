@@ -15,6 +15,20 @@ export const defaultUiSettings = {
     cartPanelWidth: 'standard', // compact | standard | wide
     contentDensity: 'comfortable', // compact | comfortable | spacious
   },
+  payment: {
+    scale: 'standard', // compact | standard | large
+    contentSize: 'standard', // compact | standard | large
+    quickAmounts: {
+      500: true,
+      1000: true,
+      2000: true,
+      5000: true,
+      10000: true,
+      20000: true,
+      50000: true,
+      exact: true,
+    },
+  },
 };
 
 const isObject = (value) =>

@@ -40,6 +40,12 @@ const WIDTH_OPTIONS = [
   { value: 'wide', label: 'Wide' },
 ];
 
+const PAYMENT_SCALE_OPTIONS = [
+  { value: 'compact', label: 'Compact' },
+  { value: 'standard', label: 'Standard' },
+  { value: 'large', label: 'Large' },
+];
+
 export default function SettingsPage() {
   const router = useRouter();
   const [settings, setSettings] = useState(getUiSettings());
@@ -47,6 +53,7 @@ export default function SettingsPage() {
     sidebar: true,
     till: true,
     layout: true,
+    payment: true,
     summary: true,
   });
   const [saving, setSaving] = useState(false);
@@ -91,6 +98,29 @@ export default function SettingsPage() {
     }));
   };
 
+  const updatePaymentSetting = (key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      payment: {
+        ...prev.payment,
+        [key]: value,
+      },
+    }));
+  };
+
+  const updateQuickAmount = (key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      payment: {
+        ...prev.payment,
+        quickAmounts: {
+          ...(prev.payment?.quickAmounts || {}),
+          [key]: value,
+        },
+      },
+    }));
+  };
+
   const handleSave = () => {
     setSaving(true);
     setError('');
@@ -128,6 +158,14 @@ export default function SettingsPage() {
       `Sidebar width: ${settings.layout?.sidebarWidth || defaultUiSettings.layout.sidebarWidth}`,
       `Cart panel width: ${settings.layout?.cartPanelWidth || defaultUiSettings.layout.cartPanelWidth}`,
       `Content density: ${settings.layout?.contentDensity || defaultUiSettings.layout.contentDensity}`,
+    ],
+    payment: [
+      `Payment scale: ${settings.payment?.scale || defaultUiSettings.payment.scale}`,
+      `Payment content size: ${settings.payment?.contentSize || defaultUiSettings.payment.contentSize}`,
+      `Quick amounts: ${Object.entries(settings.payment?.quickAmounts || defaultUiSettings.payment.quickAmounts)
+        .filter(([, enabled]) => enabled)
+        .map(([label]) => (label === 'exact' ? 'Exact' : `₦${label}`))
+        .join(', ') || 'None'}`,
     ],
   };
 
@@ -340,6 +378,89 @@ export default function SettingsPage() {
             )}
           </div>
 
+          {/* Complete Payment Styling */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleSection('payment')}
+              className="w-full flex items-center gap-3 px-5 py-4 bg-gray-50 hover:bg-gray-100 text-left font-semibold text-gray-800"
+            >
+              <FontAwesomeIcon icon={faRulerCombined} className="text-emerald-600 w-5 h-5" />
+              Complete Payment Styling
+              <span className="ml-auto">
+                <FontAwesomeIcon icon={expanded.payment ? faChevronDown : faChevronRight} />
+              </span>
+            </button>
+            {expanded.payment && (
+              <div className="p-5 space-y-4 bg-white">
+                <p className="text-sm text-gray-600">
+                  Control the payment screen scale, text size, and quick amount buttons.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Payment Scale
+                    </label>
+                    <select
+                      value={settings.payment?.scale || 'standard'}
+                      onChange={(e) => updatePaymentSetting('scale', e.target.value)}
+                      className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500"
+                    >
+                      {PAYMENT_SCALE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Payment Content Size
+                    </label>
+                    <select
+                      value={settings.payment?.contentSize || 'standard'}
+                      onChange={(e) => updatePaymentSetting('contentSize', e.target.value)}
+                      className="w-full border border-gray-300 rounded p-2 focus:ring-2 focus:ring-blue-500"
+                    >
+                      {PAYMENT_SCALE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Quick Amount Buttons
+                  </label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[500, 1000, 2000, 5000, 10000, 20000, 50000].map((amount) => (
+                      <label key={amount} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={settings.payment?.quickAmounts?.[amount] !== false}
+                          onChange={(e) => updateQuickAmount(amount, e.target.checked)}
+                        />
+                        <span className="text-sm font-semibold text-gray-700">₦{amount >= 1000 ? `${amount / 1000}K` : amount}</span>
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={settings.payment?.quickAmounts?.exact !== false}
+                        onChange={(e) => updateQuickAmount('exact', e.target.checked)}
+                      />
+                      <span className="text-sm font-semibold text-gray-700">Exact</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <button
@@ -367,6 +488,10 @@ export default function SettingsPage() {
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">Layout</div>
                   <div>{summary.layout.join(' • ')}</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900 mb-1">Complete Payment</div>
+                  <div>{summary.payment.join(' • ')}</div>
                 </div>
               </div>
             )}

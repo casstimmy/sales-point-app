@@ -15,6 +15,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faCheckCircle, faTimes, faBackspace } from '@fortawesome/free-solid-svg-icons';
 import { useStaff } from '@/src/context/StaffContext';
 import { useLocationTenders } from '@/src/hooks/useLocationTenders';
+import { getUiSettings } from '@/src/lib/uiSettings';
 
 const TENDER_COLOR_MAP = {
   'Cash': 'bg-green-500',
@@ -91,6 +92,23 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   const totalPaid = Object.values(tenders).reduce((sum, val) => sum + val, 0);
   const change = Math.max(0, totalPaid - total);
   const isPaymentComplete = totalPaid >= total;
+  const [uiSettings, setUiSettings] = useState(getUiSettings());
+
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event?.detail) {
+        setUiSettings(event.detail);
+      } else {
+        setUiSettings(getUiSettings());
+      }
+    };
+
+    handleSettingsUpdate();
+    window.addEventListener('uiSettings:updated', handleSettingsUpdate);
+    return () => window.removeEventListener('uiSettings:updated', handleSettingsUpdate);
+  }, []);
+
+  const quickAmountSettings = uiSettings.payment?.quickAmounts || {};
 
   // Format Nigerian Naira with comma separators
   const formatNaira = (amount) => {
