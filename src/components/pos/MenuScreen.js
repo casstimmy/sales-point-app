@@ -514,70 +514,74 @@ export default function MenuScreen() {
         </div>
       )}
       
-      {/* Sync Button + Status Bar */}
-      <div className="bg-white border-b border-neutral-200 px-3 py-2 flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-1.5">
-          {/* Online Status */}
-          <div className={`flex items-center gap-1 px-2 py-1.5 rounded ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
-            <FontAwesomeIcon 
-              icon={isOnline ? faWifi : faX} 
-              className={`w-4 h-4 ${isOnline ? 'text-green-600' : 'text-neutral-400'}`} 
-            />
-            <span className={`text-xs font-semibold ${isOnline ? 'text-green-700' : 'text-neutral-600'}`}>
-              {isOnline ? 'Online' : 'Offline'}
-            </span>
+      {!showPaymentPanel && (
+        <>
+          {/* Sync Button + Status Bar */}
+          <div className="bg-white border-b border-neutral-200 px-3 py-2 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+              {/* Online Status */}
+              <div className={`flex items-center gap-1 px-2 py-1.5 rounded ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
+                <FontAwesomeIcon 
+                  icon={isOnline ? faWifi : faX} 
+                  className={`w-4 h-4 ${isOnline ? 'text-green-600' : 'text-neutral-400'}`} 
+                />
+                <span className={`text-xs font-semibold ${isOnline ? 'text-green-700' : 'text-neutral-600'}`}>
+                  {isOnline ? 'Online' : 'Offline'}
+                </span>
+              </div>
+
+              {/* Last Sync Time */}
+              {lastSyncTime && (
+                <span className="text-xs text-neutral-500">
+                  Last sync: {lastSyncTime.toLocaleTimeString()}
+                </span>
+              )}
+            </div>
+            
+            {/* Sync Button */}
+            <button
+              onClick={handleManualSync}
+              disabled={isSyncing || !isOnline}
+              className="flex items-center gap-1.5 px-3 py-2 bg-primary-600 text-white text-xs font-semibold rounded hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-10"
+            >
+              <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
+              {isSyncing ? 'Syncing...' : 'Sync Products'}
+            </button>
           </div>
 
-          {/* Last Sync Time */}
-          {lastSyncTime && (
-            <span className="text-xs text-neutral-500">
-              Last sync: {lastSyncTime.toLocaleTimeString()}
-            </span>
-          )}
-        </div>
-        
-        {/* Sync Button */}
-        <button
-          onClick={handleManualSync}
-          disabled={isSyncing || !isOnline}
-          className="flex items-center gap-1.5 px-3 py-2 bg-primary-600 text-white text-xs font-semibold rounded hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-10"
-        >
-          <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
-          {isSyncing ? 'Syncing...' : 'Sync Products'}
-        </button>
-      </div>
-
-      {/* Search Bar - Redesigned */}
-      <div className="bg-white border-b-2 border-primary-200 px-3 py-2 flex-shrink-0 shadow-sm">
-        <div className="relative flex gap-1.5">
-          <div className="relative flex-1">
-            <FontAwesomeIcon 
-              icon={faSearch} 
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500"
-            />
-            <input
-              type="text"
-              placeholder="Search products or categories..."
-              value={searchTerm}
-              onChange={(e) => {
-                const value = e.target.value;
-                setSearchTerm(value);
-                if (!value.trim()) {
-                  setAppliedSearch('');
-                }
-              }}
-              className="w-full pl-8 pr-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
-            />
+          {/* Search Bar - Redesigned */}
+          <div className="bg-white border-b-2 border-primary-200 px-3 py-2 flex-shrink-0 shadow-sm">
+            <div className="relative flex gap-1.5">
+              <div className="relative flex-1">
+                <FontAwesomeIcon 
+                  icon={faSearch} 
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500"
+                />
+                <input
+                  type="text"
+                  placeholder="Search products or categories..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchTerm(value);
+                    if (!value.trim()) {
+                      setAppliedSearch('');
+                    }
+                  }}
+                  className="w-full pl-8 pr-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
+                />
+              </div>
+              <button
+                onClick={handleSearchClick}
+                className="px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-sm transition-colors duration-base flex items-center gap-1.5"
+              >
+                <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
+                <span className="hidden md:inline">Search</span>
+              </button>
+            </div>
           </div>
-          <button
-            onClick={handleSearchClick}
-            className="px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-sm transition-colors duration-base flex items-center gap-1.5"
-          >
-            <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
-            <span className="hidden md:inline">Search</span>
-          </button>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Payment Panel - Full Content Side */}
       {showPaymentPanel && (
