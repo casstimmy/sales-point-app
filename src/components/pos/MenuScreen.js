@@ -90,10 +90,12 @@ export default function MenuScreen() {
       console.error('Cleanup failed:', err);
     });
     
-    // Clear categories cache to force fresh fetch with location filtering
-    clearCategoriesCache().catch(err => {
-      console.error('Category cache clear failed:', err);
-    });
+    // Clear categories cache only when online to avoid wiping offline data
+    if (getOnlineStatus()) {
+      clearCategoriesCache().catch(err => {
+        console.error('Category cache clear failed:', err);
+      });
+    }
     
     // Listen for online/offline changes
     const handleOnline = () => {
@@ -218,6 +220,22 @@ export default function MenuScreen() {
             // Auto-select first category
             setSelectedCategory(localCategories[0]);
           } else {
+            // Try localStorage cache when offline or no IndexedDB data
+            const cached = typeof window !== 'undefined'
+              ? localStorage.getItem('cachedCategories')
+              : null;
+            if (cached) {
+              const cachedCategories = JSON.parse(cached);
+              if (cachedCategories && cachedCategories.length > 0) {
+                console.log("✅ Using cached categories from localStorage");
+                setCategories(cachedCategories);
+                setSelectedCategory(cachedCategories[0]);
+                await syncCategories(cachedCategories);
+                setLoadingCategories(false);
+                return;
+              }
+            }
+
             console.log("📥 No local categories found, fetching all from API...");
             try {
               const response = await fetch('/api/categories');
@@ -328,6 +346,28 @@ export default function MenuScreen() {
           }
         }
         
+        // No local data at all - try localStorage cache before API
+        const cachedProductsRaw = typeof window !== 'undefined'
+          ? localStorage.getItem('cachedProducts')
+          : null;
+        if (cachedProductsRaw) {
+          const cachedProducts = JSON.parse(cachedProductsRaw);
+          if (cachedProducts && cachedProducts.length > 0) {
+            console.log("✅ Using cached products from localStorage");
+            await syncProducts(cachedProducts);
+            setAllProducts(cachedProducts);
+            const categoryName = selectedCategory.name;
+            const categoryFiltered = cachedProducts.filter(p =>
+              p.category === categoryId ||
+              p.category === categoryName ||
+              p.categoryId === categoryId
+            );
+            setProducts(categoryFiltered);
+            setLoadingProducts(false);
+            return;
+          }
+        }
+
         // No local data at all - only fetch from API if online AND user hasn't synced before
         if (isOnline && allProducts.length === 0) {
           console.log("📥 No local products found, fetching from API (first load)...");
