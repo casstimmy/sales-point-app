@@ -48,8 +48,11 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
 
   // Save till to localStorage for offline use
   const saveTillOffline = (tillData) => {
+    const resolvedLocationName =
+      tillData.locationName || location?.name || location?.locationName || "Unknown Location";
     const till = {
       ...tillData,
+      locationName: resolvedLocationName,
       _id: tillData._id || `offline-till-${Date.now()}`,
       openedAt: new Date().toISOString(),
       status: 'open',

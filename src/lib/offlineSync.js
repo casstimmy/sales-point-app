@@ -10,6 +10,36 @@
 
 const SYNC_INTERVAL = 30000; // Auto-sync every 30 seconds
 const DB_VERSION = 2;
+const DB_NAME = 'SalesPOS';
+
+const ensureStores = (db) => {
+  if (!db.objectStoreNames.contains('transactions')) {
+    const txStore = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
+    txStore.createIndex('synced', 'synced', { unique: false });
+    txStore.createIndex('createdAt', 'createdAt', { unique: false });
+  }
+  if (!db.objectStoreNames.contains('till_closes')) {
+    const tillCloseStore = db.createObjectStore('till_closes', { keyPath: '_id' });
+    tillCloseStore.createIndex('synced', 'synced', { unique: false });
+    tillCloseStore.createIndex('closedAt', 'closedAt', { unique: false });
+  }
+  if (!db.objectStoreNames.contains('till_opens')) {
+    const tillOpenStore = db.createObjectStore('till_opens', { keyPath: '_id' });
+    tillOpenStore.createIndex('synced', 'synced', { unique: false });
+    tillOpenStore.createIndex('openedAt', 'openedAt', { unique: false });
+  }
+};
+
+const openSalesPosDb = () =>
+  new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      ensureStores(db);
+    };
+    request.onsuccess = (event) => resolve(event.target.result);
+    request.onerror = () => reject(request.error);
+  });
 let syncInterval = null;
 let isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
 
@@ -79,36 +109,31 @@ export async function saveTransactionOffline(transaction) {
       throw new Error('Cannot save transaction without staff name and location');
     }
 
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
     
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const txStore = db.transaction(['transactions'], 'readwrite')
-          .objectStore('transactions');
+      const txStore = db.transaction(['transactions'], 'readwrite')
+        .objectStore('transactions');
         
-        const txData = {
-          ...transaction,
-          synced: false,
-          syncedAt: null,
-          attempts: 0,
-        };
-
-        // Use put instead of add to allow auto-increment
-        const addRequest = txStore.put(txData);
-
-        addRequest.onsuccess = () => {
-          console.log('💾 Transaction saved offline with ID:', addRequest.result);
-          resolve(addRequest.result);
-        };
-
-        addRequest.onerror = () => {
-          console.error('❌ Failed to save transaction offline:', addRequest.error);
-          reject(addRequest.error);
-        };
+      const txData = {
+        ...transaction,
+        synced: false,
+        syncedAt: null,
+        attempts: 0,
       };
 
-      request.onerror = () => reject(request.error);
+      // Use put instead of add to allow auto-increment
+      const addRequest = txStore.put(txData);
+
+      addRequest.onsuccess = () => {
+        console.log('💾 Transaction saved offline with ID:', addRequest.result);
+        resolve(addRequest.result);
+      };
+
+      addRequest.onerror = () => {
+        console.error('❌ Failed to save transaction offline:', addRequest.error);
+        reject(addRequest.error);
+      };
     });
   } catch (err) {
     console.error('❌ Error saving transaction offline:', err);
@@ -126,18 +151,16 @@ export async function syncPendingTransactions() {
   }
 
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const txStore = db.transaction(['transactions'], 'readonly')
-          .objectStore('transactions');
+      const txStore = db.transaction(['transactions'], 'readonly')
+        .objectStore('transactions');
         
-        const getAllRequest = txStore.getAll();
+      const getAllRequest = txStore.getAll();
 
-        getAllRequest.onsuccess = async () => {
-          const allTransactions = getAllRequest.result;
+      getAllRequest.onsuccess = async () => {
+        const allTransactions = getAllRequest.result;
           
           // Filter out old invalid transactions and only get unsync'd ones
           const transactions = allTransactions.filter(tx => {
@@ -208,13 +231,10 @@ export async function syncPendingTransactions() {
           }
 
           console.log(`📊 Sync complete: ${synced} synced, ${failed} failed`);
-          resolve();
-        };
-
-        getAllRequest.onerror = () => reject(getAllRequest.error);
+        resolve();
       };
 
-      request.onerror = () => reject(request.error);
+      getAllRequest.onerror = () => reject(getAllRequest.error);
     });
   } catch (err) {
     console.error('❌ Error syncing transactions:', err);
@@ -227,13 +247,11 @@ export async function syncPendingTransactions() {
  */
 export async function markTransactionSynced(transactionId) {
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const txStore = db.transaction(['transactions'], 'readwrite')
-          .objectStore('transactions');
+      const txStore = db.transaction(['transactions'], 'readwrite')
+        .objectStore('transactions');
 
         const getRequest = txStore.get(transactionId);
 
@@ -246,10 +264,7 @@ export async function markTransactionSynced(transactionId) {
           }
         };
 
-        getRequest.onerror = () => reject(getRequest.error);
-      };
-
-      request.onerror = () => reject(request.error);
+      getRequest.onerror = () => reject(getRequest.error);
     });
   } catch (err) {
     console.error('❌ Error marking transaction as synced:', err);
@@ -262,25 +277,20 @@ export async function markTransactionSynced(transactionId) {
  */
 export async function getPendingTransactionsCount() {
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const txStore = db.transaction(['transactions'], 'readonly')
-          .objectStore('transactions');
+      const txStore = db.transaction(['transactions'], 'readonly')
+        .objectStore('transactions');
 
-        const index = txStore.index('synced');
-        const countRequest = index.count(false);
+      const index = txStore.index('synced');
+      const countRequest = index.count(false);
 
-        countRequest.onsuccess = () => {
-          resolve(countRequest.result);
-        };
-
-        countRequest.onerror = () => reject(countRequest.error);
+      countRequest.onsuccess = () => {
+        resolve(countRequest.result);
       };
 
-      request.onerror = () => reject(request.error);
+      countRequest.onerror = () => reject(countRequest.error);
     });
   } catch (err) {
     console.error('❌ Error getting pending transactions count:', err);
@@ -302,15 +312,13 @@ export async function syncPendingTillCloses() {
     await syncPendingTillOpens();
     await syncPendingTransactions();
 
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const closeStore = db.transaction(['till_closes'], 'readonly')
-          .objectStore('till_closes');
+      const closeStore = db.transaction(['till_closes'], 'readonly')
+        .objectStore('till_closes');
         
-        const getAllRequest = closeStore.getAll();
+      const getAllRequest = closeStore.getAll();
 
         getAllRequest.onsuccess = async () => {
           const allCloses = getAllRequest.result;
@@ -373,10 +381,7 @@ export async function syncPendingTillCloses() {
           resolve(syncedIds);
         };
 
-        getAllRequest.onerror = () => reject(getAllRequest.error);
-      };
-
-      request.onerror = () => reject(request.error);
+      getAllRequest.onerror = () => reject(getAllRequest.error);
     });
   } catch (err) {
     console.error('❌ Error syncing till closes:', err);
@@ -389,13 +394,11 @@ export async function syncPendingTillCloses() {
  */
 export async function markTillCloseSynced(tillId) {
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const closeStore = db.transaction(['till_closes'], 'readwrite')
-          .objectStore('till_closes');
+      const closeStore = db.transaction(['till_closes'], 'readwrite')
+        .objectStore('till_closes');
         
         // Get the record
         const getRequest = closeStore.get(tillId);
@@ -417,10 +420,7 @@ export async function markTillCloseSynced(tillId) {
           }
         };
 
-        getRequest.onerror = () => reject(getRequest.error);
-      };
-
-      request.onerror = () => reject(request.error);
+      getRequest.onerror = () => reject(getRequest.error);
     });
   } catch (err) {
     console.error('❌ Error marking till close as synced:', err);
@@ -433,13 +433,11 @@ export async function markTillCloseSynced(tillId) {
  */
 export async function saveTillOpenOffline(openData) {
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const store = db.transaction(['till_opens'], 'readwrite')
-          .objectStore('till_opens');
+      const store = db.transaction(['till_opens'], 'readwrite')
+        .objectStore('till_opens');
 
         const record = {
           ...openData,
@@ -449,9 +447,7 @@ export async function saveTillOpenOffline(openData) {
 
         const addRequest = store.put(record);
         addRequest.onsuccess = () => resolve(addRequest.result);
-        addRequest.onerror = () => reject(addRequest.error);
-      };
-      request.onerror = () => reject(request.error);
+      addRequest.onerror = () => reject(addRequest.error);
     });
   } catch (err) {
     console.error('❌ Error saving till open offline:', err);
@@ -466,13 +462,11 @@ export async function syncPendingTillOpens() {
   if (!isOnline) return;
 
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const store = db.transaction(['till_opens'], 'readonly')
-          .objectStore('till_opens');
+      const store = db.transaction(['till_opens'], 'readonly')
+        .objectStore('till_opens');
 
         const getAllRequest = store.getAll();
         getAllRequest.onsuccess = async () => {
@@ -484,9 +478,7 @@ export async function syncPendingTillOpens() {
           }
           resolve();
         };
-        getAllRequest.onerror = () => reject(getAllRequest.error);
-      };
-      request.onerror = () => reject(request.error);
+      getAllRequest.onerror = () => reject(getAllRequest.error);
     });
   } catch (err) {
     console.error('❌ Error syncing till opens:', err);
@@ -542,42 +534,34 @@ async function syncSingleTillOpen(openRecord) {
 }
 
 async function markTillOpenSynced(offlineId, serverTillId) {
-  const request = indexedDB.open('SalesPOS', DB_VERSION);
+  const db = await openSalesPosDb();
   return new Promise((resolve, reject) => {
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const store = db.transaction(['till_opens'], 'readwrite')
-        .objectStore('till_opens');
+    const store = db.transaction(['till_opens'], 'readwrite')
+      .objectStore('till_opens');
 
-      const getRequest = store.get(offlineId);
-      getRequest.onsuccess = () => {
-        const record = getRequest.result;
-        if (record) {
-          record.synced = true;
-          record.serverTillId = serverTillId;
-          record.syncedAt = new Date().toISOString();
-          store.put(record);
-        }
-        resolve();
-      };
-      getRequest.onerror = () => reject(getRequest.error);
+    const getRequest = store.get(offlineId);
+    getRequest.onsuccess = () => {
+      const record = getRequest.result;
+      if (record) {
+        record.synced = true;
+        record.serverTillId = serverTillId;
+        record.syncedAt = new Date().toISOString();
+        store.put(record);
+      }
+      resolve();
     };
-    request.onerror = () => reject(request.error);
+    getRequest.onerror = () => reject(getRequest.error);
   });
 }
 
 async function getTillOpenRecord(offlineId) {
-  const request = indexedDB.open('SalesPOS', DB_VERSION);
+  const db = await openSalesPosDb();
   return new Promise((resolve, reject) => {
-    request.onsuccess = (event) => {
-      const db = event.target.result;
-      const store = db.transaction(['till_opens'], 'readonly')
-        .objectStore('till_opens');
-      const getRequest = store.get(offlineId);
-      getRequest.onsuccess = () => resolve(getRequest.result || null);
-      getRequest.onerror = () => reject(getRequest.error);
-    };
-    request.onerror = () => reject(request.error);
+    const store = db.transaction(['till_opens'], 'readonly')
+      .objectStore('till_opens');
+    const getRequest = store.get(offlineId);
+    getRequest.onsuccess = () => resolve(getRequest.result || null);
+    getRequest.onerror = () => reject(getRequest.error);
   });
 }
 
@@ -642,37 +626,29 @@ export function shouldShowPlaceholder(product) {
  */
 export async function getCompletedTransactions() {
   try {
-    const request = indexedDB.open('SalesPOS', DB_VERSION);
+    const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {
-      request.onsuccess = (event) => {
-        const db = event.target.result;
-        const txStore = db.transaction(['transactions'], 'readonly')
-          .objectStore('transactions');
+      const txStore = db.transaction(['transactions'], 'readonly')
+        .objectStore('transactions');
         
-        const getAllRequest = txStore.getAll();
+      const getAllRequest = txStore.getAll();
 
-        getAllRequest.onsuccess = () => {
-          const allTransactions = getAllRequest.result || [];
-          
-          // Filter for completed transactions
-          const completed = allTransactions.filter(tx => 
-            tx.status === 'completed' || tx.status === 'COMPLETE'
-          );
-          
-          console.log(`📋 Found ${completed.length} completed transactions in IndexedDB`);
-          resolve(completed);
-        };
-
-        getAllRequest.onerror = () => {
-          console.error('❌ Failed to get transactions:', getAllRequest.error);
-          reject(getAllRequest.error);
-        };
+      getAllRequest.onsuccess = () => {
+        const allTransactions = getAllRequest.result || [];
+        
+        // Filter for completed transactions
+        const completed = allTransactions.filter(tx => 
+          tx.status === 'completed' || tx.status === 'COMPLETE'
+        );
+        
+        console.log(`📋 Found ${completed.length} completed transactions in IndexedDB`);
+        resolve(completed);
       };
 
-      request.onerror = () => {
-        console.error('❌ Failed to open database:', request.error);
-        reject(request.error);
+      getAllRequest.onerror = () => {
+        console.error('❌ Failed to get transactions:', getAllRequest.error);
+        reject(getAllRequest.error);
       };
     });
   } catch (err) {
