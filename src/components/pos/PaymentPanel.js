@@ -38,6 +38,21 @@ export default function PaymentPanel() {
 
   const totals = calculateTotals();
   const isEmpty = activeCart.items.length === 0;
+  const [uiSettings, setUiSettings] = useState(getUiSettings());
+
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      if (event?.detail) {
+        setUiSettings(event.detail);
+      } else {
+        setUiSettings(getUiSettings());
+      }
+    };
+
+    handleSettingsUpdate();
+    window.addEventListener("uiSettings:updated", handleSettingsUpdate);
+    return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
+  }, []);
 
   const handlePaymentConfirm = async (paymentDetails) => {
     try {
@@ -122,22 +137,6 @@ export default function PaymentPanel() {
   };
 
   if (!showPaymentPanel) return null;
-
-  const [uiSettings, setUiSettings] = useState(getUiSettings());
-
-  useEffect(() => {
-    const handleSettingsUpdate = (event) => {
-      if (event?.detail) {
-        setUiSettings(event.detail);
-      } else {
-        setUiSettings(getUiSettings());
-      }
-    };
-
-    handleSettingsUpdate();
-    window.addEventListener("uiSettings:updated", handleSettingsUpdate);
-    return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
-  }, []);
 
   const paymentScale = uiSettings.payment?.scale || "standard";
   const paymentContentSize = uiSettings.payment?.contentSize || "standard";
