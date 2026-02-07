@@ -16,6 +16,7 @@ import Sidebar from "../pos/Sidebar";
 import CartPanel from "../pos/CartPanel";
 import { CartProvider } from "../../context/CartContext";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
+import { saveUiSettings } from "@/src/lib/uiSettings";
 import { getUiSettings } from "@/src/lib/uiSettings";
 
 export default function POSLayout({ children }) {
@@ -78,6 +79,24 @@ export default function POSLayout({ children }) {
 
     fetchStoreData();
   }, [handleApiError]);
+
+  useEffect(() => {
+    const fetchUiSettings = async () => {
+      if (!staff?.storeId) return;
+      try {
+        const res = await fetch(`/api/ui-settings?storeId=${staff.storeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.settings) {
+          saveUiSettings(data.settings);
+        }
+      } catch (err) {
+        // Keep local settings if offline
+      }
+    };
+
+    fetchUiSettings();
+  }, [staff?.storeId]);
 
   useEffect(() => {
     const handleSettingsUpdate = (event) => {

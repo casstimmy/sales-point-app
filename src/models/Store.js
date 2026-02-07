@@ -52,6 +52,9 @@ const StoreSchema = new mongoose.Schema(
     qrUrl: { type: String, default: "" },
     qrDescription: { type: String, default: "Please scan and leave us a review" },
     paymentStatus: { type: String, default: "paid" },
+
+    // UI Settings (per store)
+    uiSettings: { type: mongoose.Schema.Types.Mixed, default: {} },
   },
   { timestamps: true }
 );

@@ -27,6 +27,7 @@ import {
   resetUiSettings,
   defaultUiSettings,
 } from '@/src/lib/uiSettings';
+import { useStaff } from '@/src/context/StaffContext';
 
 const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact' },
@@ -48,6 +49,7 @@ const PAYMENT_SCALE_OPTIONS = [
 
 export default function SettingsPage() {
   const router = useRouter();
+  const { staff } = useStaff();
   const [settings, setSettings] = useState(getUiSettings());
   const [expanded, setExpanded] = useState({
     sidebar: true,
@@ -59,10 +61,30 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [saveLabel, setSaveLabel] = useState('Save Settings');
 
   useEffect(() => {
     setSettings(getUiSettings());
   }, []);
+
+  useEffect(() => {
+    const fetchServerSettings = async () => {
+      if (!staff?.storeId) return;
+      try {
+        const res = await fetch(`/api/ui-settings?storeId=${staff.storeId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data?.settings) {
+          saveUiSettings(data.settings);
+          setSettings(data.settings);
+        }
+      } catch (err) {
+        // fallback to local settings
+      }
+    };
+
+    fetchServerSettings();
+  }, [staff?.storeId]);
 
   const toggleSection = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -121,13 +143,33 @@ export default function SettingsPage() {
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     setSaving(true);
     setError('');
     try {
-      saveUiSettings(settings);
+      if (staff?.storeId) {
+        const res = await fetch('/api/ui-settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ storeId: staff.storeId, settings }),
+        });
+        if (!res.ok) throw new Error('Failed to save settings');
+        const data = await res.json();
+        if (data?.settings) {
+          saveUiSettings(data.settings);
+          setSettings(data.settings);
+        } else {
+          saveUiSettings(settings);
+        }
+      } else {
+        saveUiSettings(settings);
+      }
+      setSaveLabel('Saved');
       setSuccess('✅ Settings saved');
-      setTimeout(() => setSuccess(''), 2500);
+      setTimeout(() => {
+        setSuccess('');
+        setSaveLabel('Save Settings');
+      }, 2500);
     } catch (err) {
       setError(err.message || 'Failed to save settings');
     } finally {
@@ -525,7 +567,7 @@ export default function SettingsPage() {
               disabled={saving}
               className="flex-1 px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50 font-semibold"
             >
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? 'Saving...' : saveLabel}
             </button>
             <button
               onClick={handleReset}
