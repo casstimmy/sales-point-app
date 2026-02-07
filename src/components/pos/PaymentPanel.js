@@ -19,7 +19,7 @@ import {
 } from "../../lib/receiptPrinting";
 import PaymentModal from "./PaymentModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faArrowLeft, faReceipt, faLock } from "@fortawesome/free-solid-svg-icons";
+import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import ThankYouNote from "./ThankYouNote";
 
 export default function PaymentPanel() {
@@ -125,34 +125,15 @@ export default function PaymentPanel() {
   return (
     <div className="min-h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden">
       {/* Payment Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-b border-neutral-200">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowPaymentPanel(false)}
-            className="w-10 h-10 rounded-full border border-neutral-200 bg-white hover:bg-neutral-100 transition flex items-center justify-center"
-            aria-label="Back to menu"
-          >
-            <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 text-neutral-700" />
-          </button>
-          <div>
-            <div className="text-sm text-neutral-500 font-semibold uppercase tracking-wide">
-              Complete Payment
-            </div>
-            <div className="text-lg font-bold text-neutral-900">
-              {totals.itemCount} item{totals.itemCount === 1 ? "" : "s"} · ₦{Math.round(totals.total).toLocaleString()}
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 text-xs font-semibold text-neutral-600">
-          <span className="px-2 py-1 bg-cyan-50 text-cyan-700 rounded-full border border-cyan-200">
-            <FontAwesomeIcon icon={faReceipt} className="mr-1" />
-            Receipt Ready
-          </span>
-          <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-200">
-            <FontAwesomeIcon icon={faLock} className="mr-1" />
-            Secure
-          </span>
-        </div>
+      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-neutral-200">
+        <button
+          onClick={() => setShowPaymentPanel(false)}
+          className="w-10 h-10 rounded-full border border-neutral-200 bg-white hover:bg-neutral-100 transition flex items-center justify-center"
+          aria-label="Back to menu"
+        >
+          <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 text-neutral-700" />
+        </button>
+        <div className="text-base font-semibold text-neutral-900">Complete Payment</div>
       </div>
 
       {/* Payment Body */}
