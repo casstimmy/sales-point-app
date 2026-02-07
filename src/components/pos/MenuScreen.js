@@ -599,7 +599,7 @@ export default function MenuScreen() {
           {loadingCategories ? (
             <div className="text-sm text-neutral-400 text-center py-4">Loading categories...</div>
           ) : (
-            <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 auto-rows-max">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 auto-rows-max">
               {categories.map(category => {
                 const color = CATEGORY_COLORS[category.name] || 'from-neutral-500 to-neutral-600';
                 const icon = CATEGORY_ICONS[category.name] || faBook;
@@ -612,7 +612,7 @@ export default function MenuScreen() {
                       setAppliedSearch('');
                       setSearchTerm('');
                     }}
-                    className={`relative h-28 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-base transform hover:scale-105 touch-manipulation ${
+                    className={`relative h-24 sm:h-28 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-base transform hover:scale-105 touch-manipulation ${
                       selectedCategory?._id === category._id || selectedCategory?.id === category.id ? 'ring-4 ring-primary-500' : ''
                     }`}
                   >
@@ -748,7 +748,7 @@ export default function MenuScreen() {
                 : searchSource;
               
               return filteredProducts.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-2 auto-rows-max">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 auto-rows-max">
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
@@ -759,7 +759,7 @@ export default function MenuScreen() {
                       category: product.category,
                       quantity: 1,
                     })}
-                    className="relative bg-white rounded border border-gray-200 hover:border-cyan-400 hover:shadow-md transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] max-w-[180px]"
+                    className="relative bg-white rounded border border-gray-200 hover:border-cyan-400 hover:shadow-md transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] w-full"
                   >
                     {/* Top Row: Image + Details Side by Side */}
                     <div className="flex h-16">

@@ -266,7 +266,7 @@ export default function POSLayout({ children }) {
           </div>
           
           {/* Cart Panel */}
-          <div className="max-h-96 overflow-y-auto flex-1">
+          <div className="max-h-[60vh] min-h-[40vh] overflow-y-auto flex-1">
             <CartPanel />
           </div>
         </div>

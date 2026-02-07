@@ -506,23 +506,23 @@ export default function CartPanel() {
           </div>
 
           {/* Action Buttons Grid */}
-          <div className="bg-white border-t border-neutral-300 p-2 space-y-1.5">
+          <div className="bg-white border-t border-neutral-300 p-2 space-y-2">
             {/* Row 1: Utility Buttons */}
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={handlePrintCart}
-                className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-14"
+                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
               >
                 <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
                 <span>PRINT</span>
               </button>
-              <button className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-14">
+              <button className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16">
                 <FontAwesomeIcon icon={faMoneyBill} className="w-4 h-4" />
                 <span>PETTY CASH</span>
               </button>
               <button
                 onClick={() => setShowAdjustFloatModal(true)}
-                className="px-1.5 py-2 text-xs font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-14"
+                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
               >
                 <FontAwesomeIcon icon={faGripVertical} className="w-4 h-4" />
                 <span>ADJUST</span>
@@ -530,24 +530,24 @@ export default function CartPanel() {
             </div>
 
             {/* Row 2: Action Buttons */}
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={deleteCart}
-                className="px-2 py-2.5 text-xs font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
+                className="px-2 py-3.5 text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-18"
               >
                 <FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5" />
                 <span>DELETE</span>
               </button>
               <button
                 onClick={() => holdOrder(staff, location)}
-                className="px-2 py-2.5 text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
+                className="px-2 py-3.5 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-18"
               >
                 <FontAwesomeIcon icon={faClock} className="w-5 h-5" />
                 <span>HOLD</span>
               </button>
               <button
                 onClick={handlePayment}
-                className="px-2 py-2.5 text-xs font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
+                className="px-2 py-3.5 text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-18"
               >
                 <FontAwesomeIcon icon={faMoneyBill} className="w-5 h-5" />
                 <span>PAY</span>

@@ -155,7 +155,7 @@ export default function PaymentPanel() {
   }[paymentContentSize] || "text-[16px]";
 
   return (
-    <div className={`min-h-[calc(100vh-10rem)] flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden ${scaleClass} ${contentSizeClass}`}>
+    <div className={`min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-10rem)] flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden ${scaleClass} ${contentSizeClass}`}>
       {/* Payment Header */}
       <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-neutral-200">
         <button
