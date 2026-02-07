@@ -579,8 +579,16 @@ export default function MenuScreen() {
         </div>
       </div>
 
+      {/* Payment Panel - Full Content Side */}
+      {showPaymentPanel && (
+        <div className="flex-1 overflow-y-auto p-2">
+          <PaymentPanel />
+        </div>
+      )}
+
       {/* Categories + Products - SCROLLABLE SECTION */}
-      <div className="flex-1 overflow-y-auto p-2">
+      {!showPaymentPanel && (
+        <div className="flex-1 overflow-y-auto p-2">
         {/* Category Grid */}
         <div className="mb-3">
           <div className="text-base font-bold text-neutral-800 mb-2 px-1">CATEGORIES</div>
@@ -618,13 +626,6 @@ export default function MenuScreen() {
             </div>
           )}
         </div>
-
-        {/* Payment Panel (Content Side) */}
-        {showPaymentPanel && (
-          <div className="mb-3">
-            <PaymentPanel />
-          </div>
-        )}
 
         {/* Product List - Category view or Search Results */}
         {false && appliedSearch ? (
@@ -834,7 +835,8 @@ export default function MenuScreen() {
             </div>
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
