@@ -247,8 +247,16 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
+    if (error?.code === 11000 && error?.keyPattern?.externalId) {
+      console.warn('⚠️ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId);
+      return res.status(200).json({
+        success: true,
+        message: 'Transaction already exists (duplicate prevented)',
+        duplicate: true,
+      });
+    }
     console.error('❌ Direct save error:', error);
-    
+
     // Return 500 so client knows to fallback to offline queue
     return res.status(500).json({
       success: false,

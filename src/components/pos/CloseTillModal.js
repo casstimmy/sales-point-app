@@ -113,6 +113,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [tenderCounts, setTenderCounts] = useState({});
   const [closingNotes, setClosingNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
   const [pendingLocalTransactions, setPendingLocalTransactions] = useState(0);
@@ -360,6 +361,27 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     }
   };
 
+  const handleSyncNow = async () => {
+    if (!isOnline || syncing) return;
+    setSyncing(true);
+    setError(null);
+    try {
+      const { syncPendingTillOpens, syncPendingTransactions } = await import('../../lib/offlineSync');
+      await syncPendingTillOpens();
+      await syncPendingTransactions();
+      const pendingAfterSync = await getPendingTransactionsForTill(till?._id);
+      setPendingLocalTransactions(pendingAfterSync || 0);
+      if (pendingAfterSync > 0) {
+        setError("Some transactions are still pending. Please try again.");
+      }
+    } catch (err) {
+      console.warn('⚠️ Sync failed:', err?.message || err);
+      setError("Sync failed. Please check connection and try again.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   if (fetchingTill) {
@@ -375,7 +397,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
 
   if (!till || !summary) return null;
 
-  const isButtonDisabled = loading || !tenders?.length || 
+  const isButtonDisabled = loading || syncing || !tenders?.length || 
     tenders?.some(t => tenderCounts[t.id] === undefined || tenderCounts[t.id] === "");
 
   return (
@@ -438,6 +460,15 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                 <p className="text-xs text-yellow-800 font-semibold uppercase">Pending Sync</p>
                 <p className="text-base font-bold text-yellow-900">{pendingLocalTransactions}</p>
                 <p className="text-xs text-yellow-800 mt-1">Sync before closing till.</p>
+                {isOnline && (
+                  <button
+                    onClick={handleSyncNow}
+                    disabled={syncing}
+                    className="mt-2 w-full px-3 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-bold transition disabled:opacity-60"
+                  >
+                    {syncing ? "Syncing..." : "Sync Now"}
+                  </button>
+                )}
               </div>
             )}
 

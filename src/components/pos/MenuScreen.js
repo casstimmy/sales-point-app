@@ -179,16 +179,18 @@ export default function MenuScreen() {
               const categories = data.data || [];
               
               if (categories.length > 0) {
-                setCategories(categories);
+                const filtered = filterCategoriesForLocation(categories);
+                setCategories(filtered);
                 // Save to IndexedDB for offline support
-                await syncCategories(categories);
+                await syncCategories(filtered);
                 setLastSyncTime(new Date());
                 // Auto-select first category
-                setSelectedCategory(categories[0]);
+                setSelectedCategory(filtered[0] || null);
               } else {
                 console.warn("⚠️ No categories found for this location, using defaults");
-                setCategories(DEFAULT_CATEGORIES);
-                setSelectedCategory(DEFAULT_CATEGORIES[0]);
+                const filtered = filterCategoriesForLocation(DEFAULT_CATEGORIES);
+                setCategories(filtered);
+                setSelectedCategory(filtered[0] || null);
               }
             } else {
               console.warn(`⚠️ API returned ${response.status}, trying local cache...`);

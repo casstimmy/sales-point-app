@@ -165,6 +165,14 @@ export default async function handler(req, res) {
       externalId: externalId || id,
     });
   } catch (err) {
+    if (err?.code === 11000 && err?.keyPattern?.externalId) {
+      console.warn('⚠️ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId);
+      return res.status(200).json({
+        success: true,
+        message: 'Transaction already exists (duplicate prevented)',
+        duplicate: true,
+      });
+    }
     console.error('❌ Transaction sync error:', err);
     return res.status(500).json({
       success: false,

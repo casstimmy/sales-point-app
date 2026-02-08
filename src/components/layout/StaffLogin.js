@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import OpenTillModal from "../pos/OpenTillModal";
 import { syncCategories, syncProducts } from "../../lib/indexedDB";
+import { syncPendingTillOpens, syncPendingTillCloses, syncPendingTransactions } from "../../lib/offlineSync";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faClock,
@@ -42,6 +43,72 @@ export default function StaffLogin() {
   const [showOpenTillModal, setShowOpenTillModal] = useState(false);
   const [loginData, setLoginData] = useState(null); // Store login data to use after till opens
   const [activeTills, setActiveTills] = useState([]); // Track active open tills by location
+  const [pendingTillCloseIds, setPendingTillCloseIds] = useState([]);
+  const [syncingPendingCloses, setSyncingPendingCloses] = useState(false);
+
+  const getPendingTillCloseIds = async () => {
+    try {
+      const request = indexedDB.open('SalesPOS', 2);
+      return await new Promise((resolve, reject) => {
+        request.onsuccess = (event) => {
+          const db = event.target.result;
+          if (!db.objectStoreNames.contains('till_closes')) {
+            resolve([]);
+            return;
+          }
+          const tx = db.transaction(['till_closes', 'till_opens'], 'readonly');
+          const store = tx.objectStore('till_closes');
+          const opensStore = tx.objectStore('till_opens');
+          const getAll = store.getAll();
+          getAll.onsuccess = () => {
+            const closes = getAll.result || [];
+            const pendingIds = closes
+              .filter(close => close && close.synced !== true)
+              .map(close => String(close._id));
+            const mapPromises = pendingIds.map((id) => new Promise((res) => {
+              if (!id.startsWith('offline-till-')) return res(null);
+              const openReq = opensStore.get(id);
+              openReq.onsuccess = () => {
+                res(openReq.result?.serverTillId ? String(openReq.result.serverTillId) : null);
+              };
+              openReq.onerror = () => res(null);
+            }));
+            Promise.all(mapPromises).then((mapped) => {
+              const combined = new Set(pendingIds);
+              mapped.filter(Boolean).forEach(id => combined.add(id));
+              resolve([...combined]);
+            });
+          };
+          getAll.onerror = () => reject(getAll.error);
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (err) {
+      console.warn('Failed to read pending till closes:', err);
+      return [];
+    }
+  };
+
+  const refreshPendingTillCloseIds = async () => {
+    const ids = await getPendingTillCloseIds();
+    setPendingTillCloseIds(ids);
+    return ids;
+  };
+
+  const handleSyncPendingCloses = async () => {
+    if (!isOnline || syncingPendingCloses) return;
+    setSyncingPendingCloses(true);
+    try {
+      await syncPendingTillOpens();
+      await syncPendingTransactions();
+      await syncPendingTillCloses();
+      await refreshPendingTillCloseIds();
+    } catch (err) {
+      console.warn('⚠️ Pending close sync failed:', err?.message || err);
+    } finally {
+      setSyncingPendingCloses(false);
+    }
+  };
 
   /* Track time */
   useEffect(() => {
@@ -213,12 +280,26 @@ export default function StaffLogin() {
           console.warn("⚠️ Could not pre-cache products:", prodErr.message);
         }
 
+        // Try to sync any pending offline data before showing active tills
+        try {
+          await syncPendingTillOpens();
+          await syncPendingTransactions();
+          await syncPendingTillCloses();
+        } catch (syncErr) {
+          console.warn('⚠️ Login preload sync failed:', syncErr?.message || syncErr);
+        }
+
         // Fetch active open tills for all locations
         const tillsResponse = await fetch("/api/till/active");
         if (tillsResponse.ok) {
           const tillsData = await tillsResponse.json();
           console.log("📋 Active tills fetched:", tillsData);
-          setActiveTills(Array.isArray(tillsData.tills) ? tillsData.tills : []);
+          const pendingCloseIds = await refreshPendingTillCloseIds();
+          const tillsList = Array.isArray(tillsData.tills) ? tillsData.tills : [];
+          const filtered = pendingCloseIds.length
+            ? tillsList.filter(till => !pendingCloseIds.includes(String(till?._id)))
+            : tillsList;
+          setActiveTills(filtered);
         } else {
           console.log("ℹ️ No active tills endpoint or no open tills");
           setActiveTills([]);
@@ -395,6 +476,15 @@ export default function StaffLogin() {
           console.log("✅ Login successful (ONLINE)!");
           console.log("📍 Staff:", data.staff?.name, "Location:", data.location?.name);
           
+          // Sync pending offline till/transactions before checking current till
+          try {
+            await syncPendingTillOpens();
+            await syncPendingTransactions();
+            await syncPendingTillCloses();
+          } catch (err) {
+            console.warn('⚠️ Sync before till check failed:', err?.message || err);
+          }
+
           // Check if till is already open for this location
           console.log("🔍 Checking for existing open till for location:", selectedLocation);
           const tillCheckResponse = await fetch(
@@ -628,6 +718,22 @@ export default function StaffLogin() {
           <a href="#" className="underline hover:text-red-100 text-sm">
             Learn more →
           </a>
+        </div>
+      )}
+
+      {/* Pending Till Close Banner */}
+      {isOnline && pendingTillCloseIds.length > 0 && (
+        <div className="bg-yellow-500 text-yellow-900 py-2 px-4 flex items-center justify-between gap-3 flex-shrink-0">
+          <div className="text-sm font-semibold">
+            Pending till close sync: {pendingTillCloseIds.length}
+          </div>
+          <button
+            onClick={handleSyncPendingCloses}
+            disabled={syncingPendingCloses}
+            className="px-4 py-1.5 bg-yellow-700 hover:bg-yellow-800 text-white rounded text-sm font-bold transition disabled:opacity-60"
+          >
+            {syncingPendingCloses ? 'Syncing...' : 'Sync Now'}
+          </button>
         </div>
       )}
 

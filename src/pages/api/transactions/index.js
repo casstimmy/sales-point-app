@@ -246,8 +246,16 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
+    if (error?.code === 11000 && error?.keyPattern?.externalId) {
+      console.warn('⚠️ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId);
+      return res.status(200).json({
+        success: true,
+        message: 'Transaction already exists (duplicate prevented)',
+        duplicate: true,
+      });
+    }
     console.error('❌ Error saving transaction:', error);
-    
+
     return res.status(500).json({
       success: false,
       error: 'Failed to save transaction',

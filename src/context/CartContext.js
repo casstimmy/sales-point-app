@@ -15,7 +15,7 @@
  * - lastSyncTime: ISO timestamp
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { addLocalTransaction, getUnsyncedTransactions } from '../lib/indexedDB';
 import { autoSyncTransactions } from '../services/syncService';
 import { saveTransactionOffline, getOnlineStatus } from '../lib/offlineSync';
@@ -65,6 +65,7 @@ export function CartProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [showPaymentPanel, setShowPaymentPanel] = useState(false);
+  const lastAddRef = useRef({});
 
   // Load persisted orders from localStorage on mount
   useEffect(() => {
@@ -115,6 +116,16 @@ export function CartProvider({ children }) {
 
   const addItem = useCallback((product) => {
     setState(prev => {
+      const productId = product?.id;
+      if (productId) {
+        const lastAt = lastAddRef.current[productId] || 0;
+        const now = Date.now();
+        if (now - lastAt < 250) {
+          return prev;
+        }
+        lastAddRef.current[productId] = now;
+      }
+
       const existing = prev.activeCart.items.find(item => item.id === product.id);
       let newItems;
 
