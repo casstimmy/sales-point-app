@@ -148,6 +148,14 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
 
+  useEffect(() => {
+    if (!isOpen || isMobile) return;
+    if (!tenders || tenders.length === 0) return;
+    if (!activeTenderKeypad) {
+      setActiveTenderKeypad(tenders[0].id);
+    }
+  }, [isOpen, isMobile, tenders, activeTenderKeypad]);
+
   // Save till close to IndexedDB (offline)
   const saveTillCloseOffline = async (closeData) => {
     try {
@@ -362,6 +370,13 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
       setCurrentTill(null);
       setTenderCounts({});
       setClosingNotes("");
+      try {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("till");
+        }
+      } catch (err) {
+        console.warn("Failed to clear local till:", err);
+      }
       logout();
       onClose();
       router.push("/");
@@ -443,9 +458,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
 
         {/* Main Content - Grid Layout */}
-        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-3 gap-2 overflow-hidden">
+        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-3 sm:grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden">
           {/* Left Column - Summary Cards */}
-          <div className="space-y-3 order-1">
+          <div className="space-y-3 order-1 sm:row-start-1">
             <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded p-2">
               <p className="text-xs text-cyan-700 font-semibold uppercase">Opening Balance</p>
               <p className="text-base font-bold text-cyan-800">₦{Number(summary.openingBalance).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -494,7 +509,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           </div>
 
           {/* Middle Column - Tender Reconciliation */}
-          <div className="flex flex-col overflow-hidden order-2">
+          <div className="flex flex-col overflow-hidden order-2 sm:row-start-1">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Reconcile Payment Methods</h3>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {tenders && tenders.map((tender) => {
@@ -502,7 +517,6 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                 const physicalCount = parseFloat(tenderCounts[tender.id]) || 0;
                 const variance = physicalCount - processedAmount;
                 const hasValue = tenderCounts[tender.id] !== undefined && tenderCounts[tender.id] !== "";
-                const isActive = activeTenderKeypad === tender.id;
                 
                 return (
                   <div key={tender.id}>
@@ -545,28 +559,41 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                         </div>
                       </div>
                     </div>
-                    
-                    {/* Keypad appears below active tender */}
-                    {isActive && !isMobile && (
-                      <div className="mt-1 p-2 bg-gray-50 rounded border border-cyan-400">
-                        <NumKeypad
-                          value={tenderCounts[tender.id] || ""}
-                          onChange={(newValue) => {
-                            setTenderCounts(prev => ({ ...prev, [tender.id]: newValue }));
-                          }}
-                          placeholder={`Enter ${tender.name} amount`}
-                          disabled={loading}
-                        />
-                      </div>
-                    )}
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Right Column - Notes & Actions */}
-          <div className="flex flex-col order-3 sm:order-none">
+          {/* Right Column - Keypad */}
+          <div className="hidden sm:flex flex-col overflow-hidden order-3 sm:row-start-1">
+            <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Keypad</h3>
+            <div className="flex-1 bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
+              {tenders && tenders.length > 0 ? (
+                <>
+                  <div className="text-xs font-semibold text-gray-600 mb-2">
+                    {activeTenderKeypad
+                      ? `Enter ${tenders.find(t => t.id === activeTenderKeypad)?.name || "amount"}`
+                      : "Select a payment method to enter amount"}
+                  </div>
+                  <NumKeypad
+                    value={activeTenderKeypad ? (tenderCounts[activeTenderKeypad] || "") : ""}
+                    onChange={(newValue) => {
+                      if (!activeTenderKeypad) return;
+                      setTenderCounts(prev => ({ ...prev, [activeTenderKeypad]: newValue }));
+                    }}
+                    placeholder="Amount in ₦"
+                    disabled={loading || !activeTenderKeypad}
+                  />
+                </>
+              ) : (
+                <div className="text-sm text-gray-500">No payment methods available.</div>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Row - Notes & Actions */}
+          <div className="flex flex-col order-4 sm:col-span-3 sm:row-start-2">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Closing Notes</h3>
             <textarea
               value={closingNotes}

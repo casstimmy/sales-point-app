@@ -2,13 +2,13 @@ const STORAGE_KEY = 'uiSettings';
 
 export const defaultUiSettings = {
   sidebarSections: {
-    print: true,
-    stock: true,
-    apps: true,
+    print: false,
+    stock: false,
+    apps: false,
   },
   adminControls: {
-    openTillCashEntry: true,
-    adjustFloat: true,
+    openTillCashEntry: false,
+    adjustFloat: false,
   },
   layout: {
     sidebarWidth: 'standard', // compact | standard | wide
@@ -20,14 +20,14 @@ export const defaultUiSettings = {
     contentSize: 'standard', // compact | standard | large
     keypadSize: 'standard', // compact | standard | large
     quickAmounts: {
-      500: true,
-      1000: true,
-      2000: true,
-      5000: true,
-      10000: true,
-      20000: true,
-      50000: true,
-      exact: true,
+      500: false,
+      1000: false,
+      2000: false,
+      5000: false,
+      10000: false,
+      20000: false,
+      50000: false,
+      exact: false,
     },
   },
 };

@@ -20,6 +20,8 @@ const itemSchema = new mongoose.Schema(
 const TransactionSchema = new mongoose.Schema({
   // Client-generated id for de-duplication across offline/online sync
   externalId: { type: String, index: true },
+  // Server-computed idempotency key for de-duplication when externalId is missing
+  dedupeKey: { type: String, index: true },
 
   // Inventory update guard (prevents duplicate stock decrements)
   inventoryUpdated: { type: Boolean, default: false },
@@ -93,6 +95,7 @@ TransactionSchema.index({ tenderType: 1, status: 1 });
 TransactionSchema.index({ "tenderPayments.tenderId": 1, status: 1 });
 // Index for de-duplication
 TransactionSchema.index({ externalId: 1 }, { unique: true, sparse: true });
+TransactionSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 // Index for till reconciliation
 TransactionSchema.index({ tillId: 1 });
 // Index for location-based reporting

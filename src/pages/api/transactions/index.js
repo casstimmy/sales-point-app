@@ -9,6 +9,7 @@ import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
+import crypto from 'crypto';
 
 export default async function handler(req, res) {
   // Support GET for health check and POST for creating transactions
@@ -88,8 +89,48 @@ export default async function handler(req, res) {
       });
     }
 
+    if (!rawStaffName || rawStaffName === 'Unknown' || !location) {
+      console.error('❌ Invalid transaction: staff name and location required');
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid transaction: staff name and location required',
+      });
+    }
+
+    const buildDedupeKey = () => {
+      const createdAtStamp = createdAt ? new Date(createdAt) : new Date();
+      const roundedCreatedAt = new Date(Math.floor(createdAtStamp.getTime() / 1000) * 1000).toISOString();
+      const normalizedItems = (items || []).map((item) => ({
+        productId: String(item.productId || item.id || ''),
+        name: item.name || '',
+        qty: Number(item.quantity || item.qty || 0),
+        price: Number(item.price || item.salePriceIncTax || 0),
+      }));
+      const normalizedPayments = (tenderPayments || [])
+        .map((p) => ({
+          tenderId: String(p.tenderId || ''),
+          tenderName: p.tenderName || '',
+          amount: Number(p.amount || 0),
+        }))
+        .sort((a, b) => (a.tenderName + a.tenderId).localeCompare(b.tenderName + b.tenderId));
+      const base = {
+        items: normalizedItems,
+        total: Number(total || 0),
+        amountPaid: Number(amountPaid || total || 0),
+        change: Number(change || 0),
+        tenderType: tenderType || null,
+        tenderPayments: normalizedPayments,
+        staffId: staffId ? String(staffId) : null,
+        location: location || null,
+        tillId: tillId ? String(tillId) : null,
+        createdAt: roundedCreatedAt,
+      };
+      return crypto.createHash('sha1').update(JSON.stringify(base)).digest('hex');
+    };
+
+    const dedupeKey = externalId || buildDedupeKey();
+
     // DUPLICATE PREVENTION: Check if this transaction already exists
-    // Based on createdAt timestamp, total, tillId, and location
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
@@ -101,7 +142,20 @@ export default async function handler(req, res) {
           duplicate: true
         });
       }
-    } else if (createdAt && tillId) {
+    } else {
+      const existingByKey = await Transaction.findOne({ dedupeKey });
+      if (existingByKey) {
+        console.log(`⚠️ Duplicate transaction detected - dedupeKey ${dedupeKey}`);
+        return res.status(200).json({
+          success: true,
+          message: 'Transaction already exists (duplicate prevented)',
+          transactionId: existingByKey._id,
+          duplicate: true
+        });
+      }
+    }
+
+    if (!externalId && createdAt && tillId) {
       const existingTransaction = await Transaction.findOne({
         createdAt: new Date(createdAt),
         total: total,
@@ -131,6 +185,7 @@ export default async function handler(req, res) {
     // Create transaction record in database
     const transaction = new Transaction({
       ...(externalId && { externalId }),
+      dedupeKey,
       // Payment method: can be single (legacy) or multiple (split)
       ...(hasSingleTender && { tenderType }),
       ...(hasMultiplePayments && { tenderPayments }),
@@ -246,8 +301,8 @@ export default async function handler(req, res) {
     });
 
   } catch (error) {
-    if (error?.code === 11000 && error?.keyPattern?.externalId) {
-      console.warn('⚠️ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId);
+    if (error?.code === 11000 && (error?.keyPattern?.externalId || error?.keyPattern?.dedupeKey)) {
+      console.warn('⚠️ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId || error.keyValue?.dedupeKey);
       return res.status(200).json({
         success: true,
         message: 'Transaction already exists (duplicate prevented)',

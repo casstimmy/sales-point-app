@@ -306,14 +306,16 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
         </div>
 
         {/* Manual Sync Button */}
-        <button
-          onClick={handleManualSync}
-          disabled={isSyncing || !isOnline}
-          className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:px-4 sm:py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base text-sm sm:text-base font-bold shadow-md hover:shadow-lg"
-        >
-          <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
-          {isSyncing ? 'Syncing...' : 'Sync Transactions'}
-        </button>
+        {(pendingSyncCount > 0 || !isOnline) && (
+          <button
+            onClick={handleManualSync}
+            disabled={isSyncing || !isOnline}
+            className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:px-4 sm:py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base text-sm sm:text-base font-bold shadow-md hover:shadow-lg"
+          >
+            <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
+            {isSyncing ? 'Syncing...' : 'Sync Transactions'}
+          </button>
+        )}
 
         {/* Settings & Support */}
         <div className="space-y-2 pt-2">
