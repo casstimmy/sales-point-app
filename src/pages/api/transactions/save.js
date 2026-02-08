@@ -44,7 +44,8 @@ export default async function handler(req, res) {
       createdAt,
       status = 'completed',
       tillId,
-      sessionId
+      sessionId,
+      externalId
     } = req.body;
     
     // Normalize staff name - don't leave it as 'Unknown'
@@ -83,7 +84,18 @@ export default async function handler(req, res) {
 
     // DUPLICATE PREVENTION: Check if this transaction already exists
     // Based on createdAt timestamp, total, tillId, and location
-    if (createdAt && tillId) {
+    if (externalId) {
+      const existingTransaction = await Transaction.findOne({ externalId });
+      if (existingTransaction) {
+        console.log(`âš ï¸ Duplicate transaction detected - externalId ${externalId}`);
+        return res.status(200).json({
+          success: true,
+          message: 'Transaction already exists (duplicate prevented)',
+          transactionId: existingTransaction._id,
+          duplicate: true
+        });
+      }
+    } else if (createdAt && tillId) {
       const mongoose = require('mongoose');
       const existingTransaction = await Transaction.findOne({
         createdAt: new Date(createdAt),
@@ -113,6 +125,7 @@ export default async function handler(req, res) {
 
     // Create transaction record
     const transaction = new Transaction({
+      ...(externalId && { externalId }),
       ...(hasSingleTender && { tenderType }),
       ...(hasMultiplePayments && { tenderPayments }),
       
@@ -199,26 +212,28 @@ export default async function handler(req, res) {
     } else {
       console.warn(`⚠️ No tillId provided - transaction will not be linked to till`);
     }
-
-    // Update product quantities after successful transaction save
-    try {
-      console.log('📦 Updating product quantities for items:', mappedItems);
-      for (const item of mappedItems) {
-        if (!item.productId || !item.qty) continue;
-        const productResult = await Product.findByIdAndUpdate(
-          item.productId,
-          { $inc: { quantity: -item.qty } },
-          { new: true }
-        );
-        if (productResult) {
-          console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+    // Update product quantities after successful transaction save (idempotent)
+    if (!savedTransaction.inventoryUpdated && savedTransaction.status === 'completed') {
+      try {
+        console.log('📦 Updating product quantities for items:', mappedItems);
+        for (const item of mappedItems) {
+          if (!item.productId || !item.qty) continue;
+          const productResult = await Product.findByIdAndUpdate(
+            item.productId,
+            { $inc: { quantity: -item.qty } },
+            { new: true }
+          );
+          if (productResult) {
+            console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+          }
         }
+        savedTransaction.inventoryUpdated = true;
+        await savedTransaction.save();
+      } catch (quantityErr) {
+        console.warn('⚠️ Warning: Failed to update product quantities:', quantityErr.message);
+        // Don't fail the transaction if quantity update fails
       }
-    } catch (quantityErr) {
-      console.warn('⚠️ Warning: Failed to update product quantities:', quantityErr.message);
-      // Don't fail the transaction if quantity update fails
     }
-
     return res.status(200).json({
       success: true,
       transactionId: savedTransaction._id,
@@ -243,3 +258,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
+

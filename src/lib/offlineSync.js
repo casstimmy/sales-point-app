@@ -109,6 +109,11 @@ export async function saveTransactionOffline(transaction) {
       throw new Error('Cannot save transaction without staff name and location');
     }
 
+    const baseId = transaction.externalId || transaction.clientId || transaction.id;
+    const generatedId = baseId
+      ? String(baseId)
+      : `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
     const db = await openSalesPosDb();
     
     return new Promise((resolve, reject) => {
@@ -117,6 +122,8 @@ export async function saveTransactionOffline(transaction) {
         
       const txData = {
         ...transaction,
+        externalId: transaction.externalId || generatedId,
+        clientId: transaction.clientId || generatedId,
         synced: false,
         syncedAt: null,
         attempts: 0,
@@ -207,11 +214,15 @@ export async function syncPendingTransactions() {
                 tx.tillId = resolved;
               }
 
-              console.log(`📊 Syncing transaction:`, tx);
+              const payload = {
+                ...tx,
+                externalId: tx.externalId || tx.clientId || String(tx.id),
+              };
+              console.log(`📊 Syncing transaction:`, payload);
               const response = await fetch('/api/transactions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(tx),
+                body: JSON.stringify(payload),
               });
 
               if (response.ok) {

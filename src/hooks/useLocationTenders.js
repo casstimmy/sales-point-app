@@ -26,6 +26,7 @@ export function useLocationTenders() {
     }
 
     const fetchTenders = async () => {
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
       // 1️⃣ TRY CACHED DATA FIRST
       const cachedTenders = getCachedTenders(location._id);
       if (cachedTenders && cachedTenders.length > 0) {
@@ -39,6 +40,22 @@ export function useLocationTenders() {
         return;
       }
 
+      // Offline fallback: use location's tender IDs if available
+      if (isOffline && Array.isArray(location.tenders) && location.tenders.length > 0) {
+        const fallbackTenders = location.tenders.map((tenderId, index) => ({
+          id: tenderId?.toString?.() || String(tenderId),
+          name: 'Tender ' + (index + 1),
+          description: 'Offline fallback',
+          buttonColor: '#9dccebff',
+          classification: 'Other',
+          active: true,
+        }));
+        console.warn('⚠️ useLocationTenders: Offline fallback using ' + fallbackTenders.length + ' tender IDs');
+        setTenders(fallbackTenders);
+        setLoading(false);
+        setError(null);
+        return;
+      }
       // 2️⃣ ONLY SHOW LOADING IF FETCHING FROM API
       console.log('💾 useLocationTenders: No cache found, fetching from API...');
       setLoading(true);
@@ -110,8 +127,25 @@ export function useLocationTenders() {
         setError(null);
         setLoading(false);
       } catch (err) {
-        console.error('❌ useLocationTenders: Error fetching tenders:', err.message);
-        console.error('📋 Location:', location?.name, location?._id);
+        console.error('useLocationTenders: Error fetching tenders:', err.message);
+        console.error('useLocationTenders: Location:', location?.name, location?._id);
+
+        if (Array.isArray(location.tenders) && location.tenders.length > 0) {
+          const fallbackTenders = location.tenders.map((tenderId, index) => ({
+            id: tenderId?.toString?.() || String(tenderId),
+            name: 'Tender ' + (index + 1),
+            description: 'Offline fallback',
+            buttonColor: '#9dccebff',
+            classification: 'Other',
+            active: true,
+          }));
+          console.warn('useLocationTenders: Fallback using location tender IDs after fetch failure');
+          setTenders(fallbackTenders);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
         setTenders([]);
         setError(err.message);
         setLoading(false);
@@ -123,3 +157,4 @@ export function useLocationTenders() {
 
   return { tenders, loading, error };
 }
+

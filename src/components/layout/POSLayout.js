@@ -21,7 +21,7 @@ import { getUiSettings } from "@/src/lib/uiSettings";
 
 export default function POSLayout({ children }) {
   const router = useRouter();
-  const { staff, logout } = useStaff();
+  const { staff, location, logout } = useStaff();
   const { handleApiError, forceLoginRedirect } = useErrorHandler();
   const [storeData, setStoreData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,11 +52,18 @@ export default function POSLayout({ children }) {
         
         if (!isOk) {
           // If auth error, handleApiError will trigger logout
-          // Use defaults for other errors
+          // Use cached data or defaults for other errors
+          let cachedStore = null;
+          try {
+            const cachedStoreRaw = localStorage.getItem('cachedStore');
+            cachedStore = cachedStoreRaw ? JSON.parse(cachedStoreRaw) : null;
+          } catch (err) {
+            cachedStore = null;
+          }
           setStoreData({
-            name: "Store Name",
+            name: cachedStore?.name || "Store Name",
             tillId: "Till_001",
-            location: "Store Location",
+            location: location?.name || "Store Location",
           });
           setLoading(false);
           return;
@@ -66,11 +73,18 @@ export default function POSLayout({ children }) {
         setStoreData(data);
       } catch (err) {
         console.error("Failed to fetch store data:", err);
-        // Use defaults if API fails
+        // Use cached data or defaults if API fails
+        let cachedStore = null;
+        try {
+          const cachedStoreRaw = localStorage.getItem('cachedStore');
+          cachedStore = cachedStoreRaw ? JSON.parse(cachedStoreRaw) : null;
+        } catch (error) {
+          cachedStore = null;
+        }
         setStoreData({
-          name: "Store Name",
+          name: cachedStore?.name || "Store Name",
           tillId: "Till_001",
-          location: "Store Location",
+          location: location?.name || "Store Location",
         });
       } finally {
         setLoading(false);
@@ -78,7 +92,7 @@ export default function POSLayout({ children }) {
     };
 
     fetchStoreData();
-  }, [handleApiError]);
+  }, [handleApiError, location?.name]);
 
   useEffect(() => {
     const fetchUiSettings = async () => {

@@ -65,6 +65,8 @@ export default function PaymentPanel() {
         throw new Error("Till not open. Please open a till before payment.");
       }
 
+      const clientId = `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
       const transaction = {
         items: activeCart.items.map((item) => ({
           productId: item.id,
@@ -72,6 +74,8 @@ export default function PaymentPanel() {
           quantity: item.quantity,
           price: item.price,
         })),
+        externalId: clientId,
+        clientId,
         total: totals.total,
         subtotal: totals.subtotal,
         tax: totals.tax,

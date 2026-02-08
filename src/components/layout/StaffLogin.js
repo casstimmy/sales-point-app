@@ -23,7 +23,7 @@ import {
  */
 export default function StaffLogin() {
   const router = useRouter();
-  const { login, setCurrentTill } = useStaff();
+  const { login, setCurrentTill, setCachedTenders } = useStaff();
 
   const [stores, setStores] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -92,6 +92,25 @@ export default function StaffLogin() {
           return;
         }
         
+        const preloadTendersForLocations = async (locationsList = []) => {
+          if (!locationsList.length) return;
+          await Promise.all(
+            locationsList.map(async (loc) => {
+              if (!loc?._id) return;
+              try {
+                const tendersRes = await fetch('/api/location/tenders?locationId=' + loc._id);
+                if (!tendersRes.ok) return;
+                const tendersData = await tendersRes.json();
+                if (tendersData?.success) {
+                  setCachedTenders(loc._id, tendersData.tenders || []);
+                }
+              } catch (err) {
+                // ignore tender preload errors
+              }
+            })
+          );
+        };
+
         // Step 1: Fetch store and locations
         console.log("🔄 [LOGIN] Fetching store and locations...");
         const response = await fetch("/api/store/init-locations");
@@ -127,6 +146,7 @@ export default function StaffLogin() {
                 locationNames: activeLocations.map(l => l.name)
               }));
               console.log(`💾 Locations cached for offline access (${activeLocations.length} locations)`);
+              preloadTendersForLocations(activeLocations);
               // Auto-select first location
               if (activeLocations.length > 0) {
                 setSelectedLocation(activeLocations[0]._id);
@@ -542,6 +562,23 @@ export default function StaffLogin() {
               locationNames: activeLocations.map(l => l.name)
             }));
             console.log("✅ Refreshed locations from cloud and cached for offline");
+            if (activeLocations.length) {
+              await Promise.all(
+                activeLocations.map(async (loc) => {
+                  if (!loc?._id) return;
+                  try {
+                    const tendersRes = await fetch('/api/location/tenders?locationId=' + loc._id);
+                    if (!tendersRes.ok) return;
+                    const tendersData = await tendersRes.json();
+                    if (tendersData?.success) {
+                      setCachedTenders(loc._id, tendersData.tenders || []);
+                    }
+                  } catch (err) {
+                    // ignore tender preload errors
+                  }
+                })
+              );
+            }
           }
         }
         
@@ -914,3 +951,4 @@ export default function StaffLogin() {
     </div>
   );
 }
+

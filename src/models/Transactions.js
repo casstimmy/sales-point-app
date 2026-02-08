@@ -18,6 +18,11 @@ const itemSchema = new mongoose.Schema(
 );
 
 const TransactionSchema = new mongoose.Schema({
+  // Client-generated id for de-duplication across offline/online sync
+  externalId: { type: String, index: true },
+
+  // Inventory update guard (prevents duplicate stock decrements)
+  inventoryUpdated: { type: Boolean, default: false },
   // PAYMENT HANDLING: Support both single tenderType (legacy) and split payments (new)
   // Single tender (legacy, for backwards compatibility)
   tenderType: String, // Payment method: CASH, HYDROGEN POS, ACCESS POS, etc.
@@ -86,6 +91,8 @@ const TransactionSchema = new mongoose.Schema({
 TransactionSchema.index({ tenderType: 1, status: 1 });
 // Index for split payments
 TransactionSchema.index({ "tenderPayments.tenderId": 1, status: 1 });
+// Index for de-duplication
+TransactionSchema.index({ externalId: 1 }, { unique: true, sparse: true });
 // Index for till reconciliation
 TransactionSchema.index({ tillId: 1 });
 // Index for location-based reporting
