@@ -449,15 +449,22 @@ export default function StaffLogin() {
     const savedTill = localStorage.getItem("till");
     if (savedTill) {
       const till = JSON.parse(savedTill);
-      console.log("✅ Found persisted till:", till._id);
-      login(selectedStaffData, selectedLocationData);
-      setCurrentTill(till);
-      router.push("/");
-      return true;
+      const sameLocation = String(till?.locationId) === String(selectedLocationData?._id);
+      const isOpen = (till?.status || '').toLowerCase() === 'open';
+      if (isOpen && sameLocation) {
+        console.log("✅ Found persisted open till:", till._id);
+        login(selectedStaffData, selectedLocationData);
+        setCurrentTill(till);
+        router.push("/");
+        return true;
+      }
+      // Clear stale till (closed or different location)
+      localStorage.removeItem("till");
     }
 
     login(selectedStaffData, selectedLocationData);
-    router.push("/");
+    setLoginData({ staff: selectedStaffData, location: selectedLocationData });
+    setShowOpenTillModal(true);
     return true;
   }, [locations, staff, selectedStaff, selectedLocation, login, setCurrentTill, router, setError]);
 

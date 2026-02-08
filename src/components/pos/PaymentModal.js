@@ -37,6 +37,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false); // Prevent double-click
+  const [isMobile, setIsMobile] = useState(false);
 
   // Use pre-fetched location tenders from hook
   useEffect(() => {
@@ -106,6 +107,16 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
     handleSettingsUpdate();
     window.addEventListener('uiSettings:updated', handleSettingsUpdate);
     return () => window.removeEventListener('uiSettings:updated', handleSettingsUpdate);
+  }, []);
+
+  useEffect(() => {
+    const updateIsMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.matchMedia('(max-width: 640px)').matches);
+    };
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
 
   const quickAmountSettings = uiSettings.payment?.quickAmounts || {};
@@ -455,58 +466,96 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
             </div>
           </div>
 
-          {/* Right Column: Numeric Keypad */}
+          {/* Right Column: Numeric Keypad (desktop) or native input (mobile) */}
           <div className="flex flex-col space-y-1.5">
-            <p className="text-xs font-bold text-gray-600 uppercase text-center">Keypad</p>
+            {isMobile ? (
+              <>
+                <p className="text-xs font-bold text-gray-600 uppercase text-center">Amount</p>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  value={currentAmount}
+                  onChange={(e) => {
+                    setCurrentAmount(e.target.value);
+                    setDisplayAmount(e.target.value || '0');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleAdd();
+                    }
+                  }}
+                  placeholder="Enter amount"
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-200 text-sm font-semibold"
+                />
+                <div className="space-y-1.5">
+                  <button
+                    onClick={handleClear}
+                    className="w-full py-2 bg-gray-200 hover:bg-gray-300 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs transition-all active:scale-[0.98]"
+                  >
+                    CLEAR
+                  </button>
+                  <button
+                    onClick={handleAdd}
+                    className="w-full py-2.5 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-bold text-sm shadow-lg transition-all active:scale-[0.98]"
+                  >
+                    + ADD AMOUNT
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-bold text-gray-600 uppercase text-center">Keypad</p>
 
-            {/* Number Grid */}
-            <div className="grid grid-cols-3 gap-1.5 flex-1">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
-                <button
-                  key={num}
-                  onClick={() => handleNumberClick(num)}
-                  className={`bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold transition-all active:scale-95 active:bg-cyan-100 ${keypadButtonClass}`}
-                >
-                  {num}
-                </button>
-              ))}
+                {/* Number Grid */}
+                <div className="grid grid-cols-3 gap-1.5 flex-1">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
+                    <button
+                      key={num}
+                      onClick={() => handleNumberClick(num)}
+                      className={`bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold transition-all active:scale-95 active:bg-cyan-100 ${keypadButtonClass}`}
+                    >
+                      {num}
+                    </button>
+                  ))}
 
-              {/* Zero and Decimal */}
-              <button
-                onClick={() => handleNumberClick(0)}
-                className={`col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold transition-all active:scale-95 ${keypadButtonClass}`}
-              >
-                0
-              </button>
-              <button
-                onClick={handleDecimal}
-                className={`bg-cyan-100 hover:bg-cyan-200 border border-cyan-300 text-cyan-700 rounded-lg font-bold transition-all active:scale-95 ${keypadButtonClass}`}
-              >
-                .
-              </button>
-            </div>
+                  {/* Zero and Decimal */}
+                  <button
+                    onClick={() => handleNumberClick(0)}
+                    className={`col-span-2 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg font-bold transition-all active:scale-95 ${keypadButtonClass}`}
+                  >
+                    0
+                  </button>
+                  <button
+                    onClick={handleDecimal}
+                    className={`bg-cyan-100 hover:bg-cyan-200 border border-cyan-300 text-cyan-700 rounded-lg font-bold transition-all active:scale-95 ${keypadButtonClass}`}
+                  >
+                    .
+                  </button>
+                </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-1.5">
-              <button
-                onClick={handleBackspace}
-                className="w-full py-2 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-700 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-[0.98]"
-              >
-                ← BACK
-              </button>
-              <button
-                onClick={handleClear}
-                className="w-full py-2 bg-gray-200 hover:bg-gray-300 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-[0.98]"
-              >
-                CLEAR
-              </button>
-              <button
-                onClick={handleAdd}
-                className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-bold text-sm sm:text-base shadow-lg transition-all active:scale-[0.98]"
-              >
-                + ADD AMOUNT
-              </button>
-            </div>
+                {/* Action Buttons */}
+                <div className="space-y-1.5">
+                  <button
+                    onClick={handleBackspace}
+                    className="w-full py-2 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-700 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-[0.98]"
+                  >
+                    ← BACK
+                  </button>
+                  <button
+                    onClick={handleClear}
+                    className="w-full py-2 bg-gray-200 hover:bg-gray-300 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-[0.98]"
+                  >
+                    CLEAR
+                  </button>
+                  <button
+                    onClick={handleAdd}
+                    className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-bold text-sm sm:text-base shadow-lg transition-all active:scale-[0.98]"
+                  >
+                    + ADD AMOUNT
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

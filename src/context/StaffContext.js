@@ -51,6 +51,8 @@ export function StaffProvider({ children }) {
           console.log('💾 Persisting till to localStorage:', till._id);
           localStorage.setItem("till", JSON.stringify(till));
           console.log('✅ Till persisted to localStorage');
+        } else {
+          localStorage.removeItem("till");
         }
         localStorage.setItem("shift", JSON.stringify(shift));
       } catch (error) {
