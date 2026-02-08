@@ -446,31 +446,19 @@ export default function StaffLogin() {
     console.log("📍 Staff:", selectedStaffData.name, "Location:", selectedLocationData.name);
     console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped");
 
+    // Offline: do not enter POS until a new till is opened
     const savedTill = localStorage.getItem("till");
     if (savedTill) {
       const pendingCloseIds = await getPendingTillCloseIds();
       const till = JSON.parse(savedTill);
-      const sameLocation = String(till?.locationId) === String(selectedLocationData?._id);
-      const isOpen = (till?.status || '').toLowerCase() === 'open';
       const isPendingClosed = pendingCloseIds.includes(String(till?._id));
-
-      // Offline: always show Open Till modal instead of auto-resuming
-      if (!navigator.onLine) {
-        console.log("📴 Offline login - showing Open Till modal");
+      if (isPendingClosed) {
         localStorage.removeItem("till");
-      } else if (isOpen && sameLocation && !isPendingClosed) {
-        console.log("✅ Found persisted open till:", till._id);
-        login(selectedStaffData, selectedLocationData);
-        setCurrentTill(till);
-        router.push("/");
-        return true;
       } else {
-        // Clear stale till (closed or different location)
         localStorage.removeItem("till");
       }
     }
 
-    login(selectedStaffData, selectedLocationData);
     setLoginData({ staff: selectedStaffData, location: selectedLocationData });
     setShowOpenTillModal(true);
     return true;
