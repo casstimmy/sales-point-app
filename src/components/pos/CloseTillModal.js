@@ -593,7 +593,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           </div>
 
           {/* Bottom Row - Notes & Actions */}
-          <div className="flex flex-col order-4 sm:col-span-3 sm:row-start-2">
+          <div className="flex flex-col order-4 sm:col-span-2 sm:col-start-1 sm:row-start-2">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Closing Notes</h3>
             <textarea
               value={closingNotes}
