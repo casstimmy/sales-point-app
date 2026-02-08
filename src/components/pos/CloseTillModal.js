@@ -121,6 +121,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [isOnline, setIsOnline] = useState(true);
   const [activeTenderKeypad, setActiveTenderKeypad] = useState(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Track online/offline status
   useEffect(() => {
@@ -135,6 +136,16 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
+  }, []);
+
+  useEffect(() => {
+    const updateIsMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.matchMedia('(max-width: 640px)').matches);
+    };
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
 
   // Save till close to IndexedDB (offline)
@@ -507,9 +518,14 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                       <div className="flex gap-2">
                         <div className="flex-1">
                           <input
-                            type="text"
+                            type={isMobile ? "number" : "text"}
+                            inputMode={isMobile ? "decimal" : undefined}
                             value={tenderCounts[tender.id] !== undefined ? tenderCounts[tender.id] : ""}
-                            readOnly
+                            readOnly={!isMobile}
+                            onChange={(e) => {
+                              if (!isMobile) return;
+                              setTenderCounts(prev => ({ ...prev, [tender.id]: e.target.value }));
+                            }}
                             placeholder="Tap to enter"
                             className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none text-gray-700 bg-gray-50"
                           />
@@ -531,7 +547,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                     </div>
                     
                     {/* Keypad appears below active tender */}
-                    {isActive && (
+                    {isActive && !isMobile && (
                       <div className="mt-1 p-2 bg-gray-50 rounded border border-cyan-400">
                         <NumKeypad
                           value={tenderCounts[tender.id] || ""}

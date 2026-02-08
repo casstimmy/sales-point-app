@@ -210,7 +210,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     });
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-xs sm:text-sm">
+    <div className="flex flex-col h-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-white md:text-neutral-800 text-xs sm:text-sm">
       {/* Logo Section */}
       <div className="p-3 sm:p-4 bg-white border-b-2 border-primary-200 shadow-sm">
         <div className="flex items-center gap-3">
@@ -244,9 +244,9 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             {/* Section Header */}
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-neutral-800 hover:text-primary-700 text-sm sm:text-lg"
+              className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-white md:text-neutral-800 hover:text-primary-700 text-sm sm:text-lg"
             >
-              <FontAwesomeIcon icon={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
+              <FontAwesomeIcon icon={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 text-white md:text-primary-600" />
               <span className="hidden md:inline text-sm sm:text-base font-semibold text-neutral-800 flex-1">
                 {section.label}
               </span>
@@ -270,9 +270,9 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                       }
                     }}
                     disabled={(item.label === 'Close Till' || item.label === 'Adjust Float') && !effectiveTill}
-                    className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left text-sm sm:text-base font-semibold text-white md:text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
+                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 text-white md:text-primary-500" />
                     <span className="hidden md:inline text-sm sm:text-base">{item.label}</span>
                   </button>
                 ))}
@@ -369,7 +369,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             className="fixed inset-0 bg-black/40 z-30 md:hidden"
             onClick={onToggle}
           />
-          <aside className={`fixed left-0 top-0 ${mobileWidthClass} h-screen bg-neutral-100 z-40 overflow-y-auto md:hidden`}>
+          <aside className={`fixed left-0 top-0 ${mobileWidthClass} h-screen bg-white z-40 overflow-y-auto md:hidden text-white`}>
             {sidebarContent}
           </aside>
         </>

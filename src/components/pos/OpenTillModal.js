@@ -16,6 +16,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
   const [error, setError] = useState(null);
   const [isOnline, setIsOnline] = useState(true);
   const [uiSettings, setUiSettings] = useState(getUiSettings());
+  const [isMobile, setIsMobile] = useState(false);
 
   // Track online/offline status
   useEffect(() => {
@@ -30,6 +31,16 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
+  }, []);
+
+  useEffect(() => {
+    const updateIsMobile = () => {
+      if (typeof window === 'undefined') return;
+      setIsMobile(window.matchMedia('(max-width: 640px)').matches);
+    };
+    updateIsMobile();
+    window.addEventListener('resize', updateIsMobile);
+    return () => window.removeEventListener('resize', updateIsMobile);
   }, []);
 
   useEffect(() => {
@@ -267,13 +278,25 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
               Opening Balance (Cash in Till)
             </label>
 
-            {/* Keypad */}
-            <NumKeypad 
-              value={openingBalance}
-              onChange={setOpeningBalance}
-              placeholder="Amount in ₦"
-              disabled={loading}
-            />
+            {/* Keypad (desktop) or native input (mobile) */}
+            {isMobile ? (
+              <input
+                type="number"
+                inputMode="decimal"
+                value={openingBalance}
+                onChange={(e) => setOpeningBalance(e.target.value)}
+                placeholder="Amount in ₦"
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-cyan-200 text-sm font-semibold"
+                disabled={loading}
+              />
+            ) : (
+              <NumKeypad 
+                value={openingBalance}
+                onChange={setOpeningBalance}
+                placeholder="Amount in ₦"
+                disabled={loading}
+              />
+            )}
 
             <p className="text-xs text-gray-500 mt-2">
               Enter the amount of cash currently in the till

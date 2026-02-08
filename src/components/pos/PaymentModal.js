@@ -304,7 +304,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   }
 
   const paymentContent = (
-    <div className={`${inline ? 'bg-white rounded-xl border border-neutral-200 shadow-lg w-full' : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)]'} flex flex-col overflow-hidden ${contentSizeClass}`}>
+    <div className={`${inline ? 'bg-white rounded-xl border border-neutral-200 shadow-lg w-full' : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)]'} flex flex-col overflow-hidden relative z-50 ${contentSizeClass}`}>
         {/* Header */}
         <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-3 py-2 sm:px-4 sm:py-3 flex justify-between items-center flex-shrink-0">
           <div>
