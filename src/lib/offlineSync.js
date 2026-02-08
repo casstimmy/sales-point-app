@@ -43,11 +43,39 @@ const openSalesPosDb = () =>
 let syncInterval = null;
 let isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
 
+async function ensureExternalIdsInTransactions() {
+  try {
+    const db = await openSalesPosDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(['transactions'], 'readwrite').objectStore('transactions');
+      const req = tx.getAll();
+      req.onsuccess = () => {
+        const all = req.result || [];
+        all.forEach((item) => {
+          if (!item) return;
+          if (item.externalId || item.clientId) return;
+          const legacyId = item.id ? `legacy-${item.id}` : `legacy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+          item.externalId = legacyId;
+          item.clientId = legacyId;
+          tx.put(item);
+        });
+        resolve();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (err) {
+    console.warn('⚠️ Could not backfill transaction externalIds:', err?.message || err);
+  }
+}
+
 /**
  * Initialize offline sync system
  */
 export function initOfflineSync() {
   if (typeof window === 'undefined') return; // SSR check
+
+  // Ensure legacy transactions have stable externalIds for de-duplication
+  ensureExternalIdsInTransactions();
 
   // Listen for online/offline events
   window.addEventListener('online', () => {
@@ -158,6 +186,7 @@ export async function syncPendingTransactions() {
   }
 
   try {
+    await ensureExternalIdsInTransactions();
     const db = await openSalesPosDb();
 
     return new Promise((resolve, reject) => {

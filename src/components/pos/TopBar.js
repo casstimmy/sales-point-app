@@ -24,11 +24,43 @@ import { useCart } from '../../context/CartContext';
 export default function TopBar({ activeTab, onTabChange, onLogout, storeData, staffData, onToggleSidebar }) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const { isOnline, pendingSyncCount } = useCart();
+  const [apiDown, setApiDown] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    let intervalId = null;
+
+    const checkApi = async () => {
+      if (!isOnline) {
+        setApiDown(false);
+        return;
+      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch('/api/transactions', { method: 'GET', signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (res.status === 503 || res.status >= 500) {
+          setApiDown(true);
+        } else {
+          setApiDown(false);
+        }
+      } catch (err) {
+        setApiDown(true);
+      }
+    };
+
+    checkApi();
+    intervalId = setInterval(checkApi, 20000);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [isOnline]);
 
   const formatDate = (date) => {
     return date.toLocaleDateString('en-NG', {
@@ -67,6 +99,15 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
               {pendingSyncCount} pending
             </div>
           )}
+        </div>
+      )}
+
+      {isOnline && apiDown && (
+        <div className="bg-yellow-500 px-4 py-2 flex items-center justify-between gap-2 text-sm font-semibold text-yellow-900">
+          <div className="flex items-center gap-2">
+            <FontAwesomeIcon icon={faSync} className="w-4 h-4" />
+            <span>SERVER UNAVAILABLE (503) - Working offline, will sync later</span>
+          </div>
         </div>
       )}
 

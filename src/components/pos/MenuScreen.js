@@ -142,6 +142,15 @@ export default function MenuScreen() {
     console.log("📦 Categories state updated:", categories.length, "categories");
   }, [categories]);
 
+  const filterCategoriesForLocation = (categoryList = []) => {
+    const locationCategoryIds = location?.categories || location?.categoryIds;
+    if (!Array.isArray(locationCategoryIds) || locationCategoryIds.length === 0) {
+      return categoryList;
+    }
+    const idSet = new Set(locationCategoryIds.map(id => String(id)));
+    return categoryList.filter(cat => idSet.has(String(cat?._id || cat?.id)));
+  };
+
   // Log when products change
   useEffect(() => {
     console.log("🛍️ Products state updated:", products.length, "products");
@@ -187,12 +196,14 @@ export default function MenuScreen() {
               const localCategories = await getLocalCategories();
               if (localCategories && localCategories.length > 0) {
                 console.log("✅ Using cached categories");
-                setCategories(localCategories);
-                setSelectedCategory(localCategories[0]);
+                const filtered = filterCategoriesForLocation(localCategories);
+                setCategories(filtered);
+                setSelectedCategory(filtered[0] || null);
               } else {
                 console.log("📦 Using default categories as fallback");
-                setCategories(DEFAULT_CATEGORIES);
-                setSelectedCategory(DEFAULT_CATEGORIES[0]);
+                const filtered = filterCategoriesForLocation(DEFAULT_CATEGORIES);
+                setCategories(filtered);
+                setSelectedCategory(filtered[0] || null);
               }
             }
           } catch (fetchErr) {
@@ -201,12 +212,14 @@ export default function MenuScreen() {
             const localCategories = await getLocalCategories();
             if (localCategories && localCategories.length > 0) {
               console.log("✅ Using cached categories");
-              setCategories(localCategories);
-              setSelectedCategory(localCategories[0]);
+              const filtered = filterCategoriesForLocation(localCategories);
+              setCategories(filtered);
+              setSelectedCategory(filtered[0] || null);
             } else {
               console.log("📦 Using default categories as fallback");
-              setCategories(DEFAULT_CATEGORIES);
-              setSelectedCategory(DEFAULT_CATEGORIES[0]);
+              const filtered = filterCategoriesForLocation(DEFAULT_CATEGORIES);
+              setCategories(filtered);
+              setSelectedCategory(filtered[0] || null);
             }
           }
         } else {
@@ -216,9 +229,10 @@ export default function MenuScreen() {
           
           if (localCategories && localCategories.length > 0) {
             console.log("✅ Found", localCategories.length, "categories in local storage");
-            setCategories(localCategories);
+            const filtered = filterCategoriesForLocation(localCategories);
+            setCategories(filtered);
             // Auto-select first category
-            setSelectedCategory(localCategories[0]);
+            setSelectedCategory(filtered[0] || null);
           } else {
             // Try localStorage cache when offline or no IndexedDB data
             const cached = typeof window !== 'undefined'
@@ -228,9 +242,10 @@ export default function MenuScreen() {
               const cachedCategories = JSON.parse(cached);
               if (cachedCategories && cachedCategories.length > 0) {
                 console.log("✅ Using cached categories from localStorage");
-                setCategories(cachedCategories);
-                setSelectedCategory(cachedCategories[0]);
-                await syncCategories(cachedCategories);
+                const filtered = filterCategoriesForLocation(cachedCategories);
+                setCategories(filtered);
+                setSelectedCategory(filtered[0] || null);
+                await syncCategories(filtered);
                 setLoadingCategories(false);
                 return;
               }
@@ -243,25 +258,28 @@ export default function MenuScreen() {
                 const data = await response.json();
                 console.log("📦 Categories from API:", data.data);
                 const categories = data.data || [];
-                setCategories(categories);
+                const filtered = filterCategoriesForLocation(categories);
+                setCategories(filtered);
                 // Save to IndexedDB for offline support
-                if (categories.length > 0) {
-                  await syncCategories(categories);
+                if (filtered.length > 0) {
+                  await syncCategories(filtered);
                   setLastSyncTime(new Date());
                 }
                 // Auto-select first category
-                if (categories.length > 0) {
-                  setSelectedCategory(categories[0]);
+                if (filtered.length > 0) {
+                  setSelectedCategory(filtered[0]);
                 }
               } else {
                 console.log("📦 Using default categories as fallback");
-                setCategories(DEFAULT_CATEGORIES);
-                setSelectedCategory(DEFAULT_CATEGORIES[0]);
+                const filtered = filterCategoriesForLocation(DEFAULT_CATEGORIES);
+                setCategories(filtered);
+                setSelectedCategory(filtered[0] || null);
               }
             } catch (fetchErr) {
               console.warn("⚠️ Fetch error, using default categories");
-              setCategories(DEFAULT_CATEGORIES);
-              setSelectedCategory(DEFAULT_CATEGORIES[0]);
+              const filtered = filterCategoriesForLocation(DEFAULT_CATEGORIES);
+              setCategories(filtered);
+              setSelectedCategory(filtered[0] || null);
             }
           }
         }
@@ -270,8 +288,9 @@ export default function MenuScreen() {
         console.error('❌ Failed to fetch categories:', err);
         // Fallback to default categories
         console.log("📦 Using default categories as fallback");
-        setCategories(DEFAULT_CATEGORIES);
-        setSelectedCategory(DEFAULT_CATEGORIES[0]);
+        const filtered = filterCategoriesForLocation(DEFAULT_CATEGORIES);
+        setCategories(filtered);
+        setSelectedCategory(filtered[0] || null);
         setError(null); // Clear error - we have a fallback
         setLoadingCategories(false);
       }

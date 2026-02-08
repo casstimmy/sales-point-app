@@ -27,9 +27,13 @@ const getOfflineTillData = async (tillId) => {
           // Calculate totals from offline transactions
           let totalSales = 0;
           const tenderBreakdown = {};
+          let unsyncedCount = 0;
           
           tillTransactions.forEach(tx => {
             totalSales += tx.total || 0;
+            if (tx.synced !== true) {
+              unsyncedCount += 1;
+            }
             
             // Process tender payments
             if (tx.tenderPayments && Array.isArray(tx.tenderPayments)) {
@@ -46,6 +50,7 @@ const getOfflineTillData = async (tillId) => {
             transactionCount: tillTransactions.length,
             totalSales,
             tenderBreakdown,
+            unsyncedCount,
           });
         };
         
@@ -56,7 +61,47 @@ const getOfflineTillData = async (tillId) => {
     });
   } catch (err) {
     console.error('Error getting offline till data:', err);
-    return { transactionCount: 0, totalSales: 0, tenderBreakdown: {} };
+    return { transactionCount: 0, totalSales: 0, tenderBreakdown: {}, unsyncedCount: 0 };
+  }
+};
+
+const getPendingTransactionsForTill = async (tillId) => {
+  try {
+    const extraTillIds = [];
+    try {
+      const savedTill = typeof window !== 'undefined' ? localStorage.getItem('till') : null;
+      if (savedTill) {
+        const parsed = JSON.parse(savedTill);
+        if (parsed?._id && parsed._id !== tillId) {
+          extraTillIds.push(parsed._id);
+        }
+      }
+    } catch (err) {
+      // ignore localStorage errors
+    }
+
+    const request = indexedDB.open('SalesPOS', 2);
+    return new Promise((resolve, reject) => {
+      request.onsuccess = (event) => {
+        const db = event.target.result;
+        const txStore = db.transaction(['transactions'], 'readonly').objectStore('transactions');
+        const allTxRequest = txStore.getAll();
+        allTxRequest.onsuccess = () => {
+          const allTransactions = allTxRequest.result || [];
+          const pending = allTransactions.filter(tx => {
+            if (tx.synced === true) return false;
+            if (tx.tillId === tillId) return true;
+            return extraTillIds.includes(tx.tillId);
+          });
+          resolve(pending.length);
+        };
+        allTxRequest.onerror = () => reject(allTxRequest.error);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (err) {
+    console.error('Error checking pending till transactions:', err);
+    return 0;
   }
 };
 
@@ -70,6 +115,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
+  const [pendingLocalTransactions, setPendingLocalTransactions] = useState(0);
   const [fetchingTill, setFetchingTill] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [activeTenderKeypad, setActiveTenderKeypad] = useState(null);
@@ -135,6 +181,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             } else {
               setTill(contextTill);
             }
+            const offlineData = await getOfflineTillData(contextTill._id);
+            setPendingLocalTransactions(offlineData.unsyncedCount || 0);
           } catch (err) {
             console.error("Error fetching till:", err);
             // Fallback to offline data
@@ -143,6 +191,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
               ...contextTill,
               ...offlineData,
             });
+            setPendingLocalTransactions(offlineData.unsyncedCount || 0);
           }
         } else {
           // Offline: Use context + IndexedDB data
@@ -153,6 +202,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             totalSales: offlineData.totalSales || contextTill.totalSales || 0,
             tenderBreakdown: offlineData.tenderBreakdown || contextTill.tenderBreakdown || {},
           });
+          setPendingLocalTransactions(offlineData.unsyncedCount || 0);
         }
         setFetchingTill(false);
       };
@@ -192,13 +242,19 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         totalSales: till.totalSales || 0,
         expectedClosingBalance: expectedClosing,
         tenderBreakdown: tenderBreakdownObj,
+        pendingLocalTransactions: pendingLocalTransactions || 0,
       });
     }
-  }, [till, isOpen]);
+  }, [till, isOpen, pendingLocalTransactions]);
 
   const handleCloseTill = async () => {
     if (!tenders || tenders.length === 0) {
       setError("No payment methods available");
+      return;
+    }
+
+    if (isOnline && pendingLocalTransactions > 0) {
+      setError("Pending transactions have not synced. Please sync before closing the till.");
       return;
     }
 
@@ -248,6 +304,13 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           await syncPendingTransactions();
         } catch (err) {
           console.warn('⚠️ Could not sync pending transactions before closing till:', err?.message || err);
+        }
+
+        const pendingAfterSync = await getPendingTransactionsForTill(till._id);
+        if (pendingAfterSync > 0) {
+          setError("Pending transactions are still unsynced. Please sync and try again.");
+          setLoading(false);
+          return;
         }
 
         const response = await fetch("/api/till/close", {
@@ -369,6 +432,14 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
               <p className="text-xs text-orange-700 font-semibold uppercase">Transactions</p>
               <p className="text-base font-bold text-orange-800">{till?.transactionCount || 0}</p>
             </div>
+
+            {pendingLocalTransactions > 0 && (
+              <div className="bg-yellow-50 border-2 border-yellow-300 rounded p-2">
+                <p className="text-xs text-yellow-800 font-semibold uppercase">Pending Sync</p>
+                <p className="text-base font-bold text-yellow-900">{pendingLocalTransactions}</p>
+                <p className="text-xs text-yellow-800 mt-1">Sync before closing till.</p>
+              </div>
+            )}
 
             {/* Offline Notice */}
             {!isOnline && (

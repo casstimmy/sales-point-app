@@ -238,9 +238,16 @@ export async function addLocalTransaction(transaction) {
   return new Promise((resolve, reject) => {
     const txStore = db.transaction([STORES.TRANSACTIONS], "readwrite");
     const store = txStore.objectStore(STORES.TRANSACTIONS);
+
+    const baseId = transaction.externalId || transaction.clientId || transaction.id;
+    const generatedId = baseId
+      ? String(baseId)
+      : `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     
     const transactionData = {
       ...transaction,
+      externalId: transaction.externalId || generatedId,
+      clientId: transaction.clientId || generatedId,
       createdAt: transaction.createdAt || new Date().toISOString(),
       synced: false, // Mark as unsynced
       syncAttempts: 0,

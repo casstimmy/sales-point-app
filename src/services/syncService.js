@@ -3,7 +3,12 @@
  * Handles auto-syncing transactions when network is available
  */
 
-import { getUnsyncedTransactions, markTransactionSynced } from "../lib/indexedDB";
+import {
+  getPendingTransactionsCount,
+  syncPendingTillCloses,
+  syncPendingTillOpens,
+  syncPendingTransactions,
+} from "../lib/offlineSync";
 
 let syncInProgress = false;
 let lastSyncAttempt = null;
@@ -22,50 +27,31 @@ export async function autoSyncTransactions() {
 
   try {
     console.log("🔄 Starting auto-sync of transactions...");
-    
-    // Get all unsynced transactions
-    const unsyncedTx = await getUnsyncedTransactions();
-    console.log(`📤 Found ${unsyncedTx.length} unsynced transactions`);
 
-    if (unsyncedTx.length === 0) {
+    const pendingBefore = await getPendingTransactionsCount();
+    console.log(`📤 Found ${pendingBefore} unsynced transactions`);
+
+    if (pendingBefore === 0) {
       syncInProgress = false;
       return { success: true, synced: 0 };
     }
 
-    // Send to cloud API
-    let successCount = 0;
-    let failureCount = 0;
+    // Use unified offline sync pipeline
+    await syncPendingTillOpens();
+    await syncPendingTransactions();
+    await syncPendingTillCloses();
 
-    for (const tx of unsyncedTx) {
-      try {
-        const response = await fetch("/api/transactions/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(tx),
-        });
-
-        if (response.ok) {
-          await markTransactionSynced(tx.id);
-          successCount++;
-          console.log(`✅ Transaction ${tx.id} synced`);
-        } else {
-          failureCount++;
-          console.error(`❌ Failed to sync transaction ${tx.id}: ${response.status}`);
-        }
-      } catch (err) {
-        failureCount++;
-        console.error(`❌ Error syncing transaction ${tx.id}:`, err.message);
-      }
-    }
+    const pendingAfter = await getPendingTransactionsCount();
+    const syncedCount = Math.max(0, pendingBefore - pendingAfter);
 
     syncInProgress = false;
-    console.log(`✅ Sync complete: ${successCount} synced, ${failureCount} failed`);
-    
+    console.log(`✅ Sync complete: ${syncedCount} synced, ${pendingAfter} remaining`);
+
     return {
-      success: failureCount === 0,
-      synced: successCount,
-      failed: failureCount,
-      total: unsyncedTx.length,
+      success: pendingAfter === 0,
+      synced: syncedCount,
+      failed: pendingAfter,
+      total: pendingBefore,
     };
   } catch (err) {
     syncInProgress = false;
