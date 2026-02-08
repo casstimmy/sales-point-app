@@ -53,6 +53,9 @@ const EndOfDayReportSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
 });
 
+// Prevent duplicate reports per till
+EndOfDayReportSchema.index({ tillId: 1 }, { unique: true });
+
 // Avoid re-registering the model in development
 const EndOfDayReport = mongoose.models.EndOfDayReport || 
   mongoose.model("EndOfDayReport", EndOfDayReportSchema);

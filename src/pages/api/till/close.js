@@ -200,29 +200,38 @@ export default async function handler(req, res) {
       ? (totalVariance / expectedClosingBalance) * 100 
       : 0;
 
-    // Update till with closing details
+    // Update till with closing details (idempotent)
     console.log(`🔄 Updating till ${till._id} with closing details...`);
-    till.status = "CLOSED";
-    till.closedAt = new Date();
-    till.physicalCount = totalCountedAmount; // Total physical count from all tenders
-    till.expectedClosingBalance = expectedClosingBalance;
-    till.variance = totalVariance; // Overall variance across all tenders
-    till.totalSales = totalSales;
-    till.transactionCount = transactions.length;
-    till.tenderBreakdown = new Map(Object.entries(tenderBreakdown));
-    till.tenderVariances = new Map(Object.entries(tenderVariances));
-    till.closingNotes = closingNotes || "";
-    
-    console.log(`   Status updated to: ${till.status}`);
-    console.log(`   Tender Breakdown Map size: ${till.tenderBreakdown.size}`);
-    console.log(`   Tender Variances Map size: ${till.tenderVariances.size}`);
-    
-    // Mark both Map fields as modified
-    till.markModified('tenderBreakdown');
-    till.markModified('tenderVariances');
+    const updatePayload = {
+      status: "CLOSED",
+      closedAt: new Date(),
+      physicalCount: totalCountedAmount,
+      expectedClosingBalance: expectedClosingBalance,
+      variance: totalVariance,
+      totalSales: totalSales,
+      transactionCount: transactions.length,
+      tenderBreakdown: tenderBreakdown,
+      tenderVariances: tenderVariances,
+      closingNotes: closingNotes || "",
+    };
 
-    console.log(`💾 Saving till to database...`);
-    await till.save();
+    const updateResult = await Till.updateOne(
+      { _id: till._id, status: "OPEN" },
+      { $set: updatePayload }
+    );
+
+    if (updateResult.matchedCount === 0) {
+      console.warn("⚠️ Till was already closed by another request.");
+      const existingReport = await EndOfDayReport.findOne({ tillId: till._id });
+      const latestTill = await Till.findById(till._id).lean();
+      return res.status(200).json({
+        message: "Till already closed",
+        till: latestTill || till,
+        reportId: existingReport?._id || null,
+      });
+    }
+
+    const updatedTill = await Till.findById(till._id);
     console.log(`✅ Till saved successfully!`);
 
     // Create EndOfDayReport for inventory manager access
@@ -247,14 +256,14 @@ export default async function handler(req, res) {
         console.log(`📊 EndOfDayReport already exists - ID: ${existingReport._id}`);
       } else {
         const report = new EndOfDayReport({
-        storeId: till.storeId,
-        locationId: till.locationId,
+        storeId: updatedTill.storeId,
+        locationId: updatedTill.locationId,
         locationName: locationName,
-        tillId: till._id,
-        staffId: till.staffId,
-        staffName: till.staffName,
-        openedAt: till.openedAt,
-        openingBalance: till.openingBalance,
+        tillId: updatedTill._id,
+        staffId: updatedTill.staffId,
+        staffName: updatedTill.staffName,
+        openedAt: updatedTill.openedAt,
+        openingBalance: updatedTill.openingBalance,
         closedAt: new Date(),
         physicalCount: totalCountedAmount,
         expectedClosingBalance: expectedClosingBalance,
@@ -268,8 +277,16 @@ export default async function handler(req, res) {
         date: new Date().setHours(0, 0, 0, 0),
         });
 
-        await report.save();
-        console.log(`📊 EndOfDayReport created - ID: ${report._id}`);
+        try {
+          await report.save();
+          console.log(`📊 EndOfDayReport created - ID: ${report._id}`);
+        } catch (err) {
+          if (err?.code === 11000) {
+            console.warn("⚠️ EndOfDayReport duplicate prevented by unique index.");
+          } else {
+            throw err;
+          }
+        }
       }
     } catch (reportErr) {
       console.warn("⚠️ Warning: Failed to create EndOfDayReport:", reportErr.message);
@@ -279,7 +296,7 @@ export default async function handler(req, res) {
     console.log(`✅ Till closed - Total Variance: ${totalVariance}`);
 
     // Convert Maps to objects for JSON serialization
-    const tillResponse = till.toObject();
+    const tillResponse = (updatedTill || till).toObject();
     
     // Convert tenderBreakdown Map to object
     const tenderBreakdownObj = {};
