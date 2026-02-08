@@ -247,7 +247,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
               className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-slate-700 md:hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-slate-100 md:text-neutral-800 md:hover:text-primary-700 text-sm sm:text-lg"
             >
               <FontAwesomeIcon icon={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-300 md:text-primary-600" />
-              <span className="hidden md:inline text-sm sm:text-base font-semibold text-neutral-800 flex-1">
+              <span className="text-sm sm:text-base font-semibold text-slate-100 md:text-neutral-800 flex-1">
                 {section.label}
               </span>
               <FontAwesomeIcon
@@ -273,7 +273,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                     className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-slate-800 md:hover:bg-primary-100 border-l-4 border-transparent hover:border-cyan-300 md:hover:border-primary-500 text-left text-sm sm:text-base font-semibold text-slate-100 md:text-neutral-700 md:hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <FontAwesomeIcon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300 md:text-primary-500" />
-                    <span className="hidden md:inline text-sm sm:text-base">{item.label}</span>
+                    <span className="text-sm sm:text-base">{item.label}</span>
                   </button>
                 ))}
               </div>
@@ -328,7 +328,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
               }`}
             >
               <FontAwesomeIcon icon={faGear} className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300 md:text-inherit" />
-              <span className="hidden md:inline text-sm sm:text-base">Settings</span>
+              <span className="text-sm sm:text-base">Settings</span>
             </button>
             {/* Printer Status Badge */}
             {printerAvailable !== null && (
@@ -346,7 +346,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
           </div>
           <button className="w-full flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 hover:bg-slate-800 md:hover:bg-neutral-100 rounded-lg text-left text-sm sm:text-base font-semibold text-slate-100 md:text-neutral-700 hover:text-cyan-200 md:hover:text-primary-600 transition-colors duration-base">
             <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300 md:text-inherit" />
-            <span className="hidden md:inline text-sm sm:text-base">Support</span>
+            <span className="text-sm sm:text-base">Support</span>
           </button>
         </div>
       </div>
