@@ -210,9 +210,9 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     });
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-gradient-to-b from-slate-900 to-slate-800 text-slate-100 md:from-neutral-50 md:to-neutral-100 md:text-neutral-800 text-xs sm:text-sm">
+    <div className="flex flex-col h-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-800 text-xs sm:text-sm">
       {/* Logo Section */}
-      <div className="p-3 sm:p-4 bg-slate-900 md:bg-white border-b-2 border-slate-700 md:border-primary-200 shadow-sm">
+      <div className="p-3 sm:p-4 bg-white border-b-2 border-primary-200 shadow-sm">
         <div className="flex items-center gap-3">
           <Image 
             src="/images/st-micheals-logo.png" 
@@ -238,27 +238,27 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
       </div>
 
       {/* Scrollable Menu Sections */}
-      <div className="flex-1 overflow-y-auto px-2.5 sm:px-3 py-3 sm:py-4 space-y-2 bg-slate-900 md:bg-transparent">
+      <div className="flex-1 overflow-y-auto px-2.5 sm:px-3 py-3 sm:py-4 space-y-2">
         {menuSections.map(section => (
-          <div key={section.id} className="rounded-lg bg-slate-800 md:bg-white border border-slate-700 md:border-neutral-200 overflow-hidden shadow-sm">
+          <div key={section.id} className="rounded-lg bg-white border border-neutral-200 overflow-hidden shadow-sm">
             {/* Section Header */}
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-slate-700 md:hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-slate-100 md:text-neutral-800 md:hover:text-primary-700 text-sm sm:text-lg"
+              className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-neutral-800 hover:text-primary-700 text-sm sm:text-lg"
             >
-              <FontAwesomeIcon icon={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 text-cyan-300 md:text-primary-600" />
-              <span className="text-sm sm:text-base font-semibold text-slate-100 md:text-neutral-800 flex-1">
+              <FontAwesomeIcon icon={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
+              <span className="text-sm sm:text-base font-semibold text-neutral-800 flex-1">
                 {section.label}
               </span>
               <FontAwesomeIcon
                 icon={expandedSections[section.id] ? faChevronDown : faChevronRight}
-                className="w-5 h-5 text-cyan-300 md:text-primary-600 hidden md:inline"
+                className="w-5 h-5 text-primary-600 hidden md:inline"
               />
             </button>
 
             {/* Section Items */}
             {expandedSections[section.id] && (
-              <div className="bg-slate-900 md:bg-neutral-50 border-t border-slate-700 md:border-neutral-200">
+              <div className="bg-neutral-50 border-t border-neutral-200">
                 {section.items.map((item, idx) => (
                   <button
                     key={idx}
@@ -270,9 +270,9 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                       }
                     }}
                     disabled={(item.label === 'Close Till' || item.label === 'Adjust Float') && !effectiveTill}
-                    className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-slate-800 md:hover:bg-primary-100 border-l-4 border-transparent hover:border-cyan-300 md:hover:border-primary-500 text-left text-sm sm:text-base font-semibold text-slate-100 md:text-neutral-700 md:hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300 md:text-primary-500" />
+                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
                     <span className="text-sm sm:text-base">{item.label}</span>
                   </button>
                 ))}
@@ -283,23 +283,23 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
       </div>
 
       {/* Bottom Section */}
-      <div className="border-t-2 border-slate-700 md:border-neutral-200 bg-slate-900 md:bg-white p-3 sm:p-4 space-y-3 sm:space-y-4 shadow-lg">
+      <div className="border-t-2 border-neutral-200 bg-white p-3 sm:p-4 space-y-3 sm:space-y-4 shadow-lg">
         {/* Cloud Sync Status */}
-        <div className="text-xs sm:text-sm text-slate-100 md:text-neutral-700 p-3 sm:p-4 bg-gradient-to-br from-slate-800 to-slate-900 md:from-blue-50 md:to-blue-100 rounded-lg border-2 border-slate-700 md:border-blue-200 shadow-sm">
+        <div className="text-xs sm:text-sm text-neutral-700 p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200 shadow-sm">
           <div className="flex items-center gap-2 mb-2">
             <FontAwesomeIcon
               icon={faCloud}
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${isOnline ? 'text-green-300 md:text-green-600' : 'text-red-300 md:text-red-600'}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 ${isOnline ? 'text-green-600' : 'text-red-600'}`}
             />
-            <span className={`text-xs sm:text-sm font-bold ${isOnline ? 'text-green-300 md:text-green-700' : 'text-red-300 md:text-red-700'}`}>
+            <span className={`text-xs sm:text-sm font-bold ${isOnline ? 'text-green-700' : 'text-red-700'}`}>
               {isOnline ? '● Online' : '● Offline'}
             </span>
           </div>
-          <div className="text-slate-300 md:text-neutral-600 mb-2 text-xs sm:text-sm font-medium">
+          <div className="text-neutral-600 mb-2 text-xs sm:text-sm font-medium">
             Last sync: {formatSyncTime(lastSyncTime)}
           </div>
           {pendingSyncCount > 0 && (
-            <div className="text-red-300 md:text-red-700 font-bold text-xs sm:text-sm mb-2">
+            <div className="text-red-700 font-bold text-xs sm:text-sm mb-2">
               ⚠️ {pendingSyncCount} pending transaction{pendingSyncCount !== 1 ? 's' : ''}
             </div>
           )}
@@ -309,7 +309,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
         <button
           onClick={handleManualSync}
           disabled={isSyncing || !isOnline}
-          className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:px-4 sm:py-4 bg-cyan-500 md:bg-primary-600 text-white rounded-lg hover:bg-cyan-600 md:hover:bg-primary-700 disabled:bg-neutral-600 md:disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base text-sm sm:text-base font-bold shadow-md hover:shadow-lg"
+          className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:px-4 sm:py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base text-sm sm:text-base font-bold shadow-md hover:shadow-lg"
         >
           <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
           {isSyncing ? 'Syncing...' : 'Sync Transactions'}
@@ -323,11 +323,11 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
               onClick={() => router.push('/settings')}
               className={`flex-1 flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 rounded-lg text-left text-sm sm:text-base font-semibold transition-colors duration-base ${
                 router.pathname === '/settings' || router.pathname === '/printer-settings'
-                  ? 'bg-slate-700 md:bg-primary-100 text-white md:text-primary-700 shadow-md'
-                  : 'text-slate-100 md:text-neutral-700 hover:bg-slate-800 md:hover:bg-neutral-100 hover:text-cyan-200 md:hover:text-primary-600'
+                  ? 'bg-primary-100 text-primary-700 shadow-md'
+                  : 'text-neutral-700 hover:bg-neutral-100 hover:text-primary-600'
               }`}
             >
-              <FontAwesomeIcon icon={faGear} className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300 md:text-inherit" />
+              <FontAwesomeIcon icon={faGear} className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className="text-sm sm:text-base">Settings</span>
             </button>
             {/* Printer Status Badge */}
@@ -336,16 +336,16 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                 title={printerAvailable ? 'Printer Connected' : 'Printer Offline'}
                 className={`px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm ${
                   printerAvailable
-                    ? 'bg-green-900 text-green-100 border border-green-700 md:bg-green-100 md:text-green-800 md:border-green-300'
-                    : 'bg-red-900 text-red-100 border border-red-700 md:bg-red-100 md:text-red-800 md:border-red-300'
+                    ? 'bg-green-100 text-green-800 border border-green-300'
+                    : 'bg-red-100 text-red-800 border border-red-300'
                 }`}
               >
                 {printerAvailable ? '🖨️ ✓' : '🖨️ ✕'}
               </div>
             )}
           </div>
-          <button className="w-full flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 hover:bg-slate-800 md:hover:bg-neutral-100 rounded-lg text-left text-sm sm:text-base font-semibold text-slate-100 md:text-neutral-700 hover:text-cyan-200 md:hover:text-primary-600 transition-colors duration-base">
-            <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-300 md:text-inherit" />
+          <button className="w-full flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 hover:bg-neutral-100 rounded-lg text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-600 transition-colors duration-base">
+            <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="text-sm sm:text-base">Support</span>
           </button>
         </div>
@@ -369,7 +369,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             className="fixed inset-0 bg-black/40 z-30 md:hidden"
             onClick={onToggle}
           />
-          <aside className={`fixed left-0 top-0 ${mobileWidthClass} h-screen bg-slate-900 z-40 overflow-y-auto md:hidden`}>
+          <aside className={`fixed left-0 top-0 ${mobileWidthClass} h-screen bg-white z-40 overflow-y-auto md:hidden`}>
             {sidebarContent}
           </aside>
         </>
