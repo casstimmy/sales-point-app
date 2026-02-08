@@ -458,9 +458,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
 
         {/* Main Content - Grid Layout */}
-        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-3 sm:grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden">
-          {/* Left Column - Summary Cards */}
-          <div className="space-y-3 order-1 sm:row-start-1">
+        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,320px)] sm:grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden">
+          {/* Content 1 - Summary Cards (col 1, row 1) */}
+          <div className="space-y-3 order-1 sm:col-start-1 sm:row-start-1">
             <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded p-2">
               <p className="text-xs text-cyan-700 font-semibold uppercase">Opening Balance</p>
               <p className="text-base font-bold text-cyan-800">₦{Number(summary.openingBalance).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -508,8 +508,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             )}
           </div>
 
-          {/* Middle Column - Tender Reconciliation */}
-          <div className="flex flex-col overflow-hidden order-2 sm:row-start-1">
+          {/* Content 1 - Reconcile Payment Methods (col 2, row 1) */}
+          <div className="flex flex-col overflow-hidden order-2 sm:col-start-2 sm:row-start-1">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Reconcile Payment Methods</h3>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {tenders && tenders.map((tender) => {
@@ -565,10 +565,10 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             </div>
           </div>
 
-          {/* Right Column - Keypad */}
-          <div className="hidden sm:flex flex-col overflow-hidden order-3 sm:row-start-1">
+          {/* Content 2 - Keypad (col 3, rows 1-2) */}
+          <div className="hidden sm:flex flex-col overflow-hidden order-3 sm:col-start-3 sm:row-start-1 sm:row-span-2">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Keypad</h3>
-            <div className="flex-1 bg-gray-50 border-2 border-gray-200 rounded-lg p-3">
+            <div className="flex-1 bg-gray-50 border-2 border-gray-200 rounded-lg p-3 h-full">
               {tenders && tenders.length > 0 ? (
                 <>
                   <div className="text-xs font-semibold text-gray-600 mb-2">
@@ -592,7 +592,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             </div>
           </div>
 
-          {/* Bottom Row - Notes & Actions */}
+          {/* Content 1 - Closing Notes (col 1-2, row 2) */}
           <div className="flex flex-col order-4 sm:col-span-2 sm:col-start-1 sm:row-start-2">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Closing Notes</h3>
             <textarea
