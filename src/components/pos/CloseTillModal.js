@@ -443,9 +443,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
 
         {/* Main Content - Grid Layout */}
-        <div className="flex-1 p-2 grid grid-cols-3 gap-2 overflow-hidden">
+        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-3 gap-2 overflow-hidden">
           {/* Left Column - Summary Cards */}
-          <div className="space-y-3">
+          <div className="space-y-3 order-1">
             <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded p-2">
               <p className="text-xs text-cyan-700 font-semibold uppercase">Opening Balance</p>
               <p className="text-base font-bold text-cyan-800">₦{Number(summary.openingBalance).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
@@ -494,7 +494,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           </div>
 
           {/* Middle Column - Tender Reconciliation */}
-          <div className="flex flex-col overflow-hidden">
+          <div className="flex flex-col overflow-hidden order-2">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Reconcile Payment Methods</h3>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {tenders && tenders.map((tender) => {
@@ -566,7 +566,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           </div>
 
           {/* Right Column - Notes & Actions */}
-          <div className="flex flex-col">
+          <div className="flex flex-col order-3 sm:order-none">
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Closing Notes</h3>
             <textarea
               value={closingNotes}
