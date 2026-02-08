@@ -153,7 +153,7 @@ export function useLocationTenders() {
     };
 
     fetchTenders();
-  }, [location?._id, location?.name, getCachedTenders, setCachedTenders]);
+  }, [location?._id, location?.name, location?.tenders, getCachedTenders, setCachedTenders]);
 
   return { tenders, loading, error };
 }

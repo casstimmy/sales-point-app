@@ -56,7 +56,61 @@ export default function StaffLogin() {
     return result;
   };
 
-  const getPendingTillCloseIds = async () => {
+  /* Load cached staff and locations from localStorage */
+  const loadCachedData = useCallback(() => {
+    try {
+      const cachedStaff = localStorage.getItem('cachedStaff');
+      const cachedLocations = localStorage.getItem('cachedLocations');
+      const cachedLocationsMetadata = localStorage.getItem('locations_metadata');
+      const cachedStore = localStorage.getItem('cachedStore');
+
+      // Load cached store first
+      if (cachedStore) {
+        const storeObj = JSON.parse(cachedStore);
+        setStores([storeObj]);
+        setSelectedStore(storeObj._id);
+        console.log(`✅ Loaded store from cache: ${storeObj.name}`);
+      } else {
+        // Create a default store for offline mode if none cached
+        const defaultStore = { _id: 'offline-store', name: 'Offline Store' };
+        setStores([defaultStore]);
+        setSelectedStore(defaultStore._id);
+        console.log(`📦 Using default offline store`);
+      }
+
+      if (cachedStaff) {
+        const staffArray = JSON.parse(cachedStaff);
+        setStaff(staffArray);
+        console.log(`✅ Loaded ${staffArray.length} staff from cache`);
+      }
+
+      if (cachedLocations) {
+        const locationsArray = JSON.parse(cachedLocations);
+        setLocations(locationsArray);
+        if (locationsArray.length > 0) {
+          setSelectedLocation(locationsArray[0]._id);
+        }
+        console.log(`✅ Loaded ${locationsArray.length} locations from cache`);
+        console.log(`📍 Locations available offline: ${locationsArray.map(l => l.name).join(', ')}`);
+      } else {
+        console.log(`⚠️ No cached locations found. Please sync when online.`);
+      }
+
+      // Log metadata about cached data
+      if (cachedLocationsMetadata) {
+        try {
+          const metadata = JSON.parse(cachedLocationsMetadata);
+          console.log(`⏱️ Locations last synced: ${new Date(metadata.lastSynced).toLocaleString()}`);
+        } catch (e) {
+          console.warn("Could not parse metadata:", e);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load cached data:", error);
+    }
+  }, []);
+
+  const getPendingTillCloseIds = useCallback(async () => {
     try {
       const request = indexedDB.open('SalesPOS', 2);
       return await new Promise((resolve, reject) => {
@@ -97,13 +151,13 @@ export default function StaffLogin() {
       console.warn('Failed to read pending till closes:', err);
       return [];
     }
-  };
+  }, []);
 
-  const refreshPendingTillCloseIds = async () => {
+  const refreshPendingTillCloseIds = useCallback(async () => {
     const ids = await getPendingTillCloseIds();
     setPendingTillCloseIds(ids);
     return ids;
-  };
+  }, [getPendingTillCloseIds]);
 
   const handleSyncPendingCloses = async () => {
     if (!isOnline || syncingPendingCloses) return;
@@ -335,61 +389,7 @@ export default function StaffLogin() {
     };
 
     fetchData();
-  }, []);
-
-  /* Load cached staff and locations from localStorage */
-  const loadCachedData = () => {
-    try {
-      const cachedStaff = localStorage.getItem('cachedStaff');
-      const cachedLocations = localStorage.getItem('cachedLocations');
-      const cachedLocationsMetadata = localStorage.getItem('locations_metadata');
-      const cachedStore = localStorage.getItem('cachedStore');
-
-      // Load cached store first
-      if (cachedStore) {
-        const storeObj = JSON.parse(cachedStore);
-        setStores([storeObj]);
-        setSelectedStore(storeObj._id);
-        console.log(`✅ Loaded store from cache: ${storeObj.name}`);
-      } else {
-        // Create a default store for offline mode if none cached
-        const defaultStore = { _id: 'offline-store', name: 'Offline Store' };
-        setStores([defaultStore]);
-        setSelectedStore(defaultStore._id);
-        console.log(`📦 Using default offline store`);
-      }
-
-      if (cachedStaff) {
-        const staffArray = JSON.parse(cachedStaff);
-        setStaff(staffArray);
-        console.log(`✅ Loaded ${staffArray.length} staff from cache`);
-      }
-
-      if (cachedLocations) {
-        const locationsArray = JSON.parse(cachedLocations);
-        setLocations(locationsArray);
-        if (locationsArray.length > 0) {
-          setSelectedLocation(locationsArray[0]._id);
-        }
-        console.log(`✅ Loaded ${locationsArray.length} locations from cache`);
-        console.log(`📍 Locations available offline: ${locationsArray.map(l => l.name).join(', ')}`);
-      } else {
-        console.log(`⚠️ No cached locations found. Please sync when online.`);
-      }
-
-      // Log metadata about cached data
-      if (cachedLocationsMetadata) {
-        try {
-          const metadata = JSON.parse(cachedLocationsMetadata);
-          console.log(`⏱️ Locations last synced: ${new Date(metadata.lastSynced).toLocaleString()}`);
-        } catch (e) {
-          console.warn("Could not parse metadata:", e);
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load cached data:", error);
-    }
-  };
+  }, [loadCachedData, refreshPendingTillCloseIds, setCachedTenders]);
 
   /* Refresh staff/locations data when coming online */
   useEffect(() => {
@@ -453,15 +453,21 @@ export default function StaffLogin() {
       const sameLocation = String(till?.locationId) === String(selectedLocationData?._id);
       const isOpen = (till?.status || '').toLowerCase() === 'open';
       const isPendingClosed = pendingCloseIds.includes(String(till?._id));
-      if (isOpen && sameLocation && !isPendingClosed) {
+
+      // Offline: always show Open Till modal instead of auto-resuming
+      if (!navigator.onLine) {
+        console.log("📴 Offline login - showing Open Till modal");
+        localStorage.removeItem("till");
+      } else if (isOpen && sameLocation && !isPendingClosed) {
         console.log("✅ Found persisted open till:", till._id);
         login(selectedStaffData, selectedLocationData);
         setCurrentTill(till);
         router.push("/");
         return true;
+      } else {
+        // Clear stale till (closed or different location)
+        localStorage.removeItem("till");
       }
-      // Clear stale till (closed or different location)
-      localStorage.removeItem("till");
     }
 
     login(selectedStaffData, selectedLocationData);

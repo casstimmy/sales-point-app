@@ -16,7 +16,9 @@
  * />
  */
 
+/* eslint-disable @next/next/no-img-element */
 import React, { useRef, useEffect } from 'react';
+import Image from 'next/image';
 
 export default function ReceiptPrinter({ 
   transaction, 
@@ -326,13 +328,17 @@ export default function ReceiptPrinter({
           {/* Company Logo */}
           {companyLogo && (
             <div style={{ textAlign: 'center', marginBottom: '3mm' }}>
-              <img 
-                src={companyLogo} 
+              <Image
+                src={companyLogo}
                 alt="Company Logo"
+                width={160}
+                height={80}
                 style={{
                   maxWidth: '40mm',
                   maxHeight: '20mm',
                   filter: 'grayscale(100%)',
+                  width: 'auto',
+                  height: 'auto',
                 }}
               />
             </div>

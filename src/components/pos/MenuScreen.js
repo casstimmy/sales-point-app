@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBaby,
@@ -142,14 +143,14 @@ export default function MenuScreen() {
     console.log("📦 Categories state updated:", categories.length, "categories");
   }, [categories]);
 
-  const filterCategoriesForLocation = (categoryList = []) => {
+  const filterCategoriesForLocation = useCallback((categoryList = []) => {
     const locationCategoryIds = location?.categories || location?.categoryIds;
     if (!Array.isArray(locationCategoryIds) || locationCategoryIds.length === 0) {
       return categoryList;
     }
     const idSet = new Set(locationCategoryIds.map(id => String(id)));
     return categoryList.filter(cat => idSet.has(String(cat?._id || cat?.id)));
-  };
+  }, [location?.categories, location?.categoryIds]);
 
   // Log when products change
   useEffect(() => {
@@ -299,7 +300,7 @@ export default function MenuScreen() {
     };
 
     fetchCategories();
-  }, [location]); // Re-fetch when location changes
+  }, [location, filterCategoriesForLocation]); // Re-fetch when location changes
 
   // Load ALL products from local DB on mount for global search
   useEffect(() => {
@@ -736,12 +737,12 @@ export default function MenuScreen() {
                           )}
                           
                           {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
-                            <img
+                            <Image
                               src={product.images[0].full}
                               alt={product.name}
-                              className="w-full h-full object-cover"
-                              loading="lazy"
-                              onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
+                              fill
+                              sizes="64px"
+                              className="object-cover"
                               onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
                               onError={() => handleImageError(product._id || product.id)}
                             />
@@ -839,12 +840,12 @@ export default function MenuScreen() {
                         )}
                         
                         {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
-                          <img
+                          <Image
                             src={product.images[0].full}
                             alt={product.name}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            onLoadStart={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: true }))}
+                            fill
+                            sizes="64px"
+                            className="object-cover"
                             onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
                             onError={() => handleImageError(product._id || product.id)}
                           />

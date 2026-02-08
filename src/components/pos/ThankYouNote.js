@@ -43,7 +43,6 @@ export default function ThankYouNote({
                 e.target.onerror = null;
                 e.target.src = '/images/placeholder.jpg';
               }}
-              unoptimized
             />
           </div>
         </div>
@@ -93,7 +92,7 @@ export default function ThankYouNote({
           <div className="mt-8 pt-8 border-t border-white border-opacity-40">
             <p className="text-sm opacity-90 mb-4 font-semibold">{qrDescription}</p>
             <div className="bg-white rounded-lg p-3 w-24 h-24 mx-auto flex items-center justify-center shadow-lg">
-              <Image src={qrUrl} alt="QR Code" width={96} height={96} className="object-contain" unoptimized />
+              <Image src={qrUrl} alt="QR Code" width={96} height={96} className="object-contain" />
             </div>
           </div>
         )}
