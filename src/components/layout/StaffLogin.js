@@ -427,7 +427,7 @@ export default function StaffLogin() {
     }
   }, [isOnline]);
 
-  const attemptOfflineLogin = useCallback((reason) => {
+  const attemptOfflineLogin = useCallback(async (reason) => {
     console.log(`📱 OFFLINE LOGIN - ${reason}`);
     console.log(`   Available locations from cache: ${locations.map(l => l.name).join(', ')}`);
     console.log(`   Available staff from cache: ${staff.map(s => s.name).join(', ')}`);
@@ -448,10 +448,12 @@ export default function StaffLogin() {
 
     const savedTill = localStorage.getItem("till");
     if (savedTill) {
+      const pendingCloseIds = await getPendingTillCloseIds();
       const till = JSON.parse(savedTill);
       const sameLocation = String(till?.locationId) === String(selectedLocationData?._id);
       const isOpen = (till?.status || '').toLowerCase() === 'open';
-      if (isOpen && sameLocation) {
+      const isPendingClosed = pendingCloseIds.includes(String(till?._id));
+      if (isOpen && sameLocation && !isPendingClosed) {
         console.log("✅ Found persisted open till:", till._id);
         login(selectedStaffData, selectedLocationData);
         setCurrentTill(till);
@@ -466,7 +468,7 @@ export default function StaffLogin() {
     setLoginData({ staff: selectedStaffData, location: selectedLocationData });
     setShowOpenTillModal(true);
     return true;
-  }, [locations, staff, selectedStaff, selectedLocation, login, setCurrentTill, router, setError]);
+  }, [locations, staff, selectedStaff, selectedLocation, login, setCurrentTill, router, setError, getPendingTillCloseIds]);
 
   const handleLogin = useCallback(async () => {
     if (!selectedStore || !selectedLocation || !selectedStaff || pin.length !== 4) {
@@ -536,21 +538,21 @@ export default function StaffLogin() {
           }
         } else {
           console.error("❌ Login failed:", data.message);
-          if (!navigator.onLine && attemptOfflineLogin("Connection lost during login")) {
+          if (!navigator.onLine && await attemptOfflineLogin("Connection lost during login")) {
             return;
           }
           setError(data.message || "Invalid passcode. Please try again.");
         }
       } else {
         // OFFLINE MODE - Use cached staff and till data
-        if (attemptOfflineLogin("Offline mode")) {
+        if (await attemptOfflineLogin("Offline mode")) {
           return;
         }
       }
     } catch (error) {
       console.error("❌ Login error:", error);
 
-      if (attemptOfflineLogin("Network error")) {
+      if (await attemptOfflineLogin("Network error")) {
         return;
       }
 
