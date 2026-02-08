@@ -458,7 +458,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         </div>
 
         {/* Main Content - Grid Layout */}
-        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,320px)] sm:grid-rows-[minmax(0,1fr)_auto] gap-2 overflow-hidden">
+        <div className="flex-1 p-2 grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,320px)] sm:grid-rows-[auto_auto] gap-2 overflow-y-auto">
           {/* Content 1 - Summary Cards (col 1, row 1) */}
           <div className="space-y-3 order-1 sm:col-start-1 sm:row-start-1">
             <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded p-2">
