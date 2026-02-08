@@ -46,6 +46,16 @@ export default function StaffLogin() {
   const [pendingTillCloseIds, setPendingTillCloseIds] = useState([]);
   const [syncingPendingCloses, setSyncingPendingCloses] = useState(false);
 
+  const runWithTimeout = async (promise, ms = 8000) => {
+    let timeoutId;
+    const timeout = new Promise((resolve) => {
+      timeoutId = setTimeout(() => resolve({ timedOut: true }), ms);
+    });
+    const result = await Promise.race([promise, timeout]);
+    clearTimeout(timeoutId);
+    return result;
+  };
+
   const getPendingTillCloseIds = async () => {
     try {
       const request = indexedDB.open('SalesPOS', 2);
@@ -99,9 +109,14 @@ export default function StaffLogin() {
     if (!isOnline || syncingPendingCloses) return;
     setSyncingPendingCloses(true);
     try {
-      await syncPendingTillOpens();
-      await syncPendingTransactions();
-      await syncPendingTillCloses();
+      await runWithTimeout(
+        (async () => {
+          await syncPendingTillOpens();
+          await syncPendingTransactions();
+          await syncPendingTillCloses();
+        })(),
+        12000
+      );
       await refreshPendingTillCloseIds();
     } catch (err) {
       console.warn('⚠️ Pending close sync failed:', err?.message || err);
@@ -282,9 +297,14 @@ export default function StaffLogin() {
 
         // Try to sync any pending offline data before showing active tills
         try {
-          await syncPendingTillOpens();
-          await syncPendingTransactions();
-          await syncPendingTillCloses();
+          await runWithTimeout(
+            (async () => {
+              await syncPendingTillOpens();
+              await syncPendingTransactions();
+              await syncPendingTillCloses();
+            })(),
+            12000
+          );
         } catch (syncErr) {
           console.warn('⚠️ Login preload sync failed:', syncErr?.message || syncErr);
         }
@@ -640,10 +660,18 @@ export default function StaffLogin() {
         if (storeResponse.ok) {
           const storeData = await storeResponse.json();
           if (storeData.store) {
-            setStores([storeData.store]);
-            setSelectedStore(storeData.store._id);
+            const storeObj = {
+              _id: storeData.store._id,
+              name: storeData.store.storeName || storeData.store.companyName || storeData.store.name || "Default Store",
+            };
+            setStores([storeObj]);
+            setSelectedStore(storeObj._id);
+            localStorage.setItem('cachedStore', JSON.stringify(storeObj));
             const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
             setLocations(activeLocations);
+            if (activeLocations.length > 0) {
+              setSelectedLocation(activeLocations[0]._id);
+            }
             // Cache locations for offline use
             localStorage.setItem("cachedLocations", JSON.stringify(activeLocations));
             localStorage.setItem("locations_metadata", JSON.stringify({
@@ -707,7 +735,7 @@ export default function StaffLogin() {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-b from-cyan-600 to-cyan-700 flex flex-col overflow-hidden">
+    <div className="h-screen bg-gradient-to-b from-cyan-600 to-cyan-700 flex flex-col overflow-hidden pos-mobile-scale">
       {/* Offline Banner */}
       {!isOnline && (
         <div className="bg-red-600 text-white py-1 px-4 flex items-center justify-between flex-shrink-0">

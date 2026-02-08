@@ -221,7 +221,7 @@ export default function POSLayout({ children }) {
 
   return (
     <CartProvider>
-      <div className={`flex h-screen bg-neutral-50 flex-col md:flex-row ${densityClass}`}>
+      <div className={`flex h-screen bg-neutral-50 flex-col md:flex-row ${densityClass} pos-mobile-scale`}>
         {/* Left Sidebar - Overlay Mode */}
         <div className="fixed inset-y-0 left-0 z-50">
           <Sidebar

@@ -178,3 +178,39 @@ button {
   }
 }
 
+/* Mobile scale adjustments */
+@media (max-width: 768px) {
+  html,
+  body {
+    font-size: 14px;
+  }
+
+  input,
+  textarea,
+  select {
+    @apply px-3 py-2;
+  }
+
+  button {
+    @apply text-sm;
+  }
+
+  h1 {
+    @apply text-2xl;
+  }
+
+  h2 {
+    @apply text-xl;
+  }
+
+  h3 {
+    @apply text-lg;
+  }
+}
+
+@media (max-width: 640px) {
+  .pos-mobile-scale {
+    font-size: 0.95rem;
+  }
+}
+

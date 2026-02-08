@@ -160,28 +160,28 @@ export default function PaymentPanel() {
   return (
     <div className={`min-h-[calc(100vh-6rem)] md:min-h-[calc(100vh-10rem)] flex flex-col bg-gradient-to-br from-slate-50 via-white to-cyan-50 border border-neutral-200 rounded-2xl shadow-lg overflow-hidden ${scaleClass} ${contentSizeClass}`}>
       {/* Payment Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-neutral-200">
+      <div className="flex items-center gap-3 px-3 py-2 sm:px-4 sm:py-3 bg-white border-b border-neutral-200">
         <button
           onClick={() => setShowPaymentPanel(false)}
-          className="w-10 h-10 rounded-full border border-neutral-200 bg-white hover:bg-neutral-100 transition flex items-center justify-center"
+          className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-neutral-200 bg-white hover:bg-neutral-100 transition flex items-center justify-center"
           aria-label="Back to menu"
         >
           <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 text-neutral-700" />
         </button>
-        <div className="text-base font-semibold text-neutral-900">Complete Payment</div>
+        <div className="text-sm sm:text-base font-semibold text-neutral-900">Complete Payment</div>
       </div>
 
       {/* Payment Body */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-2 sm:p-4">
         {!till ? (
-          <div className="h-full flex flex-col items-center justify-center text-center border-2 border-dashed border-cyan-300 bg-white/80 rounded-2xl p-6">
-            <div className="text-lg font-semibold text-neutral-900">Open a till to accept payment</div>
-            <div className="text-sm text-neutral-600 mt-2 max-w-md">
+          <div className="h-full flex flex-col items-center justify-center text-center border-2 border-dashed border-cyan-300 bg-white/80 rounded-2xl p-4 sm:p-6">
+            <div className="text-base sm:text-lg font-semibold text-neutral-900">Open a till to accept payment</div>
+            <div className="text-xs sm:text-sm text-neutral-600 mt-2 max-w-md">
               This session has no active till. Open a till first so sales can be recorded correctly.
             </div>
             <button
               onClick={() => setShowOpenTillModal(true)}
-              className="mt-4 px-5 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition"
+              className="mt-3 sm:mt-4 px-4 py-2 sm:px-5 sm:py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition text-sm sm:text-base"
             >
               Open Till
             </button>
@@ -196,7 +196,7 @@ export default function PaymentPanel() {
         )}
 
         {isEmpty && (
-          <div className="mt-3 text-sm text-red-600 font-semibold">
+          <div className="mt-3 text-xs sm:text-sm text-red-600 font-semibold">
             Cart is empty. Add items to complete payment.
           </div>
         )}

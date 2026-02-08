@@ -544,11 +544,11 @@ export default function MenuScreen() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-neutral-50 overflow-hidden">
+    <div className="flex flex-col h-full bg-neutral-50 overflow-hidden text-sm sm:text-base">
       {/* Error Display */}
       {error && (
-        <div className="bg-red-50 border-b border-red-200 px-3 py-2 flex items-center justify-between flex-shrink-0">
-          <span className="text-sm text-red-700">{error}</span>
+        <div className="bg-red-50 border-b border-red-200 px-2 py-1.5 sm:px-3 sm:py-2 flex items-center justify-between flex-shrink-0">
+          <span className="text-xs sm:text-sm text-red-700">{error}</span>
           <button
             onClick={() => setError(null)}
             className="text-red-500 hover:text-red-700 font-bold"
@@ -560,11 +560,11 @@ export default function MenuScreen() {
       
       {/* Customer/Promotion Indicator Banner */}
       {activeCart.customer && (
-        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-3 py-2 flex items-center justify-between flex-shrink-0 shadow-md">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-2 py-1.5 sm:px-3 sm:py-2 flex items-center justify-between flex-shrink-0 shadow-md">
           <div className="flex items-center gap-2">
-            <span className="text-xl">👤</span>
+            <span className="text-lg sm:text-xl">👤</span>
             <div>
-              <div className="font-bold text-base">
+              <div className="font-bold text-sm sm:text-base">
                 {activeCart.customer.name}
                 <span className="ml-2 px-1.5 py-0.5 bg-white/20 rounded text-xs">
                   {activeCart.customer.type || 'Customer'}
@@ -578,22 +578,22 @@ export default function MenuScreen() {
       {!showPaymentPanel && (
         <>
           {/* Sync Button + Status Bar */}
-          <div className="bg-white border-b border-neutral-200 px-3 py-2 flex items-center justify-between flex-shrink-0">
+          <div className="bg-white border-b border-neutral-200 px-2 py-1.5 sm:px-3 sm:py-2 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-1.5">
               {/* Online Status */}
-              <div className={`flex items-center gap-1 px-2 py-1.5 rounded ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
+              <div className={`flex items-center gap-1 px-2 py-1 rounded ${isOnline ? 'bg-green-50' : 'bg-neutral-100'}`}>
                 <FontAwesomeIcon 
                   icon={isOnline ? faWifi : faX} 
-                  className={`w-4 h-4 ${isOnline ? 'text-green-600' : 'text-neutral-400'}`} 
+                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isOnline ? 'text-green-600' : 'text-neutral-400'}`} 
                 />
-                <span className={`text-xs font-semibold ${isOnline ? 'text-green-700' : 'text-neutral-600'}`}>
+                <span className={`text-[11px] sm:text-xs font-semibold ${isOnline ? 'text-green-700' : 'text-neutral-600'}`}>
                   {isOnline ? 'Online' : 'Offline'}
                 </span>
               </div>
 
               {/* Last Sync Time */}
               {lastSyncTime && (
-                <span className="text-xs text-neutral-500">
+                <span className="text-[11px] sm:text-xs text-neutral-500">
                   Last sync: {lastSyncTime.toLocaleTimeString()}
                 </span>
               )}
@@ -603,7 +603,7 @@ export default function MenuScreen() {
             <button
               onClick={handleManualSync}
               disabled={isSyncing || !isOnline}
-              className="flex items-center gap-1.5 px-3 py-2 bg-primary-600 text-white text-xs font-semibold rounded hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-10"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 bg-primary-600 text-white text-[11px] sm:text-xs font-semibold rounded hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base min-h-9 sm:min-h-10"
             >
               <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
               {isSyncing ? 'Syncing...' : 'Sync Products'}
@@ -611,12 +611,12 @@ export default function MenuScreen() {
           </div>
 
           {/* Search Bar - Redesigned */}
-          <div className="bg-white border-b-2 border-primary-200 px-3 py-2 flex-shrink-0 shadow-sm">
+          <div className="bg-white border-b-2 border-primary-200 px-2 py-1.5 sm:px-3 sm:py-2 flex-shrink-0 shadow-sm">
             <div className="relative flex gap-1.5">
               <div className="relative flex-1">
                 <FontAwesomeIcon 
                   icon={faSearch} 
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary-500"
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-500"
                 />
                 <input
                   type="text"
@@ -629,12 +629,12 @@ export default function MenuScreen() {
                       setAppliedSearch('');
                     }
                   }}
-                  className="w-full pl-8 pr-3 py-2 text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
+                  className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
                 />
               </div>
               <button
                 onClick={handleSearchClick}
-                className="px-3 py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-sm transition-colors duration-base flex items-center gap-1.5"
+                className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-xs sm:text-sm transition-colors duration-base flex items-center gap-1.5"
               >
                 <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
                 <span className="hidden md:inline">Search</span>
@@ -646,21 +646,21 @@ export default function MenuScreen() {
 
       {/* Payment Panel - Full Content Side */}
       {showPaymentPanel && (
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto p-1.5 sm:p-2">
           <PaymentPanel />
         </div>
       )}
 
       {/* Categories + Products - SCROLLABLE SECTION */}
       {!showPaymentPanel && (
-        <div className="flex-1 overflow-y-auto p-2">
+        <div className="flex-1 overflow-y-auto p-1.5 sm:p-2">
         {/* Category Grid */}
         <div className="mb-3">
-          <div className="text-base font-bold text-neutral-800 mb-2 px-1">CATEGORIES</div>
+          <div className="text-sm sm:text-base font-bold text-neutral-800 mb-2 px-1">CATEGORIES</div>
           {loadingCategories ? (
-            <div className="text-sm text-neutral-400 text-center py-4">Loading categories...</div>
+            <div className="text-xs sm:text-sm text-neutral-400 text-center py-3 sm:py-4">Loading categories...</div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 auto-rows-max">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 sm:gap-3 auto-rows-max">
               {categories.map(category => {
                 const color = CATEGORY_COLORS[category.name] || 'from-neutral-500 to-neutral-600';
                 const icon = CATEGORY_ICONS[category.name] || faBook;
@@ -673,7 +673,7 @@ export default function MenuScreen() {
                       setAppliedSearch('');
                       setSearchTerm('');
                     }}
-                    className={`relative h-24 sm:h-28 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-base transform hover:scale-105 touch-manipulation ${
+                    className={`relative h-20 sm:h-28 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-base transform hover:scale-105 touch-manipulation ${
                       selectedCategory?._id === category._id || selectedCategory?.id === category.id ? 'ring-4 ring-primary-500' : ''
                     }`}
                   >
@@ -681,9 +681,9 @@ export default function MenuScreen() {
                     <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-90`} />
 
                     {/* Content */}
-                    <div className="relative h-full flex flex-col items-center justify-center text-white text-center p-3">
-                      <FontAwesomeIcon icon={icon} className="w-8 h-8 mb-2" />
-                      <div className="text-base font-bold leading-tight line-clamp-2">{category.name}</div>
+                    <div className="relative h-full flex flex-col items-center justify-center text-white text-center p-2 sm:p-3">
+                      <FontAwesomeIcon icon={icon} className="w-6 h-6 sm:w-8 sm:h-8 mb-1.5 sm:mb-2" />
+                      <div className="text-sm sm:text-base font-bold leading-tight line-clamp-2">{category.name}</div>
                     </div>
                   </button>
                 );
@@ -720,9 +720,9 @@ export default function MenuScreen() {
                       className="relative bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
                     >
                       {/* Top Row: Image + Details Side by Side */}
-                      <div className="flex h-16">
+                      <div className="flex h-14 sm:h-16">
                         {/* Product Image */}
-                        <div className="w-16 h-16 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                        <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                           {!isOnline && (
                             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
                               <div className="text-xl">📦</div>
@@ -756,14 +756,14 @@ export default function MenuScreen() {
                         </div>
 
                         {/* Product Details */}
-                        <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
-                          <div className="text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
+                        <div className="flex-1 p-1.5 flex flex-col justify-between min-w-0">
+                          <div className="text-[11px] sm:text-xs font-semibold text-gray-800 leading-tight line-clamp-2">
                             {product.name}
                           </div>
                           <div className="flex items-center justify-between mt-1">
                             {/* Stock Badge */}
                             {product.quantity !== undefined && (
-                              <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
                                 product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                                 product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
                                 'bg-green-100 text-green-700'
@@ -776,8 +776,8 @@ export default function MenuScreen() {
                       </div>
 
                       {/* Bottom Row: Price Full Width */}
-                      <div className="bg-gradient-to-r from-green-500 to-green-600 px-2 py-1.5">
-                        <div className="text-base font-black text-white text-center">
+                      <div className="bg-gradient-to-r from-green-500 to-green-600 px-2 py-1">
+                        <div className="text-sm sm:text-base font-black text-white text-center">
                           ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                         </div>
                       </div>
@@ -793,12 +793,12 @@ export default function MenuScreen() {
           </div>
         ) : (selectedCategory || appliedSearch) && (
           // Category View
-          <div className="bg-white rounded-lg border-2 border-primary-200 p-3 mt-3">
-            <div className="text-base font-bold text-neutral-900 mb-3">
+          <div className="bg-white rounded-lg border-2 border-primary-200 p-2 sm:p-3 mt-2 sm:mt-3">
+            <div className="text-sm sm:text-base font-bold text-neutral-900 mb-2 sm:mb-3">
               {selectedCategory.name}
             </div>
             {loadingProducts ? (
-              <div className="text-sm text-neutral-400 text-center py-4">Loading products...</div>
+              <div className="text-xs sm:text-sm text-neutral-400 text-center py-3 sm:py-4">Loading products...</div>
             ) : (() => {
               const searchSource = appliedSearch && allProducts.length > 0 ? allProducts : products;
               const filteredProducts = appliedSearch
@@ -823,9 +823,9 @@ export default function MenuScreen() {
                     className="relative bg-white rounded border border-gray-200 hover:border-cyan-400 hover:shadow-md transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] w-full"
                   >
                     {/* Top Row: Image + Details Side by Side */}
-                    <div className="flex h-16">
+                    <div className="flex h-14 sm:h-16">
                       {/* Product Image */}
-                      <div className="w-16 h-16 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                      <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
                         {!isOnline && (
                           <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-20">
                             <div className="text-xl">📦</div>
@@ -854,14 +854,14 @@ export default function MenuScreen() {
                       </div>
 
                       {/* Product Details */}
-                      <div className="flex-1 p-1.5 flex flex-col justify-between min-w-0">
-                        <div className="text-xs font-bold text-gray-800 leading-tight line-clamp-2">
+                      <div className="flex-1 p-1 flex flex-col justify-between min-w-0">
+                        <div className="text-[11px] sm:text-xs font-bold text-gray-800 leading-tight line-clamp-2">
                           {product.name}
                         </div>
                         <div className="flex items-center justify-end mt-0.5">
                           {/* Stock Badge - Right Aligned */}
                           {product.quantity !== undefined && (
-                            <span className={`px-1 py-0.5 rounded text-xs font-bold ${
+                            <span className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
                               product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                               product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
                               'bg-green-100 text-green-700'
@@ -874,8 +874,8 @@ export default function MenuScreen() {
                     </div>
 
                     {/* Bottom Row: Price Full Width */}
-                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-2 py-1.5">
-                      <div className="text-base font-black text-white text-center">
+                    <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-2 py-1">
+                      <div className="text-sm sm:text-base font-black text-white text-center">
                         ₦{product.salePriceIncTax?.toLocaleString() || '0'}
                       </div>
                     </div>

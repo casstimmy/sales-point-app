@@ -295,10 +295,10 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   const paymentContent = (
     <div className={`${inline ? 'bg-white rounded-xl border border-neutral-200 shadow-lg w-full' : 'bg-white rounded-xl shadow-2xl max-w-4xl w-full h-[calc(100vh-1rem)]'} flex flex-col overflow-hidden ${contentSizeClass}`}>
         {/* Header */}
-        <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-4 py-3 flex justify-between items-center flex-shrink-0">
+        <div className="bg-gradient-to-r from-cyan-600 to-cyan-700 text-white px-3 py-2 sm:px-4 sm:py-3 flex justify-between items-center flex-shrink-0">
           <div>
-            <h2 className="text-lg font-bold">Complete Payment</h2>
-            <p className="text-cyan-100 text-xs">Select payment method and enter amount</p>
+            <h2 className="text-base sm:text-lg font-bold">Complete Payment</h2>
+            <p className="text-cyan-100 text-[11px] sm:text-xs">Select payment method and enter amount</p>
           </div>
           {onCancel && (
             <button
@@ -311,19 +311,19 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 p-3 grid grid-cols-3 gap-3 overflow-hidden">
+        <div className="flex-1 p-2 sm:p-3 grid grid-cols-3 gap-2 sm:gap-3 overflow-hidden">
           {/* Left Column: Amount Summary */}
           <div className="space-y-2">
             {/* Total Due Card */}
-            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-3">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-2 sm:p-3">
               <p className="text-xs text-gray-500 font-semibold uppercase">Total Due</p>
-              <p className="text-xl font-black text-gray-800">
+              <p className="text-lg sm:text-xl font-black text-gray-800">
                 {formatNaira(total)}
               </p>
             </div>
 
             {/* Amount Paid Card */}
-            <div className={`rounded-lg p-3 border ${
+            <div className={`rounded-lg p-2 sm:p-3 border ${
               isPaymentComplete 
                 ? 'bg-gradient-to-br from-green-50 to-green-100 border-green-300' 
                 : 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-300'
@@ -331,16 +331,16 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
               <p className={`text-xs font-semibold uppercase ${isPaymentComplete ? 'text-green-600' : 'text-orange-600'}`}>
                 Amount Paid
               </p>
-              <p className={`text-xl font-black ${isPaymentComplete ? 'text-green-700' : 'text-orange-700'}`}>
+              <p className={`text-lg sm:text-xl font-black ${isPaymentComplete ? 'text-green-700' : 'text-orange-700'}`}>
                 {formatNaira(totalPaid)}
               </p>
             </div>
 
             {/* Change Display */}
             {isPaymentComplete && (
-              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded-lg p-3">
+              <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-300 rounded-lg p-2 sm:p-3">
                 <p className="text-xs text-cyan-600 font-semibold uppercase">Change Due</p>
-                <p className="text-xl font-black text-cyan-700">
+                <p className="text-lg sm:text-xl font-black text-cyan-700">
                   {formatNaira(change)}
                 </p>
               </div>
@@ -348,16 +348,16 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
 
             {/* Remaining */}
             {!isPaymentComplete && totalPaid > 0 && (
-              <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-lg p-3">
+              <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-300 rounded-lg p-2 sm:p-3">
                 <p className="text-xs text-red-600 font-semibold uppercase">Still Needed</p>
-                <p className="text-xl font-black text-red-700">
+                <p className="text-lg sm:text-xl font-black text-red-700">
                   {formatNaira(total - totalPaid)}
                 </p>
               </div>
             )}
 
             {/* Tenders Summary */}
-            <div className="bg-white border-2 border-gray-200 rounded-xl p-3">
+            <div className="bg-white border-2 border-gray-200 rounded-xl p-2 sm:p-3">
               <div className="flex justify-between items-center mb-2">
                 <p className="text-xs font-bold text-gray-600 uppercase">Payment Breakdown</p>
                 {Object.values(tenders).some(v => v > 0) && (
@@ -400,7 +400,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
                       setSelectedTender(tender.id);
                       handleClear();
                     }}
-                    className={`p-3 rounded-xl font-semibold transition-all text-sm active:scale-[0.98] ${
+                    className={`p-2 sm:p-3 rounded-xl font-semibold transition-all text-xs sm:text-sm active:scale-[0.98] ${
                       selectedTender === tender.id
                         ? 'bg-gradient-to-br from-cyan-500 to-cyan-600 text-white shadow-lg ring-2 ring-cyan-300'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border-2 border-gray-200'
@@ -416,11 +416,11 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
             </div>
 
             {/* Amount Input Display */}
-            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-300 rounded-xl p-4">
+            <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border-2 border-cyan-300 rounded-xl p-3 sm:p-4">
               <p className="text-cyan-600 text-xs font-bold uppercase mb-1">
                 Entering for: {availableTenders.find(t => t.id === selectedTender)?.name || 'Select Method'}
               </p>
-              <p className="text-4xl font-black text-cyan-700 text-right font-mono">
+              <p className="text-3xl sm:text-4xl font-black text-cyan-700 text-right font-mono">
                 ₦{Number(displayAmount || 0).toLocaleString('en-NG')}
               </p>
             </div>
@@ -436,7 +436,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
                     setCurrentAmount(amount.toString());
                     setDisplayAmount(amount.toString());
                   }}
-                  className="py-2 px-1 bg-gray-100 hover:bg-cyan-100 border-2 border-gray-200 hover:border-cyan-300 rounded-lg text-xs font-bold text-gray-700 transition-all active:scale-95"
+                  className="py-1.5 sm:py-2 px-1 bg-gray-100 hover:bg-cyan-100 border-2 border-gray-200 hover:border-cyan-300 rounded-lg text-[10px] sm:text-xs font-bold text-gray-700 transition-all active:scale-95"
                 >
                   ₦{amount >= 1000 ? `${amount / 1000}K` : amount}
                 </button>
@@ -447,7 +447,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
                     setCurrentAmount(total.toString());
                     setDisplayAmount(total.toString());
                   }}
-                  className="py-2 px-1 bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 rounded-lg text-xs font-bold text-cyan-700 transition-all active:scale-95"
+                  className="py-1.5 sm:py-2 px-1 bg-cyan-100 hover:bg-cyan-200 border-2 border-cyan-300 rounded-lg text-[10px] sm:text-xs font-bold text-cyan-700 transition-all active:scale-95"
                 >
                   EXACT
                 </button>
@@ -490,19 +490,19 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
             <div className="space-y-1.5">
               <button
                 onClick={handleBackspace}
-                className="w-full py-2 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-700 rounded-lg font-bold text-sm transition-all active:scale-[0.98]"
+                className="w-full py-2 bg-orange-100 hover:bg-orange-200 border border-orange-300 text-orange-700 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-[0.98]"
               >
                 ← BACK
               </button>
               <button
                 onClick={handleClear}
-                className="w-full py-2 bg-gray-200 hover:bg-gray-300 border border-gray-300 text-gray-700 rounded-lg font-bold text-sm transition-all active:scale-[0.98]"
+                className="w-full py-2 bg-gray-200 hover:bg-gray-300 border border-gray-300 text-gray-700 rounded-lg font-bold text-xs sm:text-sm transition-all active:scale-[0.98]"
               >
                 CLEAR
               </button>
               <button
                 onClick={handleAdd}
-                className="w-full py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-bold text-base shadow-lg transition-all active:scale-[0.98]"
+                className="w-full py-2.5 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg font-bold text-sm sm:text-base shadow-lg transition-all active:scale-[0.98]"
               >
                 + ADD AMOUNT
               </button>

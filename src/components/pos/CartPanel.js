@@ -145,15 +145,15 @@ export default function CartPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200">
+    <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200 text-xs sm:text-sm">
       {isEmpty ? (
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-3 text-center">
-          <div className="text-5xl mb-2 opacity-40">🍽️</div>
-          <div className="text-base font-bold mb-1 text-neutral-600">
+          <div className="text-3xl sm:text-5xl mb-2 opacity-40">🍽️</div>
+          <div className="text-sm sm:text-base font-bold mb-1 text-neutral-600">
             Add a Dish or Drink
           </div>
-          <div className="text-xs text-neutral-500">
+          <div className="text-[11px] sm:text-xs text-neutral-500">
             Tap a product to add to the bill
           </div>
           <div className="mt-6 w-24 h-0.5 bg-neutral-300 rounded-full"></div>
@@ -163,7 +163,7 @@ export default function CartPanel() {
         <>
           {/* Table Header */}
           <div className="bg-neutral-100 border-b border-neutral-300 sticky top-0 z-10">
-            <div className="grid grid-cols-12 gap-2 px-3 py-2 text-xs font-semibold text-neutral-600 uppercase">
+            <div className="grid grid-cols-12 gap-2 px-2 sm:px-3 py-2 text-[10px] sm:text-xs font-semibold text-neutral-600 uppercase">
               <div className="col-span-5">Product</div>
               <div className="col-span-2 text-center">Qty</div>
               <div className="col-span-2 text-right">Each</div>
@@ -218,7 +218,7 @@ export default function CartPanel() {
                       className="grid grid-cols-12 gap-1 px-2 py-2 items-center hover:bg-primary-50 cursor-pointer transition-colors duration-base"
                     >
                       <div className="col-span-5">
-                        <div className="text-sm font-medium text-neutral-700 line-clamp-1">
+                        <div className="text-xs sm:text-sm font-medium text-neutral-700 line-clamp-1">
                           {item.name}
                         </div>
                         {(item.discount > 0 || hasPromoAdjustment) && (
@@ -240,7 +240,7 @@ export default function CartPanel() {
                           </div>
                         )}
                       </div>
-                      <div className="col-span-2 text-center text-sm font-semibold text-neutral-900">
+                      <div className="col-span-2 text-center text-xs sm:text-sm font-semibold text-neutral-900">
                         {item.quantity}
                       </div>
                       <div className="col-span-2 text-right">
@@ -256,14 +256,14 @@ export default function CartPanel() {
                             </div>
                           </div>
                         ) : (
-                          <div className="text-base text-neutral-600">
-                            ₦{item.price.toLocaleString()}
-                          </div>
-                        )}
+                            <div className="text-sm sm:text-base text-neutral-600">
+                              ₦{item.price.toLocaleString()}
+                            </div>
+                          )}
                       </div>
                       <div
-                        className={`col-span-3 text-right text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
-                      >
+                      className={`col-span-3 text-right text-sm sm:text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
+                    >
                         ₦{Math.round(itemTotal).toLocaleString()}
                       </div>
                     </div>
@@ -511,18 +511,18 @@ export default function CartPanel() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={handlePrintCart}
-                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
+                className="px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16"
               >
                 <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
                 <span>PRINT</span>
               </button>
-              <button className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16">
+              <button className="px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16">
                 <FontAwesomeIcon icon={faMoneyBill} className="w-4 h-4" />
                 <span>PETTY CASH</span>
               </button>
               <button
                 onClick={() => setShowAdjustFloatModal(true)}
-                className="px-2 py-3 text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-16"
+                className="px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16"
               >
                 <FontAwesomeIcon icon={faGripVertical} className="w-4 h-4" />
                 <span>ADJUST</span>
@@ -533,21 +533,21 @@ export default function CartPanel() {
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={deleteCart}
-                className="px-2 py-3.5 text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-18"
+                className="px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
               >
                 <FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5" />
                 <span>DELETE</span>
               </button>
               <button
                 onClick={() => holdOrder(staff, location)}
-                className="px-2 py-3.5 text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-18"
+                className="px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
               >
                 <FontAwesomeIcon icon={faClock} className="w-5 h-5" />
                 <span>HOLD</span>
               </button>
               <button
                 onClick={handlePayment}
-                className="px-2 py-3.5 text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-18"
+                className="px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
               >
                 <FontAwesomeIcon icon={faMoneyBill} className="w-5 h-5" />
                 <span>PAY</span>
