@@ -1,12 +1,14 @@
 // components/pos/CloseTillModal.js
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
 import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
 import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+
 
 // Helper to get offline till data from IndexedDB
 const getOfflineTillData = async (tillId) => {
@@ -115,6 +117,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [tenderCounts, setTenderCounts] = useState({});
   const [closingNotes, setClosingNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [summary, setSummary] = useState(null);
@@ -296,6 +300,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const handleConfirmCloseTill = async () => {
     setShowConfirmation(false);
     setLoading(true);
+    setLoadingProgress(0);
+    setLoadingStep("Initializing till closure...");
     setError(null);
 
     try {
@@ -306,6 +312,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
 
       let resolvedTillId = till._id;
       if (isOnline && String(till._id).startsWith('offline-till-')) {
+        setLoadingStep("Resolving till ID...");
+        setLoadingProgress(5);
         const mapped = await resolveTillId(till._id, till);
         if (mapped) {
           resolvedTillId = mapped;
@@ -321,6 +329,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
 
       if (isOnline) {
         // Ensure all local transactions are synced before closing till
+        setLoadingProgress(15);
+        setLoadingStep("Syncing pending transactions...");
         try {
           const { syncPendingTransactions } = await import('../../lib/offlineSync');
           await syncPendingTransactions();
@@ -328,13 +338,19 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           console.warn('⚠️ Could not sync pending transactions before closing till:', err?.message || err);
         }
 
+        setLoadingProgress(35);
+        setLoadingStep("Checking final pending transactions...");
         const pendingAfterSync = await getPendingTransactionsForTill(till._id);
         if (pendingAfterSync > 0) {
           setError("Pending transactions are still unsynced. Please sync and try again.");
           setLoading(false);
+          setLoadingProgress(0);
+          setLoadingStep("");
           return;
         }
 
+        setLoadingProgress(50);
+        setLoadingStep("Closing till on server...");
         const response = await fetch("/api/till/close", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -347,6 +363,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         }
 
         const data = await response.json();
+        setLoadingProgress(75);
+        setLoadingStep("Till closed successfully...");
         onTillClosed(data.till);
       } else {
         const tillCloseData = {
@@ -365,10 +383,16 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           closedAt: new Date().toISOString(),
         };
 
+        setLoadingProgress(50);
+        setLoadingStep("Saving till closure data locally...");
         await saveTillCloseOffline(tillCloseData);
+        setLoadingProgress(75);
+        setLoadingStep("Till closed offline...");
         onTillClosed({ ...payload, offline: true });
       }
 
+      setLoadingProgress(85);
+      setLoadingStep("Clearing session data...");
       setCurrentTill(null);
       setTenderCounts({});
       setClosingNotes("");
@@ -379,13 +403,24 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
       } catch (err) {
         console.warn("Failed to clear local till:", err);
       }
+
+      setLoadingProgress(95);
+      setLoadingStep("Logging out...");
       logout();
-      onClose();
-      router.push("/");
+      
+      setLoadingProgress(100);
+      setLoadingStep("Complete!");
+      
+      // Small delay before closing
+      setTimeout(() => {
+        onClose();
+        router.push("/");
+      }, 500);
     } catch (err) {
       setError(err.message);
-    } finally {
       setLoading(false);
+      setLoadingProgress(0);
+      setLoadingStep("");
     }
   };
 
@@ -427,6 +462,53 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
 
   const isButtonDisabled = loading || syncing || !tenders?.length || 
     tenders?.some(t => tenderCounts[t.id] === undefined || tenderCounts[t.id] === "");
+
+  // Helper function to format number with "." as thousands separator
+  const formatDisplayValue = (value) => {
+    if (!value && value !== 0) return "";
+    const numValue = parseFloat(value) || 0;
+    return numValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  };
+
+  // Loading overlay while closing till
+  if (loading) {
+    return (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
+          {/* Logo */}
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+            <Image 
+              src="/images/st-micheals-logo.png" 
+              alt="Store Logo" 
+              width={90}
+              height={90}
+              className="object-contain"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/placeholder.jpg';
+              }}
+              unoptimized
+            />
+          </div>
+
+          {/* Loading Text */}
+          <p className="text-white font-bold text-lg mb-2">Closing Till & Logging Out...</p>
+          <p className="text-cyan-100 text-sm mb-6 font-medium">{loadingStep}</p>
+
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full transition-all duration-300 shadow-lg"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            <div className="mt-2 text-cyan-100 text-sm font-semibold">{loadingProgress}%</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -523,12 +605,19 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                 return (
                   <div key={tender.id}>
                     <div
-                      className="bg-white rounded-lg border-2 border-gray-200 p-3 cursor-pointer hover:border-cyan-400 transition-all"
+                      className={`rounded-lg border-2 p-3 cursor-pointer transition-all ${
+                        activeTenderKeypad === tender.id
+                          ? "border-cyan-500 bg-cyan-50 shadow-lg"
+                          : "border-gray-200 bg-white hover:border-cyan-400"
+                      }`}
                       style={{ borderLeftColor: tender.buttonColor || "#06b6d4", borderLeftWidth: "4px" }}
                       onClick={() => setActiveTenderKeypad(tender.id)}
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="font-bold text-gray-800">{tender.name}</span>
+                        <span className={`font-bold ${activeTenderKeypad === tender.id ? "text-cyan-700" : "text-gray-800"}`}>
+                          {tender.name}
+                          {activeTenderKeypad === tender.id && <span className="ml-2 text-cyan-600 font-bold text-sm">→ ACTIVE</span>}
+                        </span>
                         <span className="text-sm text-gray-500">Expected: ₦{Number(processedAmount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                       <div className="flex gap-2">
@@ -536,14 +625,18 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                           <input
                             type={isMobile ? "number" : "text"}
                             inputMode={isMobile ? "decimal" : undefined}
-                            value={tenderCounts[tender.id] !== undefined ? tenderCounts[tender.id] : ""}
+                            value={formatDisplayValue(tenderCounts[tender.id])}
                             readOnly={!isMobile}
                             onChange={(e) => {
                               if (!isMobile) return;
                               setTenderCounts(prev => ({ ...prev, [tender.id]: e.target.value }));
                             }}
                             placeholder="Tap to enter"
-                            className="w-full border-2 border-gray-300 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none text-gray-700 bg-gray-50"
+                            className={`w-full border-2 rounded-lg px-3 py-2 text-lg font-bold focus:outline-none text-gray-700 ${
+                              activeTenderKeypad === tender.id
+                                ? "border-cyan-400 bg-white shadow-md"
+                                : "border-gray-300 bg-gray-50"
+                            }`}
                           />
                         </div>
                         <div className={`w-24 flex flex-col items-center justify-center rounded-lg text-sm font-bold ${
@@ -569,15 +662,36 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
 
           {/* Content 2 - Keypad (col 3, rows 1-2) */}
           <div className="hidden sm:flex flex-col overflow-hidden order-3 sm:col-start-3 sm:row-start-1 sm:row-span-2">
-            <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Keypad</h3>
-            <div className="flex-1 bg-gray-50 border-2 border-gray-200 rounded-lg p-3 h-full">
+            <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">
+              {activeTenderKeypad ? `📝 ${tenders.find(t => t.id === activeTenderKeypad)?.name}` : "Keypad"}
+            </h3>
+            <div className={`flex-1 border-2 rounded-lg p-3 h-full transition-all ${
+              activeTenderKeypad
+                ? "bg-cyan-50 border-cyan-300 shadow-lg"
+                : "bg-gray-50 border-gray-200"
+            }`}>
               {tenders && tenders.length > 0 ? (
                 <>
-                  <div className="text-xs font-semibold text-gray-600 mb-2">
+                  <div className={`text-xs font-semibold mb-3 p-2 rounded ${
+                    activeTenderKeypad
+                      ? "text-cyan-700 bg-cyan-100"
+                      : "text-gray-600 bg-gray-100"
+                  }`}>
                     {activeTenderKeypad
-                      ? `Enter ${tenders.find(t => t.id === activeTenderKeypad)?.name || "amount"}`
-                      : "Select a payment method to enter amount"}
+                      ? `✓ Entering amount for ${tenders.find(t => t.id === activeTenderKeypad)?.name || "payment method"}`
+                      : "← Select a payment method to enter amount"}
                   </div>
+                  
+                  {/* Custom display showing formatted value */}
+                  {activeTenderKeypad && (
+                    <div className="bg-white border-2 border-gray-300 rounded-lg p-3 text-right mb-3 shadow-sm">
+                      <div className="text-xs text-gray-500 mb-1">Amount in ₦</div>
+                      <div className="text-3xl font-bold text-cyan-700 truncate">
+                        {formatDisplayValue(tenderCounts[activeTenderKeypad]) || '0'}
+                      </div>
+                    </div>
+                  )}
+                  
                   <NumKeypad
                     value={activeTenderKeypad ? (tenderCounts[activeTenderKeypad] || "") : ""}
                     onChange={(newValue) => {
