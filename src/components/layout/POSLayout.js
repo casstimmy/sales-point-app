@@ -172,15 +172,15 @@ export default function POSLayout({ children }) {
   // Show loading screen if not staff is not set yet
   if (!staff && loading === false) {
     return (
-      <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
-        <div className="text-center">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
           {/* Logo */}
-          <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg overflow-hidden">
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              width={56}
-              height={56}
+              width={90}
+              height={90}
               className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
@@ -189,12 +189,19 @@ export default function POSLayout({ children }) {
               unoptimized
             />
           </div>
-          <div className="text-white font-semibold text-base mb-2">Not Logged In</div>
-          <div className="text-cyan-200 text-xs">Redirecting to login page...</div>
-          
+
+          {/* Loading Text */}
+          <p className="text-white font-bold text-lg mb-2">Not Logged In</p>
+          <p className="text-cyan-100 text-sm mb-6 font-medium">Redirecting to login page...</p>
+
           {/* Progress Bar */}
-          <div className="w-40 h-1.5 bg-cyan-900 rounded-full mx-auto mt-4 overflow-hidden">
-            <div className="h-full bg-cyan-300 rounded-full animate-pulse" style={{ width: '80%' }}></div>
+          <div className="mb-4">
+            <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full animate-pulse shadow-lg"
+                style={{ width: '80%' }}
+              />
+            </div>
           </div>
         </div>
       </div>

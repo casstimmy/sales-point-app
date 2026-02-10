@@ -659,7 +659,17 @@ export default function MenuScreen() {
         <div className="mb-3">
           <div className="text-sm sm:text-base font-bold text-neutral-800 mb-2 px-1">CATEGORIES</div>
           {loadingCategories ? (
-            <div className="text-xs sm:text-sm text-neutral-400 text-center py-3 sm:py-4">Loading categories...</div>
+            <div className="flex items-center justify-center py-6">
+              <div className="text-center">
+                <div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                </div>
+                <div className="text-cyan-700 font-semibold text-xs">Loading categories...</div>
+                <div className="w-24 h-1 bg-cyan-100 rounded-full mx-auto mt-2 overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-cyan-400 to-green-400 rounded-full animate-pulse" style={{ width: '50%' }}></div>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 sm:gap-3 auto-rows-max">
               {categories.map(category => {
@@ -799,7 +809,17 @@ export default function MenuScreen() {
               {selectedCategory.name}
             </div>
             {loadingProducts ? (
-              <div className="text-xs sm:text-sm text-neutral-400 text-center py-3 sm:py-4">Loading products...</div>
+              <div className="flex items-center justify-center py-6">
+                <div className="text-center">
+                  <div className="w-10 h-10 bg-cyan-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-md">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                  </div>
+                  <div className="text-cyan-700 font-semibold text-xs">Loading products...</div>
+                  <div className="w-24 h-1 bg-cyan-100 rounded-full mx-auto mt-2 overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-cyan-400 to-green-400 rounded-full animate-pulse" style={{ width: '50%' }}></div>
+                  </div>
+                </div>
+              </div>
             ) : (() => {
               const searchSource = appliedSearch && allProducts.length > 0 ? allProducts : products;
               const filteredProducts = appliedSearch

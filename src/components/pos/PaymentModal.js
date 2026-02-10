@@ -11,6 +11,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faXmark, faCheckCircle, faTimes, faBackspace } from '@fortawesome/free-solid-svg-icons';
 import { useStaff } from '@/src/context/StaffContext';
@@ -243,13 +244,41 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
 
   if (loading) {
     const loadingContent = (
-      <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full p-6 text-center">
-        <p className="text-neutral-600">Loading available payment methods...</p>
+      <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
+        {/* Logo */}
+        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg overflow-hidden">
+          <Image 
+            src="/images/st-micheals-logo.png" 
+            alt="Store Logo" 
+            width={72}
+            height={72}
+            className="object-contain"
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/images/placeholder.jpg';
+            }}
+            unoptimized
+          />
+        </div>
+
+        {/* Loading Text */}
+        <p className="text-white font-bold text-lg mb-2">Loading Payment Methods</p>
+        <p className="text-cyan-100 text-sm mb-6 font-medium">Fetching available tenders...</p>
+
+        {/* Progress Bar */}
+        <div className="mb-4">
+          <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+            <div 
+              className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full animate-pulse shadow-lg"
+              style={{ width: '60%' }}
+            />
+          </div>
+        </div>
       </div>
     );
 
     return inline ? loadingContent : (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
         {loadingContent}
       </div>
     );

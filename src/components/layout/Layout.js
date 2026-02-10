@@ -6,6 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import StaffLogin from "./StaffLogin";
 import POSLayout from "./POSLayout";
 import { useStaff } from "../../context/StaffContext";
@@ -21,14 +22,36 @@ const Layout = ({ children }) => {
 
   if (!isMounted) {
     return (
-      <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-neutral-50 to-neutral-100">
-        <div className="text-center space-y-4">
-          <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-neutral-300 border-t-secondary-500"></div>
+      <div className="flex items-center justify-center w-screen h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
+        <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
+          {/* Logo */}
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+            <Image 
+              src="/images/st-micheals-logo.png" 
+              alt="Store Logo" 
+              width={90}
+              height={90}
+              className="object-contain"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/placeholder.jpg';
+              }}
+              unoptimized
+            />
           </div>
-          <div>
-            <p className="text-neutral-800 font-semibold text-lg">Loading POS System</p>
-            <p className="text-neutral-500 text-sm mt-2">Please wait...</p>
+
+          {/* Loading Text */}
+          <p className="text-white font-bold text-lg mb-2">Loading POS System</p>
+          <p className="text-cyan-100 text-sm mb-6 font-medium">Initializing...</p>
+
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full animate-pulse shadow-lg"
+                style={{ width: '40%' }}
+              />
+            </div>
           </div>
         </div>
       </div>

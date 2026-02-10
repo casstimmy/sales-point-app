@@ -344,8 +344,13 @@ export default function CustomersScreen() {
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="text-3xl mb-2">⏳</div>
-              <div className="text-gray-500">Loading customers...</div>
+              <div className="w-12 h-12 bg-cyan-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-md">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+              </div>
+              <div className="text-cyan-700 font-semibold text-sm">Loading customers...</div>
+              <div className="w-32 h-1.5 bg-cyan-100 rounded-full mx-auto mt-3 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-cyan-400 to-green-400 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+              </div>
             </div>
           </div>
         ) : filteredCustomers.length === 0 ? (
