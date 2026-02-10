@@ -25,6 +25,8 @@ export default function POSLayout({ children }) {
   const { handleApiError, forceLoginRedirect } = useErrorHandler();
   const [storeData, setStoreData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState("Initializing...");
   const [activeTab, setActiveTab] = useState("MENU");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [uiSettings, setUiSettings] = useState(getUiSettings());
@@ -42,6 +44,11 @@ export default function POSLayout({ children }) {
   useEffect(() => {
     const fetchStoreData = async () => {
       try {
+        setLoadingProgress(0);
+        setLoadingStep("Initializing...");
+        
+        setLoadingProgress(20);
+        setLoadingStep("Fetching store data...");
         const response = await fetch("/api/store/init");
         
         // Check for auth errors
@@ -69,8 +76,13 @@ export default function POSLayout({ children }) {
           return;
         }
         
+        setLoadingProgress(50);
+        setLoadingStep("Processing store information...");
         const data = await response.json();
         setStoreData(data);
+        
+        setLoadingProgress(80);
+        setLoadingStep("Finalizing...");
       } catch (err) {
         console.error("Failed to fetch store data:", err);
         // Use cached data or defaults if API fails
@@ -87,6 +99,8 @@ export default function POSLayout({ children }) {
           location: location?.name || "Store Location",
         });
       } finally {
+        setLoadingProgress(100);
+        setLoadingStep("Complete!");
         setLoading(false);
       }
     };
@@ -189,15 +203,15 @@ export default function POSLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-cyan-600 to-cyan-700">
-        <div className="text-center">
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+        <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
           {/* Logo */}
-          <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg overflow-hidden">
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
               src="/images/st-micheals-logo.png" 
               alt="Store Logo" 
-              width={70}
-              height={70}
+              width={90}
+              height={90}
               className="object-contain"
               onError={(e) => {
                 e.target.onerror = null;
@@ -206,13 +220,20 @@ export default function POSLayout({ children }) {
               unoptimized
             />
           </div>
-          
+
           {/* Loading Text */}
-          <p className="text-white font-semibold text-base mb-3">Loading POS System...</p>
-          
+          <p className="text-white font-bold text-lg mb-2">Loading POS System</p>
+          <p className="text-cyan-100 text-sm mb-6 font-medium">{loadingStep || "Initializing..."}</p>
+
           {/* Progress Bar */}
-          <div className="w-40 h-1.5 bg-cyan-900 rounded-full mx-auto overflow-hidden">
-            <div className="h-full bg-cyan-300 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          <div className="mb-4">
+            <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full transition-all duration-300 shadow-lg"
+                style={{ width: `${loadingProgress}%` }}
+              />
+            </div>
+            <div className="mt-2 text-cyan-100 text-sm font-semibold">{loadingProgress}%</div>
           </div>
         </div>
       </div>

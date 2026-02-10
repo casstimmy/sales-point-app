@@ -35,6 +35,8 @@ export default function StaffLogin() {
   const [pin, setPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingStep, setLoadingStep] = useState("");
   const [error, setError] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [currentTime, setCurrentTime] = useState("");
@@ -218,12 +220,18 @@ export default function StaffLogin() {
     const fetchData = async () => {
       try {
         setLoadingData(true);
+        setLoadingProgress(0);
+        setLoadingStep("Initializing...");
         console.log("🔄 [LOGIN] Starting data fetch...");
         
         // If offline, load from cache immediately
         if (!navigator.onLine) {
           console.log("📱 OFFLINE MODE - Loading cached data...");
+          setLoadingProgress(50);
+          setLoadingStep("Loading cached data...");
           loadCachedData();
+          setLoadingProgress(100);
+          setLoadingStep("Complete!");
           setLoadingData(false);
           return;
         }
@@ -248,6 +256,8 @@ export default function StaffLogin() {
         };
 
         // Step 1: Fetch store and locations
+        setLoadingProgress(15);
+        setLoadingStep("Fetching stores and locations...");
         console.log("🔄 [LOGIN] Fetching store and locations...");
         const response = await fetch("/api/store/init-locations");
         console.log(`📡 [LOGIN] Store API response status: ${response.status}`);
@@ -294,6 +304,8 @@ export default function StaffLogin() {
         }
         
         // Step 2: Fetch staff members
+        setLoadingProgress(35);
+        setLoadingStep("Fetching staff members...");
         console.log("🔄 [LOGIN] Fetching staff members...");
         const staffResponse = await fetch("/api/staff/list");
         console.log(`📡 [LOGIN] Staff API response status: ${staffResponse.status}`);
@@ -316,6 +328,8 @@ export default function StaffLogin() {
         }
 
         // Pre-cache categories for offline use
+        setLoadingProgress(50);
+        setLoadingStep("Pre-caching categories...");
         console.log("📦 Pre-caching categories for offline use...");
         try {
           const categoriesResponse = await fetch("/api/categories");
@@ -333,6 +347,8 @@ export default function StaffLogin() {
         }
 
         // Pre-cache products for offline use
+        setLoadingProgress(65);
+        setLoadingStep("Pre-caching products...");
         console.log("📦 Pre-caching products for offline use...");
         try {
           const productsResponse = await fetch("/api/products");
@@ -350,6 +366,8 @@ export default function StaffLogin() {
         }
 
         // Try to sync any pending offline data before showing active tills
+        setLoadingProgress(75);
+        setLoadingStep("Syncing pending data...");
         try {
           await runWithTimeout(
             (async () => {
@@ -364,6 +382,8 @@ export default function StaffLogin() {
         }
 
         // Fetch active open tills for all locations
+        setLoadingProgress(85);
+        setLoadingStep("Fetching active tills...");
         const tillsResponse = await fetch("/api/till/active");
         if (tillsResponse.ok) {
           const tillsData = await tillsResponse.json();
@@ -378,6 +398,10 @@ export default function StaffLogin() {
           console.log("ℹ️ No active tills endpoint or no open tills");
           setActiveTills([]);
         }
+
+        setLoadingProgress(100);
+        setLoadingStep("Complete!");
+
       } catch (error) {
         console.error("Failed to fetch data:", error);
         // Load from cache on error
@@ -853,7 +877,40 @@ export default function StaffLogin() {
           )}
 
           {loadingData ? (
-            <div className="text-white text-center py-8 text-sm">Loading stores and staff...</div>
+            <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+              <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
+                {/* Logo */}
+                <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+                  <Image 
+                    src="/images/st-micheals-logo.png" 
+                    alt="Store Logo" 
+                    width={90}
+                    height={90}
+                    className="object-contain"
+                    onError={(e) => {
+                      e.target.onerror = null;
+                      e.target.src = '/images/placeholder.jpg';
+                    }}
+                    unoptimized
+                  />
+                </div>
+
+                {/* Loading Text */}
+                <p className="text-white font-bold text-lg mb-2">Loading Stores & Staff...</p>
+                <p className="text-cyan-100 text-sm mb-6 font-medium">{loadingStep || "Initializing..."}</p>
+
+                {/* Progress Bar */}
+                <div className="mb-4">
+                  <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+                    <div 
+                      className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full transition-all duration-300 shadow-lg"
+                      style={{ width: `${loadingProgress}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-cyan-100 text-sm font-semibold">{loadingProgress}%</div>
+                </div>
+              </div>
+            </div>
           ) : (
             <>
               {/* Sync Locations Button - Always Visible */}
