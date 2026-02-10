@@ -7,6 +7,7 @@
  */
 
 import { getPrinterSettings, sendDirectPrint } from './printerConfig';
+import { getStoreLogo } from './logoCache';
 
 /**
  * Get receipt settings from API
@@ -25,7 +26,7 @@ export async function getReceiptSettings() {
     // Return default settings if fetch fails
     return {
       companyDisplayName: "St's Michael Hub",
-      companyLogo: '/images/st-micheals-logo.png',
+      companyLogo: getStoreLogo(),
       storePhone: '',
       email: '',
       website: '',
@@ -197,7 +198,7 @@ function generateReceiptHTML(transaction, settings) {
 
   const {
     companyDisplayName = "St's Michael Hub",
-    companyLogo = '/images/st-micheals-logo.png',
+    companyLogo = getStoreLogo(),
     storePhone = '',
     email = '',
     website = '',

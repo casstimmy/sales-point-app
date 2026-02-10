@@ -5,6 +5,7 @@ import { useStaff } from "../../context/StaffContext";
 import OpenTillModal from "../pos/OpenTillModal";
 import { syncCategories, syncProducts } from "../../lib/indexedDB";
 import { syncPendingTillOpens, syncPendingTillCloses, syncPendingTransactions } from "../../lib/offlineSync";
+import { getStoreLogo, setStoreLogo } from "../../lib/logoCache";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faClock,
@@ -277,6 +278,10 @@ export default function StaffLogin() {
             setSelectedStore(storeObj._id);
             // Cache store for offline use
             localStorage.setItem('cachedStore', JSON.stringify(storeObj));
+            // Cache store logo permanently
+            if (data.store.logo) {
+              setStoreLogo(data.store.logo);
+            }
             
             // Set locations from store
             if (Array.isArray(data.store.locations)) {
@@ -804,7 +809,7 @@ export default function StaffLogin() {
         <div className="text-center flex flex-col items-center">
           <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-1 shadow-lg overflow-hidden relative">
             <Image 
-              src="/images/st-micheals-logo.png" 
+              src={getStoreLogo()} 
               alt="Store Logo" 
               width={32}
               height={32}
@@ -882,7 +887,7 @@ export default function StaffLogin() {
                 {/* Logo */}
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
                   <Image 
-                    src="/images/st-micheals-logo.png" 
+                    src={getStoreLogo()} 
                     alt="Store Logo" 
                     width={90}
                     height={90}

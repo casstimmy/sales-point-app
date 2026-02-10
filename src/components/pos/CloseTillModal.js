@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
 import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
+import { getStoreLogo } from "../../lib/logoCache";
 import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
@@ -490,7 +491,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
-              src="/images/st-micheals-logo.png" 
+              src={getStoreLogo()} 
               alt="Store Logo" 
               width={90}
               height={90}
@@ -542,7 +543,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
-              src="/images/st-micheals-logo.png" 
+              src={getStoreLogo()} 
               alt="Store Logo" 
               width={90}
               height={90}

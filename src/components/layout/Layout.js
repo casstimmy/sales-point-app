@@ -10,6 +10,7 @@ import Image from "next/image";
 import StaffLogin from "./StaffLogin";
 import POSLayout from "./POSLayout";
 import { useStaff } from "../../context/StaffContext";
+import { getStoreLogo } from "../../lib/logoCache";
 
 const Layout = ({ children }) => {
   const { staff, location } = useStaff();
@@ -27,7 +28,7 @@ const Layout = ({ children }) => {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
-              src="/images/st-micheals-logo.png" 
+              src={getStoreLogo()} 
               alt="Store Logo" 
               width={90}
               height={90}

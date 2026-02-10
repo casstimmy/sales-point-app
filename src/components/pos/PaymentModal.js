@@ -17,6 +17,7 @@ import { faXmark, faCheckCircle, faTimes, faBackspace } from '@fortawesome/free-
 import { useStaff } from '@/src/context/StaffContext';
 import { useLocationTenders } from '@/src/hooks/useLocationTenders';
 import { getUiSettings } from '@/src/lib/uiSettings';
+import { getStoreLogo } from '@/src/lib/logoCache';
 
 const TENDER_COLOR_MAP = {
   'Cash': 'bg-green-500',
@@ -248,7 +249,7 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
         {/* Logo */}
         <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg overflow-hidden">
           <Image 
-            src="/images/st-micheals-logo.png" 
+            src={getStoreLogo()} 
             alt="Store Logo" 
             width={72}
             height={72}

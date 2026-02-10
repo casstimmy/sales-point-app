@@ -47,6 +47,7 @@ export default async function handler(req, res) {
 
     const storeData = {
       name: store.storeName || store.companyName || 'STORE NAME',
+      logo: store.logo || '',
       location: location.name || 'STORE LOCATION',
       address: location.address || '',
       phone: location.phone || store.storePhone || '',

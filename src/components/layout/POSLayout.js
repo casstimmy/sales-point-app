@@ -18,6 +18,7 @@ import { CartProvider } from "../../context/CartContext";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
 import { saveUiSettings } from "@/src/lib/uiSettings";
 import { getUiSettings } from "@/src/lib/uiSettings";
+import { getStoreLogo, setStoreLogo } from "@/src/lib/logoCache";
 
 export default function POSLayout({ children }) {
   const router = useRouter();
@@ -80,6 +81,10 @@ export default function POSLayout({ children }) {
         setLoadingStep("Processing store information...");
         const data = await response.json();
         setStoreData(data);
+        // Cache logo from store data if available
+        if (data.logo) {
+          setStoreLogo(data.logo);
+        }
         
         setLoadingProgress(80);
         setLoadingStep("Finalizing...");
@@ -177,7 +182,7 @@ export default function POSLayout({ children }) {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
-              src="/images/st-micheals-logo.png" 
+              src={getStoreLogo()} 
               alt="Store Logo" 
               width={90}
               height={90}
@@ -215,7 +220,7 @@ export default function POSLayout({ children }) {
           {/* Logo */}
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
             <Image 
-              src="/images/st-micheals-logo.png" 
+              src={getStoreLogo()} 
               alt="Store Logo" 
               width={90}
               height={90}

@@ -7,13 +7,15 @@
 
 import React from 'react';
 import Image from 'next/image';
+import { getStoreLogo } from '../../lib/logoCache';
 
 export default function ThankYouNote({ 
   isOpen = false,
   onClose = () => {},
   receiptSettings = {},
-  companyLogo = '/images/st-micheals-logo.png',
+  companyLogo,
 }) {
+  const logoSrc = companyLogo || getStoreLogo();
   const {
     companyDisplayName = "St's Michael Hub",
     storePhone = '',
@@ -34,7 +36,7 @@ export default function ThankYouNote({
         <div className="mb-8 flex justify-center">
           <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
             <Image 
-              src={companyLogo} 
+              src={logoSrc} 
               alt="Company Logo"
               width={80}
               height={80}

@@ -14,6 +14,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { getStoreLogo } from '../../lib/logoCache';
 import {
   faBars,
   faTimes,
@@ -215,7 +216,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
       <div className="p-3 sm:p-4 bg-white border-b-2 border-primary-200 shadow-sm">
         <div className="flex items-center gap-3">
           <Image 
-            src="/images/st-micheals-logo.png" 
+            src={getStoreLogo()} 
             alt="Store Logo" 
             width={40}
             height={40}

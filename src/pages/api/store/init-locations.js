@@ -41,6 +41,7 @@ export default async function handler(req, res) {
       store: {
         _id: store._id,
         storeName: store.storeName,
+        logo: store.logo || '',
         locations: store.locations || [],
       },
     });
