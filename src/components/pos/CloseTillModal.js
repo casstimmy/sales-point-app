@@ -124,6 +124,8 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const [summary, setSummary] = useState(null);
   const [pendingLocalTransactions, setPendingLocalTransactions] = useState(0);
   const [fetchingTill, setFetchingTill] = useState(false);
+  const [fetchingProgress, setFetchingProgress] = useState(0);
+  const [fetchingStep, setFetchingStep] = useState("");
   const [isOnline, setIsOnline] = useState(true);
   const [activeTenderKeypad, setActiveTenderKeypad] = useState(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -194,43 +196,77 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   useEffect(() => {
     if (isOpen && contextTill?._id) {
       setFetchingTill(true);
+      setFetchingProgress(0);
+      setFetchingStep("Initializing...");
       setTenderCounts({});
       
       const fetchTillData = async () => {
-        if (isOnline) {
-          // Online: Fetch from API
-          try {
-            const res = await fetch(`/api/till/${contextTill._id}`);
-            const data = await res.json();
-            if (data.till) {
-              setTill(data.till);
-            } else {
-              setTill(contextTill);
+        try {
+          setFetchingProgress(20);
+          setFetchingStep("Loading till information...");
+          
+          if (isOnline) {
+            // Online: Fetch from API
+            try {
+              setFetchingProgress(40);
+              setFetchingStep("Fetching from server...");
+              
+              const res = await fetch(`/api/till/${contextTill._id}`);
+              const data = await res.json();
+              if (data.till) {
+                setTill(data.till);
+              } else {
+                setTill(contextTill);
+              }
+              
+              setFetchingProgress(60);
+              setFetchingStep("Loading offline data...");
+              
+              const offlineData = await getOfflineTillData(contextTill._id);
+              setPendingLocalTransactions(offlineData.unsyncedCount || 0);
+            } catch (err) {
+              console.error("Error fetching till:", err);
+              setFetchingProgress(70);
+              setFetchingStep("Using offline fallback...");
+              
+              // Fallback to offline data
+              const offlineData = await getOfflineTillData(contextTill._id);
+              setTill({
+                ...contextTill,
+                ...offlineData,
+              });
+              setPendingLocalTransactions(offlineData.unsyncedCount || 0);
             }
-            const offlineData = await getOfflineTillData(contextTill._id);
-            setPendingLocalTransactions(offlineData.unsyncedCount || 0);
-          } catch (err) {
-            console.error("Error fetching till:", err);
-            // Fallback to offline data
+          } else {
+            // Offline: Use context + IndexedDB data
+            setFetchingProgress(50);
+            setFetchingStep("Reading offline data...");
+            
             const offlineData = await getOfflineTillData(contextTill._id);
             setTill({
               ...contextTill,
-              ...offlineData,
+              transactionCount: offlineData.transactionCount || contextTill.transactionCount || 0,
+              totalSales: offlineData.totalSales || contextTill.totalSales || 0,
+              tenderBreakdown: offlineData.tenderBreakdown || contextTill.tenderBreakdown || {},
             });
             setPendingLocalTransactions(offlineData.unsyncedCount || 0);
           }
-        } else {
-          // Offline: Use context + IndexedDB data
-          const offlineData = await getOfflineTillData(contextTill._id);
-          setTill({
-            ...contextTill,
-            transactionCount: offlineData.transactionCount || contextTill.transactionCount || 0,
-            totalSales: offlineData.totalSales || contextTill.totalSales || 0,
-            tenderBreakdown: offlineData.tenderBreakdown || contextTill.tenderBreakdown || {},
-          });
-          setPendingLocalTransactions(offlineData.unsyncedCount || 0);
+          
+          setFetchingProgress(90);
+          setFetchingStep("Preparing reconciliation...");
+          
+          // Small delay for visual feedback
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          setFetchingProgress(100);
+          setFetchingStep("Complete!");
+        } catch (err) {
+          console.error("Error in fetchTillData:", err);
+          setFetchingProgress(100);
+          setFetchingStep("Error loading data");
+        } finally {
+          setFetchingTill(false);
         }
-        setFetchingTill(false);
       };
       
       fetchTillData();
@@ -450,9 +486,37 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   if (fetchingTill) {
     return (
       <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-        <div className="bg-white rounded-xl shadow-2xl p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-cyan-300 border-t-cyan-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading till data...</p>
+        <div className="bg-gradient-to-br from-cyan-600 to-cyan-700 rounded-xl shadow-2xl p-8 text-center w-full max-w-md">
+          {/* Logo */}
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg overflow-hidden">
+            <Image 
+              src="/images/st-micheals-logo.png" 
+              alt="Store Logo" 
+              width={90}
+              height={90}
+              className="object-contain"
+              onError={(e) => {
+                e.target.onerror = null;
+                e.target.src = '/images/placeholder.jpg';
+              }}
+              unoptimized
+            />
+          </div>
+
+          {/* Loading Text */}
+          <p className="text-white font-bold text-lg mb-2">Loading Till Data...</p>
+          <p className="text-cyan-100 text-sm mb-6 font-medium">{fetchingStep || "Initializing..."}</p>
+
+          {/* Progress Bar */}
+          <div className="mb-4">
+            <div className="w-full h-2 bg-cyan-900 rounded-full overflow-hidden shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-cyan-300 to-green-300 rounded-full transition-all duration-300 shadow-lg"
+                style={{ width: `${fetchingProgress}%` }}
+              />
+            </div>
+            <div className="mt-2 text-cyan-100 text-sm font-semibold">{fetchingProgress}%</div>
+          </div>
         </div>
       </div>
     );
@@ -463,11 +527,11 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   const isButtonDisabled = loading || syncing || !tenders?.length || 
     tenders?.some(t => tenderCounts[t.id] === undefined || tenderCounts[t.id] === "");
 
-  // Helper function to format number with "." as thousands separator
+  // Helper function to format number with "," as thousands separator
   const formatDisplayValue = (value) => {
     if (!value && value !== 0) return "";
     const numValue = parseFloat(value) || 0;
-    return numValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+    return numValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   };
 
   // Loading overlay while closing till
