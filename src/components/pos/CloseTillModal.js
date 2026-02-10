@@ -5,6 +5,8 @@ import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
 import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
 import NumKeypad from "../common/NumKeypad";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
 // Helper to get offline till data from IndexedDB
 const getOfflineTillData = async (tillId) => {
@@ -624,8 +626,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
           <button
             onClick={handleCloseTill}
             disabled={isButtonDisabled || showConfirmation}
-            className="flex-1 px-4 py-3.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-base transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 px-4 py-3.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg text-base transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
+            {loading && <FontAwesomeIcon icon={faSpinner} className="w-4 h-4 animate-spin" />}
             {loading ? "Closing Till..." : "Close Till & Logout"}
           </button>
         </div>
@@ -674,8 +677,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
               <button
                 onClick={handleConfirmCloseTill}
                 disabled={loading}
-                className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
               >
+                {loading && <FontAwesomeIcon icon={faSpinner} className="w-4 h-4 animate-spin" />}
                 {loading ? "Processing..." : "Yes, Close Till"}
               </button>
             </div>

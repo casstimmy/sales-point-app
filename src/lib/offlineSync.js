@@ -12,6 +12,9 @@ const SYNC_INTERVAL = 30000; // Auto-sync every 30 seconds
 const DB_VERSION = 2;
 const DB_NAME = 'SalesPOS';
 
+// Concurrency lock for syncPendingTransactions to prevent parallel runs
+let _isSyncing = false;
+
 const ensureStores = (db) => {
   if (!db.objectStoreNames.contains('transactions')) {
     const txStore = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
@@ -185,6 +188,13 @@ export async function syncPendingTransactions() {
     return;
   }
 
+  // Concurrency lock — only one sync at a time
+  if (_isSyncing) {
+    console.log('ℹ️ Sync already in progress, skipping duplicate call');
+    return;
+  }
+  _isSyncing = true;
+
   try {
     await ensureExternalIdsInTransactions();
     const db = await openSalesPosDb();
@@ -279,6 +289,8 @@ export async function syncPendingTransactions() {
   } catch (err) {
     console.error('❌ Error syncing transactions:', err);
     throw err;
+  } finally {
+    _isSyncing = false;
   }
 }
 
@@ -300,7 +312,11 @@ export async function markTransactionSynced(transactionId) {
           if (tx) {
             tx.synced = true;
             tx.syncedAt = new Date().toISOString();
-            txStore.put(tx);
+            const putRequest = txStore.put(tx);
+            putRequest.onsuccess = () => resolve();
+            putRequest.onerror = () => reject(putRequest.error);
+          } else {
+            resolve(); // Nothing to update
           }
         };
 

@@ -28,6 +28,7 @@ export default function PaymentPanel() {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [showOpenTillModal, setShowOpenTillModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState({});
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const { staff, location, till } = useStaff();
   const { handleError } = useErrorHandler();
   const {
@@ -57,6 +58,13 @@ export default function PaymentPanel() {
   }, []);
 
   const handlePaymentConfirm = async (paymentDetails) => {
+    // Prevent double-firing of the entire payment handler
+    if (isProcessingPayment) {
+      console.warn('⚠️ Payment already processing, ignoring duplicate call');
+      return;
+    }
+    setIsProcessingPayment(true);
+
     try {
       if (!staff?._id || !staff?.name || !location?._id || !location?.name) {
         throw new Error("Staff or location missing. Please log in again.");
@@ -104,7 +112,7 @@ export default function PaymentPanel() {
       await saveTransactionOffline(transaction);
 
       if (getOnlineStatus()) {
-        // Best-effort immediate sync
+        // Best-effort immediate sync (single call only — no duplicates)
         syncPendingTransactions().catch(() => {});
       }
 
@@ -123,16 +131,14 @@ export default function PaymentPanel() {
       };
 
       printTransactionReceipt(receiptTransaction, settings).catch(() => {});
-
-      if (getOnlineStatus()) {
-        syncPendingTransactions().catch(() => {});
-      }
     } catch (error) {
       handleError(error, {
         context: "PaymentPanel - handlePaymentConfirm",
         showAlert: true,
         alertMessage: "Error saving transaction. Please try again.",
       });
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
