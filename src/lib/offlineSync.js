@@ -165,6 +165,8 @@ export async function saveTransactionOffline(transaction) {
 
       addRequest.onsuccess = () => {
         console.log('💾 Transaction saved offline with ID:', addRequest.result);
+        // Update till in localStorage with new sales totals
+        updateTillInLocalStorage(transaction.tillId, transaction.total || 0);
         resolve(addRequest.result);
       };
 
@@ -176,6 +178,57 @@ export async function saveTransactionOffline(transaction) {
   } catch (err) {
     console.error('❌ Error saving transaction offline:', err);
     throw err;
+  }
+}
+
+/**
+ * Update the till stored in localStorage with new transaction totals
+ * Called after each offline transaction is saved
+ */
+function updateTillInLocalStorage(tillId, transactionTotal) {
+  try {
+    if (typeof window === 'undefined') return;
+    const savedTill = localStorage.getItem('till');
+    if (!savedTill) return;
+
+    const till = JSON.parse(savedTill);
+    if (!till || !till._id) return;
+
+    // Only update if the transaction belongs to this till
+    if (String(till._id) !== String(tillId)) return;
+
+    till.totalSales = (till.totalSales || 0) + (transactionTotal || 0);
+    till.transactionCount = (till.transactionCount || 0) + 1;
+
+    localStorage.setItem('till', JSON.stringify(till));
+    console.log(`📊 Till localStorage updated - Sales: ₦${till.totalSales}, Transactions: ${till.transactionCount}`);
+  } catch (err) {
+    console.warn('⚠️ Could not update till in localStorage:', err);
+  }
+}
+
+/**
+ * Get offline transaction totals for a specific till from IndexedDB
+ * Used by login page to show accurate sales figures when offline
+ */
+export async function getOfflineTillSales(tillId) {
+  try {
+    const db = await openSalesPosDb();
+    return new Promise((resolve, reject) => {
+      const txStore = db.transaction(['transactions'], 'readonly').objectStore('transactions');
+      const getAllReq = txStore.getAll();
+      getAllReq.onsuccess = () => {
+        const all = getAllReq.result || [];
+        const tillTx = all.filter(tx => String(tx.tillId) === String(tillId));
+        let totalSales = 0;
+        tillTx.forEach(tx => { totalSales += (tx.total || 0); });
+        resolve({ totalSales, transactionCount: tillTx.length });
+      };
+      getAllReq.onerror = () => reject(getAllReq.error);
+    });
+  } catch (err) {
+    console.warn('⚠️ Could not get offline till sales:', err);
+    return { totalSales: 0, transactionCount: 0 };
   }
 }
 

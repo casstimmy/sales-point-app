@@ -241,7 +241,16 @@ export default function StaffLogin() {
                 const pendingCloseIds = await getPendingTillCloseIds();
                 const isPendingClosed = pendingCloseIds.includes(String(till._id));
                 if (!isPendingClosed) {
-                  console.log("📋 Showing saved open till in offline mode:", till._id);
+                  // Compute actual sales from IndexedDB transactions
+                  try {
+                    const { getOfflineTillSales } = await import('../../lib/offlineSync');
+                    const offlineSales = await getOfflineTillSales(till._id);
+                    till.totalSales = offlineSales.totalSales || till.totalSales || 0;
+                    till.transactionCount = offlineSales.transactionCount || till.transactionCount || 0;
+                  } catch (e) {
+                    console.warn('⚠️ Could not compute offline sales:', e);
+                  }
+                  console.log("📋 Showing saved open till in offline mode:", till._id, "Sales:", till.totalSales);
                   setActiveTills([till]);
                 } else {
                   console.log("📋 Saved till is pending close, not showing as active");
