@@ -129,10 +129,12 @@ export default function StaffLogin() {
           const getAll = store.getAll();
           getAll.onsuccess = () => {
             const closes = getAll.result || [];
-            const pendingIds = closes
-              .filter(close => close && close.synced !== true)
+            // Include ALL closed till IDs (both synced and unsynced)
+            // This ensures a closed till is never accidentally resumed
+            const allClosedIds = closes
+              .filter(close => close && close._id)
               .map(close => String(close._id));
-            const mapPromises = pendingIds.map((id) => new Promise((res) => {
+            const mapPromises = allClosedIds.map((id) => new Promise((res) => {
               if (!id.startsWith('offline-till-')) return res(null);
               const openReq = opensStore.get(id);
               openReq.onsuccess = () => {
@@ -141,7 +143,7 @@ export default function StaffLogin() {
               openReq.onerror = () => res(null);
             }));
             Promise.all(mapPromises).then((mapped) => {
-              const combined = new Set(pendingIds);
+              const combined = new Set(allClosedIds);
               mapped.filter(Boolean).forEach(id => combined.add(id));
               resolve([...combined]);
             });

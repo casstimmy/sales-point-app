@@ -15,6 +15,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 const getOfflineTillData = async (tillId) => {
   try {
     const request = indexedDB.open('SalesPOS', 2);
+    const tillIdStr = String(tillId);
     
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
@@ -26,8 +27,8 @@ const getOfflineTillData = async (tillId) => {
         
         allTxRequest.onsuccess = () => {
           const allTransactions = allTxRequest.result || [];
-          // Filter transactions for this till
-          const tillTransactions = allTransactions.filter(tx => tx.tillId === tillId);
+          // Filter transactions for this specific till using string comparison
+          const tillTransactions = allTransactions.filter(tx => String(tx.tillId) === tillIdStr);
           
           // Calculate totals from offline transactions
           let totalSales = 0;
@@ -72,13 +73,14 @@ const getOfflineTillData = async (tillId) => {
 
 const getPendingTransactionsForTill = async (tillId) => {
   try {
+    const tillIdStr = String(tillId);
     const extraTillIds = [];
     try {
       const savedTill = typeof window !== 'undefined' ? localStorage.getItem('till') : null;
       if (savedTill) {
         const parsed = JSON.parse(savedTill);
-        if (parsed?._id && parsed._id !== tillId) {
-          extraTillIds.push(parsed._id);
+        if (parsed?._id && String(parsed._id) !== tillIdStr) {
+          extraTillIds.push(String(parsed._id));
         }
       }
     } catch (err) {
@@ -95,8 +97,8 @@ const getPendingTransactionsForTill = async (tillId) => {
           const allTransactions = allTxRequest.result || [];
           const pending = allTransactions.filter(tx => {
             if (tx.synced === true) return false;
-            if (tx.tillId === tillId) return true;
-            return extraTillIds.includes(tx.tillId);
+            if (String(tx.tillId) === tillIdStr) return true;
+            return extraTillIds.includes(String(tx.tillId));
           });
           resolve(pending.length);
         };

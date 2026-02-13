@@ -117,10 +117,14 @@ export default function MenuScreen() {
       console.log('📲 Transaction completed event received, refreshing products...');
       // Trigger sync to get updated quantities from server
       await syncProducts([]);
-      // Reload current category products
+      // Reload current category products - search by name first (IndexedDB stores category name)
       if (selectedCategory) {
+        const categoryName = selectedCategory.name;
         const categoryId = selectedCategory._id || selectedCategory.id;
-        const localProducts = await getLocalProductsByCategory(categoryId);
+        let localProducts = await getLocalProductsByCategory(categoryName);
+        if (!localProducts || localProducts.length === 0) {
+          localProducts = await getLocalProductsByCategory(categoryId);
+        }
         if (localProducts && localProducts.length > 0) {
           setProducts(localProducts);
         }
@@ -184,6 +188,8 @@ export default function MenuScreen() {
                 setCategories(filtered);
                 // Save to IndexedDB for offline support
                 await syncCategories(filtered);
+                // Also save to localStorage as backup cache
+                try { localStorage.setItem('cachedCategories', JSON.stringify(filtered)); } catch (e) {}
                 setLastSyncTime(new Date());
                 // Auto-select first category
                 setSelectedCategory(filtered[0] || null);
@@ -266,6 +272,8 @@ export default function MenuScreen() {
                 // Save to IndexedDB for offline support
                 if (filtered.length > 0) {
                   await syncCategories(filtered);
+                  // Also save to localStorage as backup cache
+                  try { localStorage.setItem('cachedCategories', JSON.stringify(filtered)); } catch (e) {}
                   setLastSyncTime(new Date());
                 }
                 // Auto-select first category
@@ -335,10 +343,18 @@ export default function MenuScreen() {
       
       try {
         const categoryId = selectedCategory._id || selectedCategory.id;
-        console.log("🛍️ Loading products from IndexedDB for category ID:", categoryId);
+        const categoryName = selectedCategory.name;
+        console.log("🛍️ Loading products for category:", categoryName, "(ID:", categoryId, ")");
         
         // ALWAYS try local storage first
-        const localProducts = await getLocalProductsByCategory(categoryId);
+        // Products in IndexedDB store category NAME (not ID) in the 'category' field
+        // So search by name first, then fall back to ID
+        let localProducts = await getLocalProductsByCategory(categoryName);
+        
+        if (!localProducts || localProducts.length === 0) {
+          // Fallback: try by ID in case some products store category ID
+          localProducts = await getLocalProductsByCategory(categoryId);
+        }
         
         if (localProducts && localProducts.length > 0) {
           console.log("✅ Found", localProducts.length, "products in local storage");
@@ -352,11 +368,10 @@ export default function MenuScreen() {
         const allLocal = await getAllLocalProducts();
         
         if (allLocal && allLocal.length > 0) {
-          // Filter by category
-          const categoryName = selectedCategory.name;
+          // Filter by category name OR ID
           const categoryFiltered = allLocal.filter(p => 
-            p.category === categoryId || 
-            p.category === categoryName ||
+            p.category === categoryName || 
+            p.category === categoryId ||
             p.categoryId === categoryId
           );
           
@@ -378,10 +393,9 @@ export default function MenuScreen() {
             console.log("✅ Using cached products from localStorage");
             await syncProducts(cachedProducts);
             setAllProducts(cachedProducts);
-            const categoryName = selectedCategory.name;
             const categoryFiltered = cachedProducts.filter(p =>
-              p.category === categoryId ||
               p.category === categoryName ||
+              p.category === categoryId ||
               p.categoryId === categoryId
             );
             setProducts(categoryFiltered);
@@ -405,6 +419,17 @@ export default function MenuScreen() {
               // Save to IndexedDB for offline support
               if (data.data && data.data.length > 0) {
                 await syncProducts(data.data);
+                // Also save to localStorage as backup cache
+                try {
+                  const existingCached = JSON.parse(localStorage.getItem('cachedProducts') || '[]');
+                  const merged = [...existingCached];
+                  data.data.forEach(product => {
+                    const idx = merged.findIndex(p => p._id === product._id);
+                    if (idx >= 0) merged[idx] = product;
+                    else merged.push(product);
+                  });
+                  localStorage.setItem('cachedProducts', JSON.stringify(merged));
+                } catch (e) {}
                 // Also update allProducts for search
                 setAllProducts(prev => {
                   const merged = [...prev];
@@ -461,6 +486,8 @@ export default function MenuScreen() {
         const fetchedCategories = catData.data || [];
         await syncCategories(fetchedCategories);
         setCategories(fetchedCategories);
+        // Save categories to localStorage as backup cache
+        try { localStorage.setItem('cachedCategories', JSON.stringify(fetchedCategories)); } catch (e) {}
         console.log(`✅ Categories synced: ${fetchedCategories.length} categories`);
         
         // Now fetch products for ALL categories
@@ -485,16 +512,20 @@ export default function MenuScreen() {
           }
         }
         
-        // Save all products to IndexedDB
+        // Save all products to IndexedDB and localStorage
         if (allFetchedProducts.length > 0) {
           await syncProducts(allFetchedProducts);
           setAllProducts(allFetchedProducts);
+          // Save to localStorage as backup cache for offline use
+          try { localStorage.setItem('cachedProducts', JSON.stringify(allFetchedProducts)); } catch (e) {}
           console.log(`✅ Total products synced: ${allFetchedProducts.length}`);
           
           // Reload current category products
           if (selectedCategory) {
             const categoryId = selectedCategory._id || selectedCategory.id;
+            const categoryName = selectedCategory.name;
             const categoryProducts = allFetchedProducts.filter(p => 
+              p.category === categoryName ||
               p.category === categoryId || 
               p.categoryId === categoryId
             );
