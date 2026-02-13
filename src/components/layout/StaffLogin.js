@@ -231,6 +231,28 @@ export default function StaffLogin() {
           setLoadingProgress(50);
           setLoadingStep("Loading cached data...");
           loadCachedData();
+          
+          // Load saved till as active till for offline display
+          try {
+            const savedTill = localStorage.getItem("till");
+            if (savedTill) {
+              const till = JSON.parse(savedTill);
+              if (till && till._id) {
+                const pendingCloseIds = await getPendingTillCloseIds();
+                const isPendingClosed = pendingCloseIds.includes(String(till._id));
+                if (!isPendingClosed) {
+                  console.log("📋 Showing saved open till in offline mode:", till._id);
+                  setActiveTills([till]);
+                } else {
+                  console.log("📋 Saved till is pending close, not showing as active");
+                  setActiveTills([]);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn("⚠️ Could not load offline till for display:", err);
+          }
+          
           setLoadingProgress(100);
           setLoadingStep("Complete!");
           setLoadingData(false);
@@ -475,19 +497,34 @@ export default function StaffLogin() {
     console.log("📍 Staff:", selectedStaffData.name, "Location:", selectedLocationData.name);
     console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped");
 
-    // Offline: do not enter POS until a new till is opened
+    // Offline: check if there's an existing open till to resume
     const savedTill = localStorage.getItem("till");
     if (savedTill) {
       const pendingCloseIds = await getPendingTillCloseIds();
       const till = JSON.parse(savedTill);
       const isPendingClosed = pendingCloseIds.includes(String(till?._id));
       if (isPendingClosed) {
+        // Till was closed offline, remove it and open a new one
+        console.log("📴 Saved till was closed offline (pending sync), opening new till");
         localStorage.removeItem("till");
-      } else {
-        localStorage.removeItem("till");
+      } else if (till && till._id && till.locationId === selectedLocationData._id) {
+        // Till is still open and matches selected location - resume it
+        console.log("✅ Resuming existing open till offline:", till._id);
+        login(selectedStaffData, selectedLocationData);
+        setCurrentTill(till);
+        router.push("/");
+        return true;
+      } else if (till && till._id) {
+        // Till exists but for a different location - resume it anyway (till belongs to location)
+        console.log("✅ Resuming existing open till (different location) offline:", till._id);
+        login(selectedStaffData, selectedLocationData);
+        setCurrentTill(till);
+        router.push("/");
+        return true;
       }
     }
 
+    // No existing open till - show OpenTillModal to create one
     setLoginData({ staff: selectedStaffData, location: selectedLocationData });
     setShowOpenTillModal(true);
     return true;
