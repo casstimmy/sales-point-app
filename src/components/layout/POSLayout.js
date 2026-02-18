@@ -308,14 +308,16 @@ export default function POSLayout({ children }) {
         {/* Mobile: TabNavigation + Cart Panel (Bottom Sheet - Hidden on desktop) */}
         <div className="lg:hidden border-t border-neutral-200 bg-white flex flex-col">
           {/* Tab Navigation */}
-          <div className="px-4 py-3 flex-shrink-0 border-b border-neutral-200">
+          <div className="px-4 py-2 flex-shrink-0 border-b border-neutral-200">
             <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
           </div>
           
-          {/* Cart Panel */}
-          <div className="max-h-[60vh] min-h-[40vh] overflow-y-auto flex-1">
-            <CartPanel />
-          </div>
+          {/* Cart Panel - Only show on MENU tab to give ORDERS/CUSTOMERS full space */}
+          {activeTab === 'MENU' && (
+            <div className="max-h-[50vh] min-h-[30vh] overflow-y-auto flex-1">
+              <CartPanel />
+            </div>
+          )}
         </div>
       </div>
     </CartProvider>

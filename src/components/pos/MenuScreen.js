@@ -34,7 +34,6 @@ import { useStaff } from '../../context/StaffContext';
 import { getLocalCategories, getLocalProductsByCategory, syncCategories, syncProducts, getAllLocalProducts } from '../../lib/indexedDB';
 import { initOfflineSync, getOnlineStatus, getImageUrl, shouldShowPlaceholder, syncPendingTransactions, syncPendingTillCloses } from '../../lib/offlineSync';
 import { cleanupOldTransactions } from '../../lib/indexedDBCleanup';
-import { clearCategoriesCache } from '../../lib/categoryCacheCleanup';
 
 // Color mapping for categories
 const CATEGORY_COLORS = {
@@ -82,7 +81,7 @@ export default function MenuScreen() {
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
 
-  // Initialize offline sync on mount
+  // Initialize offline sync on mount ONLY (empty deps — runs once)
   useEffect(() => {
     initOfflineSync();
     
@@ -91,12 +90,8 @@ export default function MenuScreen() {
       console.error('Cleanup failed:', err);
     });
     
-    // Clear categories cache only when online to avoid wiping offline data
-    if (getOnlineStatus()) {
-      clearCategoriesCache().catch(err => {
-        console.error('Category cache clear failed:', err);
-      });
-    }
+    // DON'T clear categories cache on mount — it wipes offline data.
+    // Categories are always refreshed from API when online in the fetchCategories effect.
     
     // Listen for online/offline changes
     const handleOnline = () => {
@@ -111,13 +106,21 @@ export default function MenuScreen() {
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
+    
+    setIsOnline(getOnlineStatus());
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
-    // Listen for transaction completion to refresh products
+  // Listen for transaction completion to refresh products (separate effect so it
+  // re-binds when selectedCategory changes, but doesn't re-run initOfflineSync)
+  useEffect(() => {
     const handleTransactionCompleted = async () => {
       console.log('📲 Transaction completed event received, refreshing products...');
-      // Trigger sync to get updated quantities from server
-      await syncProducts([]);
-      // Reload current category products - search by name first (IndexedDB stores category name)
+      // Reload current category products from local DB
       if (selectedCategory) {
         const categoryName = selectedCategory.name;
         const categoryId = selectedCategory._id || selectedCategory.id;
@@ -133,14 +136,10 @@ export default function MenuScreen() {
 
     window.addEventListener('transactions:completed', handleTransactionCompleted);
     
-    setIsOnline(getOnlineStatus());
-    
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
     };
-  }, [selectedCategory]);;
+  }, [selectedCategory]);
 
   // Log when categories change
   useEffect(() => {

@@ -14,6 +14,8 @@ const DB_NAME = 'SalesPOS';
 
 // Concurrency lock for syncPendingTransactions to prevent parallel runs
 let _isSyncing = false;
+// Guard to prevent duplicate event listener registration
+let _offlineSyncInitialized = false;
 
 const ensureStores = (db) => {
   // Products store (used by indexedDB.js)
@@ -93,10 +95,17 @@ async function ensureExternalIdsInTransactions() {
 export function initOfflineSync() {
   if (typeof window === 'undefined') return; // SSR check
 
+  // Prevent duplicate initialization — listeners must only be registered once
+  if (_offlineSyncInitialized) {
+    console.log('ℹ️ Offline sync already initialized, skipping');
+    return;
+  }
+  _offlineSyncInitialized = true;
+
   // Ensure legacy transactions have stable externalIds for de-duplication
   ensureExternalIdsInTransactions();
 
-  // Listen for online/offline events
+  // Listen for online/offline events (registered ONCE)
   window.addEventListener('online', () => {
     console.log('🟢 Online - Syncing queued transactions and till closes');
     isOnline = true;
@@ -319,7 +328,30 @@ export async function syncPendingTransactions() {
                   console.warn(`⚠️ Skipping transaction ${tx.id} - till not mapped yet`);
                   continue;
                 }
+                // Persist resolved tillId back to IndexedDB so retries don't need to re-resolve
+                const origOfflineTillId = tx.tillId;
                 tx.tillId = resolved;
+                try {
+                  const updateDb = await openSalesPosDb();
+                  await new Promise((res, rej) => {
+                    const updateStore = updateDb.transaction(['transactions'], 'readwrite')
+                      .objectStore('transactions');
+                    const getReq = updateStore.get(tx.id);
+                    getReq.onsuccess = () => {
+                      const record = getReq.result;
+                      if (record) {
+                        record.tillId = resolved;
+                        record.originalOfflineTillId = origOfflineTillId;
+                        const putReq = updateStore.put(record);
+                        putReq.onsuccess = () => res();
+                        putReq.onerror = () => rej(putReq.error);
+                      } else { res(); }
+                    };
+                    getReq.onerror = () => rej(getReq.error);
+                  });
+                } catch (e) {
+                  console.warn('⚠️ Could not persist resolved tillId:', e);
+                }
               }
 
               const payload = {

@@ -369,8 +369,8 @@ export default function OrdersScreen() {
           <thead className="bg-gray-200 sticky top-0">
             <tr className="border-b border-gray-300">
               <th className="text-left p-2 text-gray-700">TIME</th>
-              <th className="text-left p-2 text-gray-700">CUSTOMER</th>
-              <th className="text-left p-2 text-gray-700">STAFF MEMBER</th>
+              <th className="text-left p-2 text-gray-700 hidden sm:table-cell">CUSTOMER</th>
+              <th className="text-left p-2 text-gray-700 hidden md:table-cell">STAFF MEMBER</th>
               <th className="text-left p-2 text-gray-700">TENDER TYPE</th>
               <th className="text-right p-2 text-gray-700">TOTAL</th>
               {activeStatus === 'COMPLETE' && canRefund && <th className="text-center p-2 text-gray-700">ACTION</th>}
@@ -389,13 +389,13 @@ export default function OrdersScreen() {
                   {order.time}
                 </td>
                 <td 
-                  className="p-2 text-gray-800 cursor-pointer"
+                  className="p-2 text-gray-800 cursor-pointer hidden sm:table-cell"
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.customer}
                 </td>
                 <td 
-                  className="p-2 text-gray-800 cursor-pointer"
+                  className="p-2 text-gray-800 cursor-pointer hidden md:table-cell"
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.staffMember}
@@ -460,7 +460,7 @@ export default function OrdersScreen() {
       {showDetailPanel && detailOrder && (
         <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setShowDetailPanel(false)}>
           <div 
-            className="absolute right-0 top-0 h-full w-[37%] min-w-[360px] bg-white shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col"
+            className="absolute right-0 top-0 h-full w-full sm:w-[37%] sm:min-w-[360px] bg-white shadow-2xl transform transition-transform duration-300 ease-out overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
