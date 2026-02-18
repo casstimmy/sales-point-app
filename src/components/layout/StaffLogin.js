@@ -113,9 +113,12 @@ export default function StaffLogin() {
     }
   }, []);
 
-  const getPendingTillCloseIds = useCallback(async () => {
+  // Get closed till IDs from IndexedDB
+  // includeSynced=false: only unsynced (for banner display)
+  // includeSynced=true: all closes (for resume-prevention check)
+  const getPendingTillCloseIds = useCallback(async (includeSynced = false) => {
     try {
-      const request = indexedDB.open('SalesPOS', 2);
+      const request = indexedDB.open('SalesPOS', 3);
       return await new Promise((resolve, reject) => {
         request.onsuccess = (event) => {
           const db = event.target.result;
@@ -129,12 +132,12 @@ export default function StaffLogin() {
           const getAll = store.getAll();
           getAll.onsuccess = () => {
             const closes = getAll.result || [];
-            // Include ALL closed till IDs (both synced and unsynced)
-            // This ensures a closed till is never accidentally resumed
-            const allClosedIds = closes
-              .filter(close => close && close._id)
-              .map(close => String(close._id));
-            const mapPromises = allClosedIds.map((id) => new Promise((res) => {
+            // Filter based on whether we want all closes or only unsynced
+            const filteredCloses = includeSynced
+              ? closes.filter(close => close && close._id)
+              : closes.filter(close => close && close._id && close.synced !== true);
+            const closeIds = filteredCloses.map(close => String(close._id));
+            const mapPromises = closeIds.map((id) => new Promise((res) => {
               if (!id.startsWith('offline-till-')) return res(null);
               const openReq = opensStore.get(id);
               openReq.onsuccess = () => {
@@ -143,7 +146,7 @@ export default function StaffLogin() {
               openReq.onerror = () => res(null);
             }));
             Promise.all(mapPromises).then((mapped) => {
-              const combined = new Set(allClosedIds);
+              const combined = new Set(closeIds);
               mapped.filter(Boolean).forEach(id => combined.add(id));
               resolve([...combined]);
             });
@@ -159,7 +162,8 @@ export default function StaffLogin() {
   }, []);
 
   const refreshPendingTillCloseIds = useCallback(async () => {
-    const ids = await getPendingTillCloseIds();
+    // For the banner, only show unsynced closes
+    const ids = await getPendingTillCloseIds(false);
     setPendingTillCloseIds(ids);
     return ids;
   }, [getPendingTillCloseIds]);
@@ -240,8 +244,9 @@ export default function StaffLogin() {
             if (savedTill) {
               const till = JSON.parse(savedTill);
               if (till && till._id) {
-                const pendingCloseIds = await getPendingTillCloseIds();
-                const isPendingClosed = pendingCloseIds.includes(String(till._id));
+                // Use includeSynced=true to check ALL closes (not just unsynced)
+                const closedTillIds = await getPendingTillCloseIds(true);
+                const isPendingClosed = closedTillIds.includes(String(till._id));
                 if (!isPendingClosed) {
                   // Compute actual sales from IndexedDB transactions
                   try {
@@ -511,9 +516,10 @@ export default function StaffLogin() {
     // Offline: check if there's an existing open till to resume
     const savedTill = localStorage.getItem("till");
     if (savedTill) {
-      const pendingCloseIds = await getPendingTillCloseIds();
+      // Use includeSynced=true to check ALL closes (not just unsynced)
+      const closedTillIds = await getPendingTillCloseIds(true);
       const till = JSON.parse(savedTill);
-      const isPendingClosed = pendingCloseIds.includes(String(till?._id));
+      const isPendingClosed = closedTillIds.includes(String(till?._id));
       if (isPendingClosed) {
         // Till was closed offline, remove it and open a new one
         console.log("📴 Saved till was closed offline (pending sync), opening new till");

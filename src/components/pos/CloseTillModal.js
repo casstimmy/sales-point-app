@@ -14,7 +14,7 @@ import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 // Helper to get offline till data from IndexedDB
 const getOfflineTillData = async (tillId) => {
   try {
-    const request = indexedDB.open('SalesPOS', 2);
+    const request = indexedDB.open('SalesPOS', 3);
     const tillIdStr = String(tillId);
     
     return new Promise((resolve, reject) => {
@@ -87,7 +87,7 @@ const getPendingTransactionsForTill = async (tillId) => {
       // ignore localStorage errors
     }
 
-    const request = indexedDB.open('SalesPOS', 2);
+    const request = indexedDB.open('SalesPOS', 3);
     return new Promise((resolve, reject) => {
       request.onsuccess = (event) => {
         const db = event.target.result;
@@ -170,7 +170,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   // Save till close to IndexedDB (offline)
   const saveTillCloseOffline = async (closeData) => {
     try {
-      const request = indexedDB.open('SalesPOS', 2);
+      const request = indexedDB.open('SalesPOS', 3);
       
       return new Promise((resolve, reject) => {
         request.onsuccess = (event) => {

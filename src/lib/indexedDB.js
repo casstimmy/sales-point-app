@@ -4,7 +4,7 @@
  */
 
 const DB_NAME = "SalesPOS";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 // Store names
 const STORES = {
@@ -22,6 +22,19 @@ let db = null;
  * Initialize IndexedDB
  */
 export async function initIndexedDB() {
+  // If we already have a valid connection, reuse it
+  if (db) {
+    try {
+      // Quick check that the DB is still usable
+      db.transaction([STORES.PRODUCTS], "readonly");
+      return db;
+    } catch (e) {
+      // Connection is stale or stores are missing — re-open
+      console.warn("⚠️ Stale IndexedDB connection, re-opening...");
+      db = null;
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
@@ -32,8 +45,18 @@ export async function initIndexedDB() {
 
     request.onsuccess = () => {
       db = request.result;
-      console.log("✅ IndexedDB initialized");
+      // Close the connection if another tab upgrades the DB version
+      db.onversionchange = () => {
+        db.close();
+        db = null;
+        console.warn("⚠️ IndexedDB version change detected, connection closed");
+      };
+      console.log("✅ IndexedDB initialized (v" + DB_VERSION + ")");
       resolve(db);
+    };
+
+    request.onblocked = () => {
+      console.warn("⚠️ IndexedDB upgrade blocked — close other tabs using the app");
     };
 
     request.onupgradeneeded = (event) => {
@@ -353,12 +376,10 @@ export async function clearAllData() {
   if (!db) await initIndexedDB();
 
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(
-      [STORES.PRODUCTS, STORES.CATEGORIES, STORES.TRANSACTIONS, STORES.SYNC_META],
-      "readwrite"
-    );
+    const allStoreNames = Object.values(STORES);
+    const transaction = db.transaction(allStoreNames, "readwrite");
 
-    Object.values(STORES).forEach((storeName) => {
+    allStoreNames.forEach((storeName) => {
       transaction.objectStore(storeName).clear();
     });
 

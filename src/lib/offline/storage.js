@@ -11,7 +11,7 @@
  */
 
 const DB_NAME = 'SalesPOS';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 const STORES = {
   ORDERS: 'orders',
   SYNC_LOG: 'sync_log',
@@ -45,6 +45,7 @@ class OfflineStorage {
 
         request.onupgradeneeded = event => {
           const db = event.target.result;
+          // Legacy stores for offline/storage.js
           if (!db.objectStoreNames.contains(STORES.ORDERS)) {
             const orderStore = db.createObjectStore(STORES.ORDERS, { keyPath: 'id' });
             orderStore.createIndex('status', 'status', { unique: false });
@@ -52,6 +53,32 @@ class OfflineStorage {
           }
           if (!db.objectStoreNames.contains(STORES.SYNC_LOG)) {
             db.createObjectStore(STORES.SYNC_LOG, { keyPath: 'id' });
+          }
+          // Ensure all main app stores also exist (shared DB)
+          if (!db.objectStoreNames.contains('products')) {
+            const productStore = db.createObjectStore('products', { keyPath: '_id' });
+            productStore.createIndex('category', 'category', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('categories')) {
+            db.createObjectStore('categories', { keyPath: '_id' });
+          }
+          if (!db.objectStoreNames.contains('transactions')) {
+            const txStore = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
+            txStore.createIndex('synced', 'synced', { unique: false });
+            txStore.createIndex('createdAt', 'createdAt', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('sync_meta')) {
+            db.createObjectStore('sync_meta', { keyPath: 'key' });
+          }
+          if (!db.objectStoreNames.contains('till_closes')) {
+            const tillCloseStore = db.createObjectStore('till_closes', { keyPath: '_id' });
+            tillCloseStore.createIndex('synced', 'synced', { unique: false });
+            tillCloseStore.createIndex('closedAt', 'closedAt', { unique: false });
+          }
+          if (!db.objectStoreNames.contains('till_opens')) {
+            const tillOpenStore = db.createObjectStore('till_opens', { keyPath: '_id' });
+            tillOpenStore.createIndex('synced', 'synced', { unique: false });
+            tillOpenStore.createIndex('openedAt', 'openedAt', { unique: false });
           }
         };
       });

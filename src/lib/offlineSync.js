@@ -9,23 +9,39 @@
  */
 
 const SYNC_INTERVAL = 30000; // Auto-sync every 30 seconds
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const DB_NAME = 'SalesPOS';
 
 // Concurrency lock for syncPendingTransactions to prevent parallel runs
 let _isSyncing = false;
 
 const ensureStores = (db) => {
+  // Products store (used by indexedDB.js)
+  if (!db.objectStoreNames.contains('products')) {
+    const productStore = db.createObjectStore('products', { keyPath: '_id' });
+    productStore.createIndex('category', 'category', { unique: false });
+  }
+  // Categories store (used by indexedDB.js)
+  if (!db.objectStoreNames.contains('categories')) {
+    db.createObjectStore('categories', { keyPath: '_id' });
+  }
+  // Transactions store
   if (!db.objectStoreNames.contains('transactions')) {
     const txStore = db.createObjectStore('transactions', { keyPath: 'id', autoIncrement: true });
     txStore.createIndex('synced', 'synced', { unique: false });
     txStore.createIndex('createdAt', 'createdAt', { unique: false });
   }
+  // Sync metadata store (used by indexedDB.js)
+  if (!db.objectStoreNames.contains('sync_meta')) {
+    db.createObjectStore('sync_meta', { keyPath: 'key' });
+  }
+  // Till closes store
   if (!db.objectStoreNames.contains('till_closes')) {
     const tillCloseStore = db.createObjectStore('till_closes', { keyPath: '_id' });
     tillCloseStore.createIndex('synced', 'synced', { unique: false });
     tillCloseStore.createIndex('closedAt', 'closedAt', { unique: false });
   }
+  // Till opens store
   if (!db.objectStoreNames.contains('till_opens')) {
     const tillOpenStore = db.createObjectStore('till_opens', { keyPath: '_id' });
     tillOpenStore.createIndex('synced', 'synced', { unique: false });
@@ -454,7 +470,16 @@ export async function syncPendingTillCloses() {
               if (String(tillClose._id).startsWith('offline-till-')) {
                 const mapped = await resolveTillId(tillClose._id, tillClose);
                 if (!mapped) {
-                  console.warn(`⚠️ Till close skipped - till not mapped yet: ${tillClose._id}`);
+                  // Check how old this record is — if > 24 hours, mark as synced to unblock
+                  const savedAt = tillClose.savedAt ? new Date(tillClose.savedAt).getTime() : 0;
+                  const ageMs = Date.now() - savedAt;
+                  if (ageMs > 24 * 60 * 60 * 1000) {
+                    console.warn(`⚠️ Stale offline till close (${Math.round(ageMs / 3600000)}h old) — marking as synced: ${tillClose._id}`);
+                    await markTillCloseSynced(tillClose._id);
+                    syncedIds.push(tillClose._id);
+                  } else {
+                    console.warn(`⚠️ Till close skipped - till not mapped yet: ${tillClose._id}`);
+                  }
                   continue;
                 }
                 resolvedTillId = mapped;
@@ -471,12 +496,22 @@ export async function syncPendingTillCloses() {
                 }),
               });
 
-              if (!response.ok) {
-                console.error(`❌ Failed to sync till close: ${response.status}`);
+              const responseData = await response.json().catch(() => ({}));
+
+              if (!response.ok && response.status !== 404) {
+                // Real error (not 404) — skip and retry later
+                console.error(`❌ Failed to sync till close: ${response.status}`, responseData.message);
                 continue;
               }
 
-              console.log(`✅ Till close synced: ${tillClose._id}`);
+              // Mark as synced for:
+              // - 200 OK (success or "already closed")
+              // - 404 (till not found on server — stale record, clear it)
+              if (response.status === 404) {
+                console.warn(`⚠️ Till ${resolvedTillId} not found on server — marking close as synced to clear stale record`);
+              } else {
+                console.log(`✅ Till close synced: ${tillClose._id}`);
+              }
               syncedIds.push(tillClose._id);
               
               // Mark as synced in IndexedDB
