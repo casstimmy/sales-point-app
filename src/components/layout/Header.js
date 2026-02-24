@@ -37,7 +37,7 @@ export default function Header({ onMenuToggle }) {
       {/* LEFT - Store Name & DateTime */}
       <div className="flex flex-col">
         <p className="font-bold text-lg uppercase tracking-wider">
-          {staff?.locationName || "STORE"}
+          {staff?.locationName || "NO STORE"}
         </p>
         <p className="text-xs text-teal-100">{dateTime}</p>
       </div>
