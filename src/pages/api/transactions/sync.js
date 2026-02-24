@@ -27,7 +27,11 @@ export default async function handler(req, res) {
       subtotal, 
       tenderType,           // Legacy: single tender
       tenderPayments,       // New: split payments [{tenderId, tenderName, amount}]
+      discount = 0,
       staffName, 
+      staffId,
+      location = 'Default Location',
+      status = 'completed',
       createdAt, 
       completedAt,
       tillId,               // Till ID to link transaction
@@ -37,6 +41,10 @@ export default async function handler(req, res) {
     // Determine which payment method is being used
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
+    const rawStatus = String(status || 'completed').toLowerCase();
+    const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
+    const isHeldTransaction = normalizedStatus === 'held';
+    const isCompletedTransaction = normalizedStatus === 'completed';
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -46,7 +54,7 @@ export default async function handler(req, res) {
       });
     }
 
-    if (total === undefined || (!hasSingleTender && !hasMultiplePayments)) {
+    if (total === undefined || (!isHeldTransaction && !hasSingleTender && !hasMultiplePayments)) {
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: total and (tenderType or tenderPayments) required',
@@ -86,16 +94,27 @@ export default async function handler(req, res) {
       }
     }
 
+    const mappedItems = (items || []).map(item => ({
+      productId: item.productId || item.id,
+      name: item.name,
+      salePriceIncTax: item.price || item.salePriceIncTax || 0,
+      qty: item.quantity || item.qty || 0,
+    }));
+
     // Create transaction record - support both payment methods
     const transaction = new Transaction({
       externalId: externalId || id,
-      items,
+      items: mappedItems,
       subtotal: subtotal || 0,
       tax: tax || 0,
+      discount: discount || 0,
       total,
       ...(hasSingleTender && { tenderType }),
       ...(hasMultiplePayments && { tenderPayments }),
+      ...(staffId && { staff: staffId }),
       staffName: staffName && staffName !== 'Unknown' ? staffName : 'POS Staff',
+      location,
+      status: normalizedStatus,
       ...(tillId && { tillId }),
       createdAt: createdAt ? new Date(createdAt) : new Date(),
       completedAt: completedAt ? new Date(completedAt) : new Date(),
@@ -106,39 +125,48 @@ export default async function handler(req, res) {
     await transaction.save();
     console.log('✅ Transaction synced successfully:', transaction._id);
 
-    // Link transaction to till if tillId provided
-    if (tillId) {
+    // Link transaction to till only for completed sales
+    if (tillId && isCompletedTransaction) {
       try {
         console.log(`🔗 Linking synced transaction to till: ${tillId}`);
-        const updateResult = await Till.findByIdAndUpdate(
-          tillId,
-          {
-            $addToSet: { transactions: transaction._id },
-            $inc: { totalSales: total || 0 },
-          },
-          { new: true }
-        );
-        
-        if (updateResult) {
-          // Update transaction count based on actual array length
-          updateResult.transactionCount = updateResult.transactions.length;
-          await updateResult.save();
-          console.log(`✅ Synced transaction linked to till - Till now has ${updateResult.transactions.length} transactions, total sales: ${updateResult.totalSales}`);
+        const till = await Till.findById(tillId);
+
+        if (till) {
+          if (!till.transactions.some((txId) => String(txId) === String(transaction._id))) {
+            till.transactions.push(transaction._id);
+          }
+          till.totalSales = (till.totalSales || 0) + Number(total || 0);
+          till.transactionCount = till.transactions.length;
+
+          if (!(till.tenderBreakdown instanceof Map)) {
+            till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
+          }
+
+          if (hasMultiplePayments) {
+            tenderPayments.forEach((payment) => {
+              const currentAmount = till.tenderBreakdown.get(payment.tenderName) || 0;
+              till.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
+            });
+          } else {
+            const tenderKey = tenderType || 'CASH';
+            const currentAmount = till.tenderBreakdown.get(tenderKey) || 0;
+            till.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
+          }
+          till.markModified('tenderBreakdown');
+          await till.save();
+          console.log(`✅ Synced transaction linked to till - Till now has ${till.transactions.length} transactions, total sales: ${till.totalSales}`);
         } else {
           console.warn(`⚠️ Till ${tillId} not found - synced transaction not linked`);
         }
       } catch (linkError) {
         console.error(`❌ Error linking synced transaction to till:`, linkError);
       }
+    } else if (tillId && !isCompletedTransaction) {
+      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     }
     // Update product quantities after successful transaction sync (idempotent)
-    if (!transaction.inventoryUpdated && transaction.status === 'completed') {
+    if (!transaction.inventoryUpdated && isCompletedTransaction) {
       try {
-        const mappedItems = items.map(item => ({
-          productId: item.productId || item.id,
-          name: item.name,
-          qty: item.quantity || item.qty,
-        }));
         console.log('📦 Updating product quantities for synced items:', mappedItems);
         for (const item of mappedItems) {
           if (!item.productId || !item.qty) continue;
@@ -165,8 +193,8 @@ export default async function handler(req, res) {
       externalId: externalId || id,
     });
   } catch (err) {
-    if (err?.code === 11000 && err?.keyPattern?.externalId) {
-      console.warn('⚠️ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId);
+    if (err?.code === 11000 && (err?.keyPattern?.externalId || err?.keyPattern?.dedupeKey)) {
+      console.warn('⚠️ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId || err.keyValue?.dedupeKey);
       return res.status(200).json({
         success: true,
         message: 'Transaction already exists (duplicate prevented)',

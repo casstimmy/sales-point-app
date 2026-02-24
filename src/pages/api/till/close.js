@@ -16,13 +16,14 @@ export default async function handler(req, res) {
     await mongooseConnect();
 
     const { tillId, tenderCounts, closingNotes } = req.body;
+    const safeTenderCounts = tenderCounts && typeof tenderCounts === "object" ? tenderCounts : {};
 
     console.log("================================================================================");
     console.log("📋 TILL CLOSE REQUEST");
     console.log("================================================================================");
     console.log("Till ID:", tillId);
     console.log("Till ID type:", typeof tillId);
-    console.log("Tender counts keys:", Object.keys(tenderCounts));
+    console.log("Tender counts keys:", Object.keys(safeTenderCounts));
 
     if (!tillId) {
       console.error("❌ No till ID provided");
@@ -163,13 +164,13 @@ export default async function handler(req, res) {
     });
 
     console.log("📋 Tender mapping:", tenderMap);
-    console.log("📋 Tender counts keys:", Object.keys(tenderCounts));
+    console.log("📋 Tender counts keys:", Object.keys(safeTenderCounts));
 
     let totalCountedAmount = 0;
     let totalVariance = 0;
 
     // Process tender counts (keyed by tender ID)
-    for (const [tenderId, countedAmount] of Object.entries(tenderCounts)) {
+    for (const [tenderId, countedAmount] of Object.entries(safeTenderCounts)) {
       const tenderName = tenderMap[tenderId];
       
       if (!tenderName) {
@@ -296,26 +297,27 @@ export default async function handler(req, res) {
     console.log(`✅ Till closed - Total Variance: ${totalVariance}`);
 
     // Convert Maps to objects for JSON serialization
-    const tillResponse = (updatedTill || till).toObject();
+    const sourceTill = updatedTill || till;
+    const tillResponse = sourceTill.toObject();
     
     // Convert tenderBreakdown Map to object
     const tenderBreakdownObj = {};
-    if (till.tenderBreakdown instanceof Map) {
-      till.tenderBreakdown.forEach((value, key) => {
+    if (sourceTill.tenderBreakdown instanceof Map) {
+      sourceTill.tenderBreakdown.forEach((value, key) => {
         tenderBreakdownObj[key] = value;
       });
-    } else if (till.tenderBreakdown) {
-      Object.assign(tenderBreakdownObj, till.tenderBreakdown);
+    } else if (sourceTill.tenderBreakdown) {
+      Object.assign(tenderBreakdownObj, sourceTill.tenderBreakdown);
     }
     
     // Convert tenderVariances Map to object
     const tenderVariancesObj = {};
-    if (till.tenderVariances instanceof Map) {
-      till.tenderVariances.forEach((value, key) => {
+    if (sourceTill.tenderVariances instanceof Map) {
+      sourceTill.tenderVariances.forEach((value, key) => {
         tenderVariancesObj[key] = value;
       });
-    } else if (till.tenderVariances) {
-      Object.assign(tenderVariancesObj, till.tenderVariances);
+    } else if (sourceTill.tenderVariances) {
+      Object.assign(tenderVariancesObj, sourceTill.tenderVariances);
     }
     
     tillResponse.tenderBreakdown = tenderBreakdownObj;

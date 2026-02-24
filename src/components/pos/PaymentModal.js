@@ -200,9 +200,10 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   };
 
   // Handle confirm
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (isPaymentComplete && !isProcessing) {
       setIsProcessing(true); // Prevent double-click
+      try {
       // Find the selected tender object to get the name
       const selectedTenderObj = availableTenders.find(t => t.id === selectedTender || t._id === selectedTender);
       const tenderName = selectedTenderObj?.name || selectedTender;
@@ -232,14 +233,17 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
       });
       
       // If split payment is used, send tenderPayments; otherwise use legacy tenderType
-      onConfirm({
+      await Promise.resolve(onConfirm({
         tenderType: tenderName,           // Legacy: primary tender name
         tenderPayments: tenderPayments,    // New: array of split payments
         tenders: tendersWithNames,         // Breakdown by name
         totalPaid: totalPaid,
         change: change,
         amountPaid: totalPaid,
-      });
+      }));
+      } finally {
+        setIsProcessing(false);
+      }
     }
   };
 

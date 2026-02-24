@@ -82,8 +82,12 @@ export default async function handler(req, res) {
     // Validate payment method
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
+    const rawStatus = String(status || 'completed').toLowerCase();
+    const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
+    const isHeldTransaction = normalizedStatus === 'held';
+    const isCompletedTransaction = normalizedStatus === 'completed';
 
-    if (!hasSingleTender && !hasMultiplePayments) {
+    if (!isHeldTransaction && !hasSingleTender && !hasMultiplePayments) {
       console.error('❌ Validation error: payment method required');
       return res.status(400).json({
         success: false,
@@ -112,12 +116,13 @@ export default async function handler(req, res) {
         total: Number(total || 0),
         amountPaid: Number(amountPaid || total || 0),
         change: Number(change || 0),
-        tenderType: tenderType || null,
+        tenderType: hasMultiplePayments ? null : (tenderType || null),
         tenderPayments: normalizedPayments,
         staffId: staffId ? String(staffId) : null,
         location: location || null,
         tillId: tillId ? String(tillId) : null,
         createdAt: roundedCreatedAt,
+        status: normalizedStatus,
       };
       return crypto.createHash('sha1').update(JSON.stringify(base)).digest('hex');
     };
@@ -196,7 +201,7 @@ export default async function handler(req, res) {
       staffName: finalStaffName, // Use normalized staff name
       location: location || 'Default Location',
       device: device || 'web',
-      status: status || 'completed',
+      status: normalizedStatus,
       
       ...(tableName && { tableName }),
       ...(customerName && { customerName }),
@@ -213,8 +218,8 @@ export default async function handler(req, res) {
     
     console.log(`✅ Transaction saved successfully - ID: ${savedTransaction._id}, Amount: ${total}`);
 
-    // Link transaction to till if tillId provided
-    if (tillId) {
+    // Link transaction to till only for completed sales
+    if (tillId && isCompletedTransaction) {
       try {
         console.log(`🔗 Linking transaction to till: ${tillId}`);
         
@@ -223,8 +228,8 @@ export default async function handler(req, res) {
         
         if (currentTill) {
           // Initialize tenderBreakdown if needed
-          if (!currentTill.tenderBreakdown) {
-            currentTill.tenderBreakdown = new Map();
+          if (!(currentTill.tenderBreakdown instanceof Map)) {
+            currentTill.tenderBreakdown = new Map(Object.entries(currentTill.tenderBreakdown || {}));
           }
           
           // Update tender breakdown based on payment method
@@ -233,22 +238,22 @@ export default async function handler(req, res) {
             console.log(`   Processing ${tenderPayments.length} split payments for tender breakdown`);
             tenderPayments.forEach(payment => {
               const currentAmount = currentTill.tenderBreakdown.get(payment.tenderName) || 0;
-              currentTill.tenderBreakdown.set(payment.tenderName, currentAmount + payment.amount);
-              console.log(`   💳 ${payment.tenderName}: +₦${payment.amount} (now ₦${currentAmount + payment.amount})`);
+              currentTill.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
+              console.log(`   💳 ${payment.tenderName}: +₦${payment.amount} (now ₦${currentAmount + Number(payment.amount || 0)})`);
             });
           } else if (hasSingleTender) {
             // Handle single tender (legacy)
             const tenderKey = tenderType || 'CASH';
             const currentAmount = currentTill.tenderBreakdown.get(tenderKey) || 0;
-            currentTill.tenderBreakdown.set(tenderKey, currentAmount + total);
-            console.log(`   💳 ${tenderKey}: +₦${total} (now ₦${currentAmount + total})`);
+            currentTill.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
+            console.log(`   💳 ${tenderKey}: +₦${total} (now ₦${currentAmount + Number(total || 0)})`);
           }
           
           // Add transaction to array and update counts
           if (!currentTill.transactions.includes(savedTransaction._id)) {
             currentTill.transactions.push(savedTransaction._id);
           }
-          currentTill.totalSales = (currentTill.totalSales || 0) + total;
+          currentTill.totalSales = (currentTill.totalSales || 0) + Number(total || 0);
           // DO NOT manually increment transactionCount - it should always equal transactions.length
           currentTill.transactionCount = currentTill.transactions.length;
           
@@ -264,11 +269,13 @@ export default async function handler(req, res) {
         console.error(`❌ Error linking transaction to till:`, linkError);
         // Don't fail the whole request if linking fails - transaction is still saved
       }
+    } else if (tillId && !isCompletedTransaction) {
+      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     } else {
       console.warn(`⚠️ No tillId provided - transaction will not be linked to till`);
     }
     // Update product quantities after successful transaction save (idempotent)
-    if (!savedTransaction.inventoryUpdated && savedTransaction.status === 'completed') {
+    if (!savedTransaction.inventoryUpdated && isCompletedTransaction) {
       try {
         console.log('📦 Updating product quantities for items:', mappedItems);
         for (const item of mappedItems) {

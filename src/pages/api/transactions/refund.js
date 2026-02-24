@@ -9,6 +9,8 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
+import Till from '@/src/models/Till';
+import Product from '@/src/models/Product';
 
 export default async function handler(req, res) {
   // Only support POST
@@ -50,7 +52,19 @@ export default async function handler(req, res) {
         });
       }
 
-      // Update transaction status to 'refunded' and mark for deletion
+      if (transaction.status === 'refunded') {
+        return res.status(200).json({
+          success: true,
+          message: 'Transaction already refunded',
+          transactionId: transaction._id,
+          refundStatus: 'already_refunded',
+          alreadyRefunded: true,
+        });
+      }
+
+      const previousStatus = transaction.status;
+
+      // Update transaction status to refunded
       transaction.status = 'refunded';
       transaction.refundReason = refundReason || 'Refunded by staff';
       transaction.refundBy = staffId;
@@ -61,11 +75,86 @@ export default async function handler(req, res) {
 
       console.log(`✅ Transaction ${transactionId} marked as refunded`);
 
+      let inventoryRestocked = false;
+      let tillAdjusted = false;
+
+      // Only reverse inventory/till impact if the transaction previously counted as a completed sale
+      if (previousStatus === 'completed') {
+        // Restock inventory once (idempotent)
+        if (transaction.inventoryUpdated && !transaction.inventoryRestockedAt) {
+          try {
+            const mappedItems = (transaction.items || []).map((item) => ({
+              productId: item.productId || item.id,
+              qty: item.qty || item.quantity || 0,
+            }));
+
+            for (const item of mappedItems) {
+              if (!item.productId || !item.qty) continue;
+              await Product.findByIdAndUpdate(
+                item.productId,
+                { $inc: { quantity: Number(item.qty) } },
+                { new: true }
+              );
+            }
+
+            transaction.inventoryRestockedAt = new Date();
+            await transaction.save();
+            inventoryRestocked = true;
+          } catch (stockErr) {
+            console.warn('⚠️ Failed to restock inventory for refund:', stockErr.message);
+          }
+        }
+
+        // Reverse till totals if till is still open
+        if (transaction.tillId) {
+          try {
+            const till = await Till.findById(transaction.tillId);
+            if (till && till.status === 'OPEN') {
+              till.transactions = (till.transactions || []).filter(
+                (txId) => String(txId) !== String(transaction._id)
+              );
+              till.transactionCount = till.transactions.length;
+              till.totalSales = Math.max(
+                0,
+                Number(till.totalSales || 0) - Number(transaction.total || 0)
+              );
+
+              if (!(till.tenderBreakdown instanceof Map)) {
+                till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
+              }
+
+              const subtractTenderAmount = (tenderName, amount) => {
+                const key = tenderName || 'CASH';
+                const current = Number(till.tenderBreakdown.get(key) || 0);
+                const next = Math.max(0, current - Number(amount || 0));
+                till.tenderBreakdown.set(key, next);
+              };
+
+              if (Array.isArray(transaction.tenderPayments) && transaction.tenderPayments.length > 0) {
+                transaction.tenderPayments.forEach((payment) => {
+                  subtractTenderAmount(payment?.tenderName, payment?.amount);
+                });
+              } else {
+                subtractTenderAmount(transaction.tenderType || 'CASH', transaction.total);
+              }
+
+              till.markModified('tenderBreakdown');
+              await till.save();
+              tillAdjusted = true;
+            }
+          } catch (tillErr) {
+            console.warn('⚠️ Failed to adjust till on refund:', tillErr.message);
+          }
+        }
+      }
+
       return res.status(200).json({
         success: true,
         message: 'Transaction refunded successfully',
         transactionId: transaction._id,
-        refundStatus: 'deleted',
+        refundStatus: 'refunded',
+        inventoryRestocked,
+        tillAdjusted,
         transaction: {
           id: transaction._id,
           status: 'refunded',

@@ -87,7 +87,7 @@ export default function PaymentPanel() {
         total: totals.total,
         subtotal: totals.subtotal,
         tax: totals.tax,
-        discount: activeCart.discountPercent || 0,
+        discount: totals.discountAmount || 0,
         amountPaid: paymentDetails.amountPaid,
         change: paymentDetails.change,
         tenderType: paymentDetails.tenderType,

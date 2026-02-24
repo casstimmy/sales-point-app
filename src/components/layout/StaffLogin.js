@@ -456,7 +456,7 @@ export default function StaffLogin() {
     };
 
     fetchData();
-  }, [loadCachedData, refreshPendingTillCloseIds, setCachedTenders]);
+  }, [loadCachedData, refreshPendingTillCloseIds, setCachedTenders, getPendingTillCloseIds]);
 
   /* Refresh staff/locations data when coming online */
   useEffect(() => {

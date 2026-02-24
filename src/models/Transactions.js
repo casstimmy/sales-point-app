@@ -25,6 +25,8 @@ const TransactionSchema = new mongoose.Schema({
 
   // Inventory update guard (prevents duplicate stock decrements)
   inventoryUpdated: { type: Boolean, default: false },
+  // Refund restock guard (prevents duplicate stock increments on refund)
+  inventoryRestockedAt: { type: Date, default: null },
   // PAYMENT HANDLING: Support both single tenderType (legacy) and split payments (new)
   // Single tender (legacy, for backwards compatibility)
   tenderType: String, // Payment method: CASH, HYDROGEN POS, ACCESS POS, etc.
@@ -39,6 +41,8 @@ const TransactionSchema = new mongoose.Schema({
   
   // Transaction amounts
   amountPaid: Number, // Total amount paid (sum of all tenderPayments if split, or amount for single tender)
+  subtotal: Number,
+  tax: Number,
   total: Number,
   change: Number,
   discount: Number,

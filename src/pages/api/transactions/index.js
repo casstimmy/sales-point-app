@@ -60,7 +60,10 @@ export default async function handler(req, res) {
     // Determine which payment method is being used
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
-    const isHeldTransaction = status === 'held'; // Held transactions don't require payment info
+    const rawStatus = String(status || 'completed').toLowerCase();
+    const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
+    const isHeldTransaction = normalizedStatus === 'held'; // Held transactions don't require payment info
+    const isCompletedTransaction = normalizedStatus === 'completed';
     
     console.log(`📦 Processing transaction - till: ${tillId}, amount: ${total}, status: ${status}`);
     if (hasMultiplePayments) {
@@ -118,12 +121,13 @@ export default async function handler(req, res) {
         total: Number(total || 0),
         amountPaid: Number(amountPaid || total || 0),
         change: Number(change || 0),
-        tenderType: tenderType || null,
+        tenderType: hasMultiplePayments ? null : (tenderType || null),
         tenderPayments: normalizedPayments,
         staffId: staffId ? String(staffId) : null,
         location: location || null,
         tillId: tillId ? String(tillId) : null,
         createdAt: roundedCreatedAt,
+        status: normalizedStatus,
       };
       return crypto.createHash('sha1').update(JSON.stringify(base)).digest('hex');
     };
@@ -176,10 +180,10 @@ export default async function handler(req, res) {
 
     // Map items to schema format (qty, salePriceIncTax)
     const mappedItems = items.map(item => ({
-      productId: item.productId,
+      productId: item.productId || item.id,
       name: item.name,
-      salePriceIncTax: item.price,
-      qty: item.quantity,
+      salePriceIncTax: item.price || item.salePriceIncTax || 0,
+      qty: item.quantity || item.qty || 0,
     }));
 
     // Create transaction record in database
@@ -191,6 +195,8 @@ export default async function handler(req, res) {
       ...(hasMultiplePayments && { tenderPayments }),
       
       amountPaid: amountPaid || total,
+      subtotal: subtotal || total - tax,
+      tax: tax || 0,
       total: total,
       staff: staffId || null,
       staffName: staffName || 'Unknown', // Store staff name for quick lookup
@@ -199,7 +205,7 @@ export default async function handler(req, res) {
       tableName: tableName,
       discount: discount || 0,
       customerName: customerName,
-      status: status,
+      status: normalizedStatus,
       change: change || 0,
       items: mappedItems,
       transactionType: 'pos',
@@ -212,8 +218,8 @@ export default async function handler(req, res) {
     
     console.log('✅ Transaction saved:', savedTransaction._id);
 
-    // Link transaction to till if provided
-    if (tillId) {
+    // Link transaction to till only for completed sales
+    if (tillId && isCompletedTransaction) {
       try {
         console.log(`🔍 Looking for till: ${tillId}`);
         const till = await Till.findById(tillId);
@@ -224,15 +230,17 @@ export default async function handler(req, res) {
           console.log(`   Till Current Sales: ${till.totalSales}`);
           console.log(`   Transaction amount: ${total}`);
           
-          till.transactions.push(savedTransaction._id);
-          till.totalSales = (till.totalSales || 0) + total;
+          if (!till.transactions.some((txId) => String(txId) === String(savedTransaction._id))) {
+            till.transactions.push(savedTransaction._id);
+          }
+          till.totalSales = (till.totalSales || 0) + Number(total || 0);
           // DO NOT manually increment transactionCount - it should always equal transactions.length
           till.transactionCount = till.transactions.length;
           
           // Ensure tenderBreakdown is initialized
-          if (!till.tenderBreakdown) {
+          if (!(till.tenderBreakdown instanceof Map)) {
             console.log(`   Initializing tenderBreakdown as Map`);
-            till.tenderBreakdown = new Map();
+            till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
           }
           
           // Update tender breakdown based on payment method
@@ -242,14 +250,14 @@ export default async function handler(req, res) {
             tenderPayments.forEach(payment => {
               const currentAmount = till.tenderBreakdown.get(payment.tenderName) || 0;
               console.log(`      ${payment.tenderName}: +${payment.amount} (was ${currentAmount})`);
-              till.tenderBreakdown.set(payment.tenderName, currentAmount + payment.amount);
+              till.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
             });
           } else {
             // Handle single tender (legacy)
             const tenderKey = tenderType || 'CASH';
             const currentAmount = till.tenderBreakdown.get(tenderKey) || 0;
-            console.log(`   Setting ${tenderKey} from ${currentAmount} to ${currentAmount + total}`);
-            till.tenderBreakdown.set(tenderKey, currentAmount + total);
+            console.log(`   Setting ${tenderKey} from ${currentAmount} to ${currentAmount + Number(total || 0)}`);
+            till.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
           }
           
           // Mark the field as modified so Mongoose knows to save it
@@ -266,11 +274,13 @@ export default async function handler(req, res) {
         console.error('   Error details:', tillErr);
         // Don't fail the transaction if till link fails
       }
+    } else if (tillId && !isCompletedTransaction) {
+      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     } else {
       console.log('ℹ️ No till ID provided, transaction not linked to any till');
     }
     // Update product quantities after successful transaction save (idempotent)
-    if (!savedTransaction.inventoryUpdated && savedTransaction.status === 'completed') {
+    if (!savedTransaction.inventoryUpdated && isCompletedTransaction) {
       try {
         console.log('📦 Updating product quantities for items:', mappedItems);
         for (const item of mappedItems) {
