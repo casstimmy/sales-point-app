@@ -52,6 +52,89 @@ const CATEGORY_ICONS = {
   'Wine': faWineGlass,
 };
 
+const CATEGORY_ICON_BY_KEY = {
+  bakery: faBreadSlice,
+  bread: faBreadSlice,
+  drinks: faWineGlass,
+  drink: faWineGlass,
+  beverage: faWineGlass,
+  beverages: faWineGlass,
+  food: faUtensils,
+  hotel: faBook,
+  wine: faWineGlass,
+  wines: faWineGlass,
+  baby: faBaby,
+  babies: faBaby,
+  cookie: faCookie,
+  cookies: faCookie,
+  cleaning: faSpray,
+  beauty: faLipstick,
+  frozen: faSnowflake,
+  clothing: faShirt,
+  fashion: faShirt,
+  natural: faLeaf,
+  books: faBook,
+};
+
+const normalizeIconToken = (value) =>
+  String(value || '')
+    .toLowerCase()
+    .replace(/^fa[srlbd]?[-_]/, '')
+    .replace(/[\s_-]+/g, '')
+    .trim();
+
+const getCategoryPropertyValue = (category, keys = []) => {
+  if (!Array.isArray(category?.properties)) return null;
+  const normalizedKeys = keys.map((key) => normalizeIconToken(key));
+  for (const prop of category.properties) {
+    if (!prop || typeof prop !== 'object') continue;
+    const propKey = normalizeIconToken(prop.name || prop.key || prop.label);
+    if (!normalizedKeys.includes(propKey)) continue;
+    if (typeof prop.value === 'string' && prop.value.trim()) return prop.value.trim();
+    if (typeof prop.val === 'string' && prop.val.trim()) return prop.val.trim();
+    if (typeof prop.text === 'string' && prop.text.trim()) return prop.text.trim();
+    if (typeof prop.url === 'string' && prop.url.trim()) return prop.url.trim();
+    if (Array.isArray(prop.values) && prop.values.length > 0) {
+      const firstValue = prop.values[0];
+      if (typeof firstValue === 'string' && firstValue.trim()) return firstValue.trim();
+    }
+  }
+  return null;
+};
+
+const getCategoryImageUrl = (category) => {
+  const firstImage = Array.isArray(category?.images) && category.images.length > 0
+    ? category.images[0]
+    : null;
+
+  const candidates = [
+    firstImage?.thumb,
+    firstImage?.full,
+    firstImage?.url,
+    category?.image,
+    category?.imageUrl,
+    category?.thumbnail,
+    getCategoryPropertyValue(category, ['image', 'imageUrl', 'thumbnail', 'iconImage', 'iconUrl']),
+  ];
+
+  const valid = candidates.find((url) => typeof url === 'string' && url.trim().length > 0);
+  return valid ? valid.trim() : null;
+};
+
+const getCategoryIcon = (category) => {
+  const configuredIcon = category?.icon
+    || category?.iconName
+    || getCategoryPropertyValue(category, ['icon', 'iconName']);
+
+  const configuredKey = normalizeIconToken(configuredIcon);
+  if (configuredKey && CATEGORY_ICON_BY_KEY[configuredKey]) {
+    return CATEGORY_ICON_BY_KEY[configuredKey];
+  }
+
+  const nameKey = normalizeIconToken(category?.name);
+  return CATEGORY_ICON_BY_KEY[nameKey] || CATEGORY_ICONS[category?.name] || faBook;
+};
+
 // Default categories to show if API fails and no cache exists
 const DEFAULT_CATEGORIES = [
   { _id: '1', name: 'Bakery' },
@@ -74,6 +157,7 @@ export default function MenuScreen() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [loadingImages, setLoadingImages] = useState({}); // Track loading state for each product image
   const [failedImages, setFailedImages] = useState(new Set()); // Track failed images
+  const [failedCategoryImages, setFailedCategoryImages] = useState(new Set()); // Track failed category images
   const [error, setError] = useState(null); // Track errors for data fetching
   const [isOnline, setIsOnline] = useState(true); // Track online status
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
@@ -703,12 +787,15 @@ export default function MenuScreen() {
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-1.5 sm:gap-3 auto-rows-max">
               {categories.map(category => {
+                const categoryKey = String(category._id || category.id || category.name);
                 const color = CATEGORY_COLORS[category.name] || 'from-neutral-500 to-neutral-600';
-                const icon = CATEGORY_ICONS[category.name] || faBook;
+                const icon = getCategoryIcon(category);
+                const categoryImage = getCategoryImageUrl(category);
+                const useCategoryImage = Boolean(categoryImage) && !failedCategoryImages.has(categoryKey);
                 
                 return (
                   <button
-                    key={category._id || category.id}
+                    key={categoryKey}
                     onClick={() => {
                       setSelectedCategory(category);
                       setAppliedSearch('');
@@ -718,12 +805,30 @@ export default function MenuScreen() {
                       selectedCategory?._id === category._id || selectedCategory?.id === category.id ? 'ring-4 ring-primary-500' : ''
                     }`}
                   >
-                    {/* Background Gradient */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-90`} />
+                    {useCategoryImage ? (
+                      <>
+                        <Image
+                          src={categoryImage}
+                          alt={category.name}
+                          fill
+                          sizes="220px"
+                          className="object-cover"
+                          unoptimized
+                          onError={() => {
+                            setFailedCategoryImages((prev) => new Set([...prev, categoryKey]));
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/40 to-black/20" />
+                      </>
+                    ) : (
+                      <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-90`} />
+                    )}
 
                     {/* Content */}
                     <div className="relative h-full flex flex-col items-center justify-center text-white text-center p-2 sm:p-3">
-                      <FontAwesomeIcon icon={icon} className="w-6 h-6 sm:w-8 sm:h-8 mb-1.5 sm:mb-2" />
+                      {!useCategoryImage && (
+                        <FontAwesomeIcon icon={icon} className="w-6 h-6 sm:w-8 sm:h-8 mb-1.5 sm:mb-2" />
+                      )}
                       <div className="text-sm sm:text-base font-bold leading-tight line-clamp-2">{category.name}</div>
                     </div>
                   </button>
