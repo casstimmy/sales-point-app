@@ -1216,13 +1216,13 @@ export default function StaffLogin() {
             {/* 0 and Backspace */}
             <button
               onClick={() => handlePinClick("0")}
-              className="col-span-2 h-12 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
+              className="col-span-2 h-12 bg-cyan-800 border border-cyan-500/60 shadow-md backdrop-blur-sm hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
-              className="h-12 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
+              className="h-12 bg-cyan-800 border border-cyan-500/60 shadow-md backdrop-blur-sm hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
             >
               ⌫
             </button>
@@ -1239,7 +1239,7 @@ export default function StaffLogin() {
           <button
             onClick={handleLogin}
             disabled={loading || pin.length !== 4 || !selectedStore || !selectedLocation || !selectedStaff}
-            className={`w-full max-w-xs py-3 font-bold text-base rounded-lg transition ${
+            className={`w-full max-w-xs py-3 font-bold text-base border border-cyan-500/60 shadow-md backdrop-blur-sm rounded-lg transition ${
               pin.length === 4 && selectedStore && selectedLocation && selectedStaff && !loading
                 ? "bg-cyan-400 hover:bg-cyan-300 text-cyan-900"
                 : "bg-gray-400 text-gray-600 cursor-not-allowed"
@@ -1250,7 +1250,7 @@ export default function StaffLogin() {
 
           {/* Info Text */}
           <p className="text-white/60 text-xs mt-3 text-center">
-            Enter 4-digit passcode and select a location to continue
+            Enter 4-digit passcode and select a Staff & Location to continue
           </p>
           </div>
         </div>
