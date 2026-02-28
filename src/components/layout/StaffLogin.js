@@ -48,6 +48,7 @@ export default function StaffLogin() {
   const [activeTills, setActiveTills] = useState([]); // Track active open tills by location
   const [pendingTillCloseIds, setPendingTillCloseIds] = useState([]);
   const [syncingPendingCloses, setSyncingPendingCloses] = useState(false);
+    const [loginAttempts, setLoginAttempts] = useState(0);
 
   const runWithTimeout = async (promise, ms = 8000) => {
     let timeoutId;
