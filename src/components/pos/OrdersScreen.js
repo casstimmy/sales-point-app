@@ -175,7 +175,7 @@ export default function OrdersScreen() {
         }
 
         const data = await response.json();
-        alert(`Transaction marked as ${data.refundStatus}`);
+        alert(`Transaction marked as ${data.refundStatus}${data.subStatus ? ` (${data.subStatus})` : ''}`);
         
         // Refresh completed transactions
         await fetchCompletedTransactions();
@@ -267,7 +267,8 @@ export default function OrdersScreen() {
           subtotal: tx.subtotal || 0,
           tax: tx.tax || 0,
           discount: tx.discount || 0,
-          status: 'COMPLETE',
+          status: tx.status || 'completed',
+          subStatus: tx.subStatus || null,
           items: tx.items || [],
           amountPaid: tx.amountPaid || tx.total,
           change: tx.change || 0,
@@ -556,6 +557,13 @@ export default function OrdersScreen() {
                 <span className="text-gray-600 text-sm">Payment</span>
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.tenderType || 'N/A'}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600 text-sm">Status</span>
+                <span className="font-semibold text-gray-800 text-sm">
+                  {(detailOrder.status || 'completed').toString().toUpperCase()}
+                  {detailOrder.subStatus ? ` (${detailOrder.subStatus})` : ''}
+                </span>
+              </div>
             </div>
 
             {/* Items List */}
@@ -673,7 +681,7 @@ export default function OrdersScreen() {
               </div>
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-800">
-                  <strong>Process Refund:</strong> Mark transaction as &quot;deleted&quot; and void
+                  <strong>Process Refund:</strong> Mark transaction as &quot;refund&quot; with sub-status &quot;void&quot;
                 </p>
               </div>
 

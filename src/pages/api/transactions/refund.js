@@ -3,7 +3,7 @@
  * 
  * Processes refund requests for completed transactions
  * - Allows admin, manager, senior staff to refund transactions
- * - Marks transaction as 'deleted' in database
+ * - Marks transaction as refunded (subStatus: void) in database
  * - Optionally updates product quantities back (reverses the sale)
  */
 
@@ -64,9 +64,10 @@ export default async function handler(req, res) {
 
       const previousStatus = transaction.status;
 
-      // Update transaction status to refunded
-      transaction.status = 'refunded';
-      transaction.refundReason = refundReason || 'Refunded by staff';
+	      // Update transaction status to refunded/void
+	      transaction.status = 'refunded';
+	      transaction.subStatus = 'void';
+	      transaction.refundReason = refundReason || 'Refunded by staff';
       transaction.refundBy = staffId;
       transaction.refundedAt = new Date();
       transaction.updatedAt = new Date();
@@ -148,19 +149,21 @@ export default async function handler(req, res) {
         }
       }
 
-      return res.status(200).json({
-        success: true,
-        message: 'Transaction refunded successfully',
-        transactionId: transaction._id,
-        refundStatus: 'refunded',
-        inventoryRestocked,
-        tillAdjusted,
-        transaction: {
-          id: transaction._id,
-          status: 'refunded',
-          refundedAt: transaction.refundedAt,
-        }
-      });
+	      return res.status(200).json({
+	        success: true,
+	        message: 'Transaction refunded successfully',
+	        transactionId: transaction._id,
+	        refundStatus: 'refund',
+	        subStatus: 'void',
+	        inventoryRestocked,
+	        tillAdjusted,
+	        transaction: {
+	          id: transaction._id,
+	          status: 'refund',
+	          subStatus: 'void',
+	          refundedAt: transaction.refundedAt,
+	        }
+	      });
     } else if (action === 'recall') {
       // Just fetch and return transaction data (for recalling to cart)
       const transaction = await Transaction.findById(transactionId);

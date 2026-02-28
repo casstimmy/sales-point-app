@@ -72,6 +72,11 @@ const TransactionSchema = new mongoose.Schema({
     enum: ["held", "completed", "refunded"], 
     default: "completed" 
   },
+  subStatus: {
+    type: String,
+    enum: ["edited", "void", null],
+    default: null,
+  },
   
   // Items purchased
   items: {

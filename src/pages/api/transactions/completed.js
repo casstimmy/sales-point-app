@@ -88,7 +88,8 @@ export default async function handler(req, res) {
       tenderType: tx.tenderType, // Legacy single tender
       tenderPayments: tx.tenderPayments, // New split payments
       items: tx.items || [],
-      status: 'completed',
+      status: tx.status || 'completed',
+      subStatus: tx.subStatus || null,
       device: tx.device || 'POS',
       transactionType: tx.transactionType || 'pos',
     }));

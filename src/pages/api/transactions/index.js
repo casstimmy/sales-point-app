@@ -20,6 +20,40 @@ const normalizeLocationName = (location) => {
   return 'Main Store';
 };
 
+const toItemQtyMap = (items = []) => {
+  const map = new Map();
+  for (const item of items) {
+    const productId = String(item.productId || item.id || '');
+    const qty = Number(item.qty || item.quantity || 0);
+    if (!productId || !qty) continue;
+    map.set(productId, (map.get(productId) || 0) + qty);
+  }
+  return map;
+};
+
+const getTenderEntries = ({ tenderType, tenderPayments, total }) => {
+  if (Array.isArray(tenderPayments) && tenderPayments.length > 0) {
+    return tenderPayments.map((payment) => ({
+      name: payment?.tenderName || 'CASH',
+      amount: Number(payment?.amount || 0),
+    }));
+  }
+  return [{ name: tenderType || 'CASH', amount: Number(total || 0) }];
+};
+
+const applyTenderEntries = (till, entries = [], sign = 1) => {
+  if (!(till.tenderBreakdown instanceof Map)) {
+    till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
+  }
+  entries.forEach((entry) => {
+    const key = entry.name || 'CASH';
+    const currentAmount = Number(till.tenderBreakdown.get(key) || 0);
+    const next = Math.max(0, currentAmount + (sign * Number(entry.amount || 0)));
+    till.tenderBreakdown.set(key, next);
+  });
+  till.markModified('tenderBreakdown');
+};
+
 export default async function handler(req, res) {
   // Support GET for health check and POST for creating transactions
   if (req.method === 'GET') {
@@ -60,7 +94,9 @@ export default async function handler(req, res) {
       createdAt,
       status = 'completed',
       tillId, // Till session ID
-      externalId
+      externalId,
+      editTransactionId,
+      subStatus,
     } = req.body;
     
     // Normalize staff name and location for legacy/offline payloads
@@ -99,6 +135,128 @@ export default async function handler(req, res) {
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: total and (tenderType or tenderPayments) required',
+      });
+    }
+
+    // EDIT FLOW: update existing transaction (recall to cart) instead of creating a new one
+    if (editTransactionId) {
+      const existingTransaction = await Transaction.findById(editTransactionId);
+      if (!existingTransaction) {
+        return res.status(404).json({
+          success: false,
+          message: 'Original transaction not found for edit',
+        });
+      }
+
+      const mappedItems = items.map(item => ({
+        productId: item.productId || item.id,
+        name: item.name,
+        salePriceIncTax: item.price || item.salePriceIncTax || 0,
+        qty: item.quantity || item.qty || 0,
+      }));
+
+      const oldItemQtyMap = toItemQtyMap(existingTransaction.items || []);
+      const newItemQtyMap = toItemQtyMap(mappedItems || []);
+      const allProductIds = new Set([...oldItemQtyMap.keys(), ...newItemQtyMap.keys()]);
+
+      if (existingTransaction.inventoryUpdated) {
+        for (const productId of allProductIds) {
+          const oldQty = Number(oldItemQtyMap.get(productId) || 0);
+          const newQty = Number(newItemQtyMap.get(productId) || 0);
+          const delta = oldQty - newQty;
+          if (!delta) continue;
+          await Product.findByIdAndUpdate(productId, { $inc: { quantity: delta } }, { new: true });
+        }
+      }
+
+      const oldWasCompleted = existingTransaction.status === 'completed';
+      const newIsCompleted = normalizedStatus === 'completed';
+      const oldTillId = existingTransaction.tillId ? String(existingTransaction.tillId) : null;
+      const newTillId = tillId ? String(tillId) : oldTillId;
+      const oldTotal = Number(existingTransaction.total || 0);
+      const newTotal = Number(total || 0);
+      const oldTenderEntries = getTenderEntries({
+        tenderType: existingTransaction.tenderType,
+        tenderPayments: existingTransaction.tenderPayments,
+        total: oldTotal,
+      });
+      const newTenderEntries = getTenderEntries({
+        tenderType: hasSingleTender ? tenderType : null,
+        tenderPayments: hasMultiplePayments ? tenderPayments : [],
+        total: newTotal,
+      });
+
+      if (oldTillId) {
+        const oldTill = await Till.findById(oldTillId);
+        if (oldTill) {
+          if (oldWasCompleted && (!newIsCompleted || oldTillId !== newTillId)) {
+            oldTill.transactions = (oldTill.transactions || []).filter(
+              (txId) => String(txId) !== String(existingTransaction._id)
+            );
+            oldTill.totalSales = Math.max(0, Number(oldTill.totalSales || 0) - oldTotal);
+            applyTenderEntries(oldTill, oldTenderEntries, -1);
+          } else if (oldWasCompleted && newIsCompleted && oldTillId === newTillId) {
+            oldTill.totalSales = Math.max(0, Number(oldTill.totalSales || 0) + (newTotal - oldTotal));
+            applyTenderEntries(oldTill, oldTenderEntries, -1);
+            applyTenderEntries(oldTill, newTenderEntries, 1);
+          }
+          oldTill.transactionCount = (oldTill.transactions || []).length;
+          await oldTill.save();
+        }
+      }
+
+      if (newTillId && newTillId !== oldTillId && newIsCompleted) {
+        const newTill = await Till.findById(newTillId);
+        if (newTill) {
+          if (!(newTill.transactions || []).some((txId) => String(txId) === String(existingTransaction._id))) {
+            newTill.transactions.push(existingTransaction._id);
+          }
+          newTill.totalSales = Number(newTill.totalSales || 0) + newTotal;
+          applyTenderEntries(newTill, newTenderEntries, 1);
+          newTill.transactionCount = (newTill.transactions || []).length;
+          await newTill.save();
+        }
+      }
+
+      existingTransaction.items = mappedItems;
+      existingTransaction.total = newTotal;
+      existingTransaction.subtotal = subtotal || (newTotal - Number(tax || 0));
+      existingTransaction.tax = Number(tax || 0);
+      existingTransaction.discount = Number(discount || 0);
+      existingTransaction.amountPaid = amountPaid || newTotal;
+      existingTransaction.change = Number(change || 0);
+      existingTransaction.staff = staffId || existingTransaction.staff || null;
+      existingTransaction.staffName = staffName || existingTransaction.staffName || 'POS Staff';
+      existingTransaction.location = normalizedLocation;
+      existingTransaction.device = device || existingTransaction.device;
+      existingTransaction.tableName = tableName || existingTransaction.tableName;
+      existingTransaction.customerName = customerName || existingTransaction.customerName;
+      existingTransaction.status = normalizedStatus;
+      existingTransaction.subStatus = subStatus || 'edited';
+      existingTransaction.tillId = newTillId ? new (require('mongoose')).Types.ObjectId(newTillId) : existingTransaction.tillId;
+      existingTransaction.updatedAt = new Date();
+
+      if (hasMultiplePayments) {
+        existingTransaction.tenderPayments = tenderPayments;
+        existingTransaction.tenderType = undefined;
+      } else {
+        existingTransaction.tenderType = tenderType;
+        existingTransaction.tenderPayments = [];
+      }
+
+      await existingTransaction.save();
+
+      return res.status(200).json({
+        success: true,
+        message: 'Transaction edited successfully',
+        edited: true,
+        transactionId: existingTransaction._id,
+        transaction: {
+          id: existingTransaction._id,
+          status: existingTransaction.status,
+          subStatus: existingTransaction.subStatus,
+          total: existingTransaction.total,
+        },
       });
     }
 
@@ -208,6 +366,7 @@ export default async function handler(req, res) {
       discount: discount || 0,
       customerName: customerName,
       status: normalizedStatus,
+      subStatus: subStatus || null,
       change: change || 0,
       items: mappedItems,
       transactionType: 'pos',

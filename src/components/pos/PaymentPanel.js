@@ -74,6 +74,7 @@ export default function PaymentPanel() {
       }
 
       const clientId = `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const editTransactionId = activeCart.recallSourceTransactionId || null;
 
       const transaction = {
         items: activeCart.items.map((item) => ({
@@ -82,8 +83,8 @@ export default function PaymentPanel() {
           quantity: item.quantity,
           price: item.price,
         })),
-        externalId: clientId,
-        clientId,
+        ...(editTransactionId ? {} : { externalId: clientId, clientId }),
+        ...(editTransactionId ? { editTransactionId, subStatus: "edited" } : {}),
         total: totals.total,
         subtotal: totals.subtotal,
         tax: totals.tax,

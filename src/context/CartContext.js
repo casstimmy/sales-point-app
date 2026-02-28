@@ -32,6 +32,7 @@ const CartContext = createContext();
 
 const INITIAL_CART = {
   id: null, // null for new, UUID for existing
+  recallSourceTransactionId: null, // original completed transaction being edited via refund recall
   items: [], // [{ id, name, category, price, quantity, discount, notes }, ...]
   discountPercent: 0,
   discountAmount: 0,
@@ -436,6 +437,7 @@ export function CartProvider({ children }) {
       activeCart: {
         ...INITIAL_CART,
         id: transaction.id || transaction._id || null,
+        recallSourceTransactionId: transaction.id || transaction._id || null,
         items: mappedItems,
         discountPercent: transaction.discount || 0,
         subtotal: transaction.subtotal || 0,
