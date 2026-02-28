@@ -1178,9 +1178,9 @@ export default function StaffLogin() {
 
         {/* Right Side - PIN Entry */}
         <div className="w-2/5 bg-gradient-to-b from-cyan-700 to-cyan-800 p-4 flex items-center justify-center">
-          <div className="w-full max-w-sm bg-cyan-900/30 border border-cyan-500/60 rounded-2xl p-5 shadow-2xl backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-cyan-900/30 border border-cyan-500/60 rounded-2xl p-5 shadow-2xl backdrop-blur-sm flex flex-col items-center">
           {/* Title */}
-          <h2 className="text-white font-bold text-lg mb-4 tracking-wide">
+          <h2 className="text-white font-bold text-lg mb-4 tracking-wide text-center">
             PLEASE ENTER YOUR PASSCODE
           </h2>
 
@@ -1199,7 +1199,7 @@ export default function StaffLogin() {
           </div>
 
           {/* Separator Line */}
-          <div className="w-48 h-0.5 bg-white/30 mb-4"></div>
+          <div className="w-full max-w-xs h-0.5 bg-white/30 mb-4"></div>
 
           {/* Numeric Keypad */}
           <div className="grid grid-cols-3 gap-2 mb-4 w-full max-w-xs">
@@ -1207,7 +1207,7 @@ export default function StaffLogin() {
               <button
                 key={num}
                 onClick={() => handlePinClick(num.toString())}
-                className="py-3 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
+                className="h-12 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
               >
                 {num}
               </button>
@@ -1216,13 +1216,13 @@ export default function StaffLogin() {
             {/* 0 and Backspace */}
             <button
               onClick={() => handlePinClick("0")}
-              className="col-span-2 py-3 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
+              className="col-span-2 h-12 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-xl rounded-lg transition active:scale-95"
             >
               0
             </button>
             <button
               onClick={handleBackspace}
-              className="py-3 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
+              className="h-12 bg-cyan-800 hover:bg-cyan-600 text-white font-bold text-lg rounded-lg transition active:scale-95"
             >
               ⌫
             </button>
@@ -1250,7 +1250,7 @@ export default function StaffLogin() {
 
           {/* Info Text */}
           <p className="text-white/60 text-xs mt-3 text-center">
-            Enter 4-digit passcode and select a store to continue
+            Enter 4-digit passcode and select a location to continue
           </p>
           </div>
         </div>

@@ -281,7 +281,11 @@ export default function POSLayout({ children }) {
             <TopBar 
               onLogout={handleLogout}
               storeData={storeData}
-              staffData={staff}
+              staffData={{
+                ...staff,
+                location,
+                locationName: location?.name || staff?.locationName || null,
+              }}
               onToggleSidebar={toggleSidebar}
             />
 
