@@ -59,6 +59,44 @@ export default function StaffLogin() {
     return result;
   };
 
+  const openHelpChat = useCallback((topic = "login") => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(
+      new CustomEvent("help:open", {
+        detail: {
+          source: "staff-login",
+          topic,
+        },
+      })
+    );
+  }, []);
+
+  const getLoginErrorMessage = useCallback((statusCode, payload = {}) => {
+    const code = payload?.code;
+    if (code === "INVALID_CREDENTIALS") {
+      return "Incorrect passcode for selected staff. Please try again.";
+    }
+    if (code === "STAFF_NOT_FOUND") {
+      return "Selected staff account was not found. Refresh data and try again.";
+    }
+    if (code === "STAFF_INACTIVE") {
+      return "This staff account is inactive. Contact an admin.";
+    }
+    if (code === "LOCATION_NOT_FOUND") {
+      return "Selected location is unavailable. Refresh locations and retry.";
+    }
+    if (code === "LOCATION_INACTIVE") {
+      return "Selected location is inactive. Choose another location.";
+    }
+    if (code === "INVALID_PIN_FORMAT") {
+      return "Passcode must be exactly 4 digits.";
+    }
+    if (statusCode >= 500) {
+      return "Login service is unavailable. You can continue in offline mode if data is cached.";
+    }
+    return payload?.message || "Unable to log in. Please check your details and try again.";
+  }, []);
+
   /* Load cached staff and locations from localStorage */
   const loadCachedData = useCallback(() => {
     try {
@@ -575,10 +613,15 @@ export default function StaffLogin() {
         });
 
         console.log("📨 Login response status:", response.status);
-        const data = await response.json();
+        let data = {};
+        try {
+          data = await response.json();
+        } catch (parseError) {
+          data = {};
+        }
         console.log("📨 Login response data:", data);
 
-        if (response.ok) {
+        if (response.ok && data?.staff && data?.location) {
           console.log("✅ Login successful (ONLINE)!");
           console.log("📍 Staff:", data.staff?.name, "Location:", data.location?.name);
           
@@ -614,11 +657,17 @@ export default function StaffLogin() {
             setShowOpenTillModal(true);
           }
         } else {
-          console.error("❌ Login failed:", data.message);
+          console.error("Login failed:", data?.message || response.statusText);
           if (!navigator.onLine && await attemptOfflineLogin("Connection lost during login")) {
             return;
           }
-          setError(data.message || "Invalid passcode. Please try again.");
+          if (response.status >= 500 && await attemptOfflineLogin("Server unavailable")) {
+            return;
+          }
+          if (data?.code === "INVALID_CREDENTIALS") {
+            setPin("");
+          }
+          setError(getLoginErrorMessage(response.status, data));
         }
       } else {
         // OFFLINE MODE - Use cached staff and till data
@@ -633,11 +682,11 @@ export default function StaffLogin() {
         return;
       }
 
-      setError("Login failed. Please try again.");
+      setError("Login failed. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
-  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, login, setCurrentTill, router, attemptOfflineLogin]);
+  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, login, setCurrentTill, router, attemptOfflineLogin, getLoginErrorMessage]);
 
   const handlePinClick = (digit) => {
     if (pin.length < 4) {
@@ -829,9 +878,13 @@ export default function StaffLogin() {
             <FontAwesomeIcon icon={faX} className="w-3 h-3" />
             <span className="font-semibold text-sm">Offline mode</span>
           </div>
-          <a href="#" className="underline hover:text-red-100 text-sm">
-            Learn more →
-          </a>
+          <button
+            type="button"
+            onClick={() => openHelpChat("offline")}
+            className="underline hover:text-red-100 text-sm"
+          >
+            Learn more &gt;
+          </button>
         </div>
       )}
 
@@ -879,7 +932,11 @@ export default function StaffLogin() {
 
         {/* Right Buttons */}
         <div className="flex items-center gap-3">
-          <button className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openHelpChat("login")}
+            className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2"
+          >
             <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4" />
             HELP
           </button>
@@ -1113,7 +1170,8 @@ export default function StaffLogin() {
         <div className="w-0.5 bg-cyan-800"></div>
 
         {/* Right Side - PIN Entry */}
-        <div className="w-2/5 bg-cyan-700 p-4 flex flex-col justify-center items-center">
+        <div className="w-2/5 bg-gradient-to-b from-cyan-700 to-cyan-800 p-4 flex items-center justify-center">
+          <div className="w-full max-w-sm bg-cyan-900/30 border border-cyan-500/60 rounded-2xl p-5 shadow-2xl backdrop-blur-sm">
           {/* Title */}
           <h2 className="text-white font-bold text-lg mb-4 tracking-wide">
             PLEASE ENTER YOUR PASSCODE
@@ -1165,7 +1223,7 @@ export default function StaffLogin() {
 
           {/* Error Message */}
           {error && (
-            <div className="w-full max-w-xs mb-3 p-2 bg-red-600 text-white rounded-lg text-xs text-center font-semibold">
+            <div className="w-full max-w-xs mb-3 p-2.5 bg-red-600/95 text-white rounded-lg text-xs text-center font-semibold border border-red-400">
               {error}
             </div>
           )}
@@ -1187,6 +1245,7 @@ export default function StaffLogin() {
           <p className="text-white/60 text-xs mt-3 text-center">
             Enter 4-digit passcode and select a store to continue
           </p>
+          </div>
         </div>
       </div>
 

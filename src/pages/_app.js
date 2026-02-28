@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import Layout from "@/src/components/layout/Layout";
 import { StaffProvider } from "@/src/context/StaffContext";
 import POSErrorBoundary from "@/src/components/common/POSErrorBoundary";
+import { getUiSettings } from "@/src/lib/uiSettings";
 
 export default function App({ Component, pageProps }) {
   // Register service worker for offline support
@@ -18,6 +19,40 @@ export default function App({ Component, pageProps }) {
           console.error('❌ Service Worker registration failed:', error);
         });
     }
+  }, []);
+
+  useEffect(() => {
+    const applySystemZoom = (settings) => {
+      const rawZoom = Number(settings?.system?.zoom || 100);
+      const clampedZoom = Math.min(125, Math.max(80, rawZoom));
+      const zoomScale = clampedZoom / 100;
+
+      if (document?.documentElement) {
+        document.documentElement.style.zoom = String(zoomScale);
+      }
+    };
+
+    const applyFromStoredSettings = () => {
+      try {
+        applySystemZoom(getUiSettings());
+      } catch (err) {
+        applySystemZoom({ system: { zoom: 100 } });
+      }
+    };
+
+    const handleUiSettingsUpdate = (event) => {
+      applySystemZoom(event?.detail || getUiSettings());
+    };
+
+    applyFromStoredSettings();
+    window.addEventListener("uiSettings:updated", handleUiSettingsUpdate);
+
+    return () => {
+      window.removeEventListener("uiSettings:updated", handleUiSettingsUpdate);
+      if (document?.documentElement) {
+        document.documentElement.style.zoom = "1";
+      }
+    };
   }, []);
 
   return (

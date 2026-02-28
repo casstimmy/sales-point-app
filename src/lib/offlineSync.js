@@ -64,6 +64,47 @@ const openSalesPosDb = () =>
 let syncInterval = null;
 let isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
 
+const normalizeTransactionStatus = (status) => {
+  const raw = String(status || 'completed').toLowerCase();
+  if (raw === 'complete') return 'completed';
+  if (['completed', 'held', 'refunded'].includes(raw)) return raw;
+  return 'completed';
+};
+
+const normalizeLocationName = (location) => {
+  if (typeof location === 'string' && location.trim()) {
+    return location.trim();
+  }
+  if (location && typeof location === 'object') {
+    if (typeof location.name === 'string' && location.name.trim()) {
+      return location.name.trim();
+    }
+    if (typeof location.code === 'string' && location.code.trim()) {
+      return location.code.trim();
+    }
+  }
+  return 'Main Store';
+};
+
+const normalizeStaffName = (transaction = {}) => {
+  const directStaff = transaction.staffName;
+  if (typeof directStaff === 'string' && directStaff.trim() && directStaff !== 'Unknown') {
+    return directStaff.trim();
+  }
+
+  if (transaction.staffMember && typeof transaction.staffMember === 'object') {
+    if (typeof transaction.staffMember.name === 'string' && transaction.staffMember.name.trim()) {
+      return transaction.staffMember.name.trim();
+    }
+  }
+
+  if (typeof transaction.staffMember === 'string' && transaction.staffMember.trim()) {
+    return transaction.staffMember.trim();
+  }
+
+  return 'POS Staff';
+};
+
 async function ensureExternalIdsInTransactions() {
   try {
     const db = await openSalesPosDb();
@@ -161,10 +202,6 @@ export function getOnlineStatus() {
  */
 export async function saveTransactionOffline(transaction) {
   try {
-    if (!transaction?.staffName || !transaction?.location) {
-      throw new Error('Cannot save transaction without staff name and location');
-    }
-
     const baseId = transaction.externalId || transaction.clientId || transaction.id;
     const generatedId = baseId
       ? String(baseId)
@@ -180,6 +217,9 @@ export async function saveTransactionOffline(transaction) {
         ...transaction,
         externalId: transaction.externalId || generatedId,
         clientId: transaction.clientId || generatedId,
+        staffName: normalizeStaffName(transaction),
+        location: normalizeLocationName(transaction?.location),
+        status: normalizeTransactionStatus(transaction?.status),
         synced: false,
         syncedAt: null,
         attempts: 0,
@@ -287,19 +327,14 @@ export async function syncPendingTransactions() {
         const allTransactions = getAllRequest.result;
           
           // Filter out old invalid transactions and only get unsync'd ones
-          const transactions = allTransactions.filter(tx => {
-            // Skip if already synced
-            if (tx.synced) return false;
-            
-            // Skip if invalid status (old cart objects with 'COMPLETE' instead of 'completed')
-            const validStatuses = ['completed', 'held', 'refunded'];
-            if (tx.status && !validStatuses.includes(tx.status)) {
-              console.warn(`⚠️ Skipping transaction with invalid status: ${tx.status}`);
-              return false;
-            }
-            
-            return true;
-          });
+          const transactions = allTransactions
+            .filter((tx) => !tx.synced)
+            .map((tx) => ({
+              ...tx,
+              staffName: normalizeStaffName(tx),
+              location: normalizeLocationName(tx?.location),
+              status: normalizeTransactionStatus(tx?.status),
+            }));
 
           if (transactions.length === 0) {
             console.log('✅ All transactions synced');
@@ -315,12 +350,6 @@ export async function syncPendingTransactions() {
 
           for (const tx of transactions) {
             try {
-              if (!tx.staffName || !tx.location) {
-                failed++;
-                console.warn(`⚠️ Skipping transaction ${tx.id} - missing staffName or location`);
-                continue;
-              }
-
               if (tx.tillId && String(tx.tillId).startsWith('offline-till-')) {
                 const resolved = await resolveTillId(tx.tillId, tx);
                 if (!resolved) {
@@ -357,6 +386,9 @@ export async function syncPendingTransactions() {
               const payload = {
                 ...tx,
                 externalId: tx.externalId || tx.clientId || String(tx.id),
+                staffName: normalizeStaffName(tx),
+                location: normalizeLocationName(tx?.location),
+                status: normalizeTransactionStatus(tx?.status),
               };
               console.log(`📊 Syncing transaction:`, payload);
               const response = await fetch('/api/transactions', {
@@ -815,7 +847,7 @@ export async function getCompletedTransactions() {
         
         // Filter for completed transactions
         const completed = allTransactions.filter(tx => 
-          tx.status === 'completed' || tx.status === 'COMPLETE'
+          tx.status === 'completed' || tx.status === 'COMPLETE' || tx.status === 'complete'
         );
         
         console.log(`📋 Found ${completed.length} completed transactions in IndexedDB`);
@@ -877,5 +909,3 @@ export function getCachedCompletedTransactions() {
   }
   return [];
 }
-
-

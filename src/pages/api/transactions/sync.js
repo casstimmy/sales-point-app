@@ -10,6 +10,15 @@ import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
 
+const normalizeLocationName = (location) => {
+  if (typeof location === 'string' && location.trim()) return location.trim();
+  if (location && typeof location === 'object') {
+    if (typeof location.name === 'string' && location.name.trim()) return location.name.trim();
+    if (typeof location.code === 'string' && location.code.trim()) return location.code.trim();
+  }
+  return 'Main Store';
+};
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -17,7 +26,7 @@ export default async function handler(req, res) {
 
   try {
     await mongooseConnect();
-    console.log('📤 Transaction sync request received:', req.body);
+    console.log('ðŸ“¤ Transaction sync request received:', req.body);
 
     const { 
       id, 
@@ -28,6 +37,8 @@ export default async function handler(req, res) {
       tenderType,           // Legacy: single tender
       tenderPayments,       // New: split payments [{tenderId, tenderName, amount}]
       discount = 0,
+      amountPaid,
+      change,
       staffName, 
       staffId,
       location = 'Default Location',
@@ -41,10 +52,11 @@ export default async function handler(req, res) {
     // Determine which payment method is being used
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
-    const rawStatus = String(status || 'completed').toLowerCase();
+    const rawStatus = String(status || 'completed').trim().toLowerCase();
     const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
     const isHeldTransaction = normalizedStatus === 'held';
     const isCompletedTransaction = normalizedStatus === 'completed';
+    const normalizedLocation = normalizeLocationName(location);
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -66,7 +78,7 @@ export default async function handler(req, res) {
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
-        console.log(`âš ï¸ Duplicate sync transaction detected - externalId ${externalId}`);
+        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate sync transaction detected - externalId ${externalId}`);
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -84,7 +96,7 @@ export default async function handler(req, res) {
       });
       
       if (existingTransaction) {
-        console.log(`⚠️ Duplicate sync transaction detected - already exists as ${existingTransaction._id}`);
+        console.log(`âš ï¸ Duplicate sync transaction detected - already exists as ${existingTransaction._id}`);
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -111,9 +123,11 @@ export default async function handler(req, res) {
       total,
       ...(hasSingleTender && { tenderType }),
       ...(hasMultiplePayments && { tenderPayments }),
+      amountPaid: amountPaid || total,
+      change: Number(change || 0),
       ...(staffId && { staff: staffId }),
       staffName: staffName && staffName !== 'Unknown' ? staffName : 'POS Staff',
-      location,
+      location: normalizedLocation,
       status: normalizedStatus,
       ...(tillId && { tillId }),
       createdAt: createdAt ? new Date(createdAt) : new Date(),
@@ -123,12 +137,12 @@ export default async function handler(req, res) {
     });
 
     await transaction.save();
-    console.log('✅ Transaction synced successfully:', transaction._id);
+    console.log('âœ… Transaction synced successfully:', transaction._id);
 
     // Link transaction to till only for completed sales
     if (tillId && isCompletedTransaction) {
       try {
-        console.log(`🔗 Linking synced transaction to till: ${tillId}`);
+        console.log(`ðŸ”— Linking synced transaction to till: ${tillId}`);
         const till = await Till.findById(tillId);
 
         if (till) {
@@ -154,20 +168,20 @@ export default async function handler(req, res) {
           }
           till.markModified('tenderBreakdown');
           await till.save();
-          console.log(`✅ Synced transaction linked to till - Till now has ${till.transactions.length} transactions, total sales: ${till.totalSales}`);
+          console.log(`âœ… Synced transaction linked to till - Till now has ${till.transactions.length} transactions, total sales: ${till.totalSales}`);
         } else {
-          console.warn(`⚠️ Till ${tillId} not found - synced transaction not linked`);
+          console.warn(`âš ï¸ Till ${tillId} not found - synced transaction not linked`);
         }
       } catch (linkError) {
-        console.error(`❌ Error linking synced transaction to till:`, linkError);
+        console.error(`âŒ Error linking synced transaction to till:`, linkError);
       }
     } else if (tillId && !isCompletedTransaction) {
-      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
+      console.log(`â„¹ï¸ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     }
     // Update product quantities after successful transaction sync (idempotent)
     if (!transaction.inventoryUpdated && isCompletedTransaction) {
       try {
-        console.log('📦 Updating product quantities for synced items:', mappedItems);
+        console.log('ðŸ“¦ Updating product quantities for synced items:', mappedItems);
         for (const item of mappedItems) {
           if (!item.productId || !item.qty) continue;
           const productResult = await Product.findByIdAndUpdate(
@@ -176,13 +190,13 @@ export default async function handler(req, res) {
             { new: true }
           );
           if (productResult) {
-            console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+            console.log(`âœ… Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
           }
         }
         transaction.inventoryUpdated = true;
         await transaction.save();
       } catch (quantityErr) {
-        console.warn('⚠️ Warning: Failed to update product quantities from sync:', quantityErr.message);
+        console.warn('âš ï¸ Warning: Failed to update product quantities from sync:', quantityErr.message);
         // Don't fail the transaction if quantity update fails
       }
     }
@@ -194,14 +208,14 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     if (err?.code === 11000 && (err?.keyPattern?.externalId || err?.keyPattern?.dedupeKey)) {
-      console.warn('⚠️ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId || err.keyValue?.dedupeKey);
+      console.warn('âš ï¸ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId || err.keyValue?.dedupeKey);
       return res.status(200).json({
         success: true,
         message: 'Transaction already exists (duplicate prevented)',
         duplicate: true,
       });
     }
-    console.error('❌ Transaction sync error:', err);
+    console.error('âŒ Transaction sync error:', err);
     return res.status(500).json({
       success: false,
       message: 'Failed to sync transaction',
@@ -209,5 +223,7 @@ export default async function handler(req, res) {
     });
   }
 }
+
+
 
 

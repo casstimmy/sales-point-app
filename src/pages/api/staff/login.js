@@ -3,122 +3,164 @@ import { Staff } from "@/src/models/Staff";
 import Store from "@/src/models/Store";
 import bcrypt from "bcryptjs";
 
+const sendError = (res, status, code, message, details = {}) =>
+  res.status(status).json({
+    success: false,
+    code,
+    message,
+    ...details,
+  });
+
+const normalizePin = (value) => String(value || "").trim();
+
+const findLocation = (locations = [], requestedLocation) => {
+  if (!requestedLocation || !Array.isArray(locations)) return null;
+  const requested = String(requestedLocation).trim();
+  const requestedLower = requested.toLowerCase();
+
+  return locations.find((loc) => {
+    const idMatch = loc?._id?.toString() === requested;
+    const nameMatch = String(loc?.name || "").toLowerCase() === requestedLower;
+    const codeMatch = String(loc?.code || "").toLowerCase() === requestedLower;
+    return idMatch || nameMatch || codeMatch;
+  });
+};
+
+const verifyPin = async (staffMember, pin) => {
+  if (!staffMember) return false;
+
+  let isPinCorrect = false;
+
+  if (staffMember.password) {
+    try {
+      isPinCorrect = await bcrypt.compare(pin, staffMember.password);
+    } catch (err) {
+      // Legacy/plain values can throw in compare. Ignore and fallback.
+    }
+  }
+
+  if (!isPinCorrect && staffMember.pin) {
+    try {
+      isPinCorrect = await bcrypt.compare(pin, staffMember.pin);
+    } catch (err) {
+      // Legacy/plain values can throw in compare. Ignore and fallback.
+    }
+  }
+
+  if (!isPinCorrect) {
+    isPinCorrect = pin === staffMember.pin || pin === staffMember.password;
+  }
+
+  return isPinCorrect;
+};
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
+    return sendError(res, 405, "METHOD_NOT_ALLOWED", "Method not allowed");
   }
 
-  // Handle both old format (staff, pin, location) and new format (store, location, staff, pin)
-  let { staff: staffId, pin, location, store, staff: newStaffId } = req.body;
-  
-  // Support new format from StaffLogin component
-  staffId = newStaffId || staffId;
+  const payload = req.body || {};
+  const staffId = payload.newStaffId || payload.staffId || payload.staff;
+  const pin = normalizePin(payload.pin);
+  const requestedLocation = payload.location;
 
   if (!staffId || !pin) {
-    return res.status(400).json({
-      message: "Staff ID and PIN are required",
-    });
+    return sendError(
+      res,
+      400,
+      "VALIDATION_ERROR",
+      "Staff and 4-digit passcode are required."
+    );
   }
 
-  // PIN must be 4 digits
-  if (pin.length !== 4 || isNaN(pin)) {
-    return res.status(400).json({
-      message: "PIN must be 4 digits",
-    });
+  if (!/^\d{4}$/.test(pin)) {
+    return sendError(
+      res,
+      400,
+      "INVALID_PIN_FORMAT",
+      "Passcode must be exactly 4 digits."
+    );
   }
 
   try {
     await mongooseConnect();
 
-    // Fetch staff member
     const staffMember = await Staff.findById(staffId).lean();
-
     if (!staffMember) {
-      return res.status(401).json({ message: "Staff member not found" });
+      return sendError(
+        res,
+        401,
+        "STAFF_NOT_FOUND",
+        "Selected staff account was not found."
+      );
     }
 
-    if (!staffMember.isActive) {
-      return res.status(401).json({ message: "Staff account is inactive" });
+    if (staffMember.isActive === false) {
+      return sendError(
+        res,
+        403,
+        "STAFF_INACTIVE",
+        "This staff account is inactive. Contact an admin."
+      );
     }
 
-    // Check PIN - try both password and pin fields
-    let isPinCorrect = false;
-    
-    if (staffMember.password) {
-      try {
-        isPinCorrect = await bcrypt.compare(pin, staffMember.password);
-      } catch (err) {
-        console.error("Password hash comparison failed:", err.message);
-      }
-    }
-
-    // Also try the pin field if password check failed
-    if (!isPinCorrect && staffMember.pin) {
-      try {
-        isPinCorrect = await bcrypt.compare(pin, staffMember.pin);
-      } catch (err) {
-        console.error("PIN field comparison failed:", err.message);
-      }
-    }
-
-    // If bcrypt comparison fails, try plain text comparison (for testing)
+    const isPinCorrect = await verifyPin(staffMember, pin);
     if (!isPinCorrect) {
-      isPinCorrect = pin === staffMember.pin || pin === staffMember.password;
+      return sendError(
+        res,
+        401,
+        "INVALID_CREDENTIALS",
+        "Incorrect passcode for selected staff."
+      );
     }
 
-    if (!isPinCorrect) {
-      return res.status(401).json({ message: "Invalid PIN" });
-    }
-
-    // Fetch store information
-    const storeData = await Store.findOne({});  // Empty query to get first document
+    const storeData = await Store.findOne({});
     const storeObj = storeData ? (storeData.toObject ? storeData.toObject() : storeData) : null;
-    let locationData = null;
-    let storeName = "Default Store";
-    
-    console.log("🔍 Login: Searching for location...");
-    console.log("   Location ID from request:", location);
-    console.log("   Store exists:", !!storeObj);
-    console.log("   Store locations count:", storeObj?.locations?.length || 0);
-    
-    if (storeObj) {
-      storeName = storeObj.storeName || storeObj.companyName || "Default Store";
-      
-      // Find location by ID if provided
-      if (location && storeObj.locations && Array.isArray(storeObj.locations)) {
-        console.log("   Available location IDs:", storeObj.locations.map(l => ({
-          _id: l._id?.toString(),
-          name: l.name,
-        })));
-        
-        locationData = storeObj.locations.find(
-          (l) => {
-            const idMatch = l._id?.toString() === location?.toString();
-            const nameMatch = l.name === location;
-            console.log(`   Checking location "${l.name}": ID match=${idMatch}, Name match=${nameMatch}`);
-            return idMatch || nameMatch;
-          }
-        );
-        
-        if (locationData) {
-          console.log(`✅ Found location: "${locationData.name}"`);
-        } else {
-          console.log(`❌ Location not found with ID/name: ${location}`);
+    const allLocations = Array.isArray(storeObj?.locations) ? storeObj.locations : [];
+    const activeLocations = allLocations.filter((loc) => loc?.isActive !== false);
+
+    let locationData = findLocation(allLocations, requestedLocation);
+
+    if (requestedLocation && !locationData) {
+      return sendError(
+        res,
+        404,
+        "LOCATION_NOT_FOUND",
+        "Selected location is not available. Refresh and try again.",
+        {
+          availableLocations: activeLocations.map((loc) => ({
+            _id: loc?._id?.toString(),
+            name: loc?.name,
+          })),
         }
-      } else if (storeObj.locations && storeObj.locations.length > 0) {
-        // Use first location if none specified
-        locationData = storeObj.locations[0];
-        console.log(`✅ Using first location: "${locationData.name}"`);
-      }
+      );
     }
 
-    // Ensure location data is always returned properly
+    if (!locationData) {
+      locationData = activeLocations[0] || allLocations[0] || null;
+    }
+
+    if (locationData && locationData.isActive === false) {
+      return sendError(
+        res,
+        403,
+        "LOCATION_INACTIVE",
+        "Selected location is inactive."
+      );
+    }
+
     const finalLocationData = locationData || {
-      _id: location || "default",
+      _id: requestedLocation || "default",
       name: "Main Store",
+      address: "",
+      phone: "",
+      email: "",
     };
 
-    const responseData = {
+    const storeName = storeObj?.storeName || storeObj?.companyName || "Default Store";
+
+    return res.status(200).json({
+      success: true,
       message: "Login successful",
       staff: {
         _id: staffMember._id,
@@ -127,9 +169,10 @@ export default async function handler(req, res) {
         role: staffMember.role,
         locationId: finalLocationData?._id,
         locationName: finalLocationData?.name || staffMember.locationName || "Main Store",
+        storeId: storeObj?._id?.toString() || null,
       },
       store: {
-        _id: storeObj?._id,
+        _id: storeObj?._id || null,
         name: storeName,
       },
       location: {
@@ -139,20 +182,14 @@ export default async function handler(req, res) {
         phone: finalLocationData?.phone || "",
         email: finalLocationData?.email || "",
       },
-    };
-
-    console.log("✅ Login response prepared:", {
-      staff: responseData.staff.name,
-      location: responseData.location?.name,
-      locationId: responseData.location?._id?.toString(),
     });
-
-    return res.status(200).json(responseData);
   } catch (error) {
     console.error("Login error:", error);
-    return res.status(500).json({
-      message: "Something went wrong",
-      error: error.message,
-    });
+    return sendError(
+      res,
+      500,
+      "LOGIN_SERVER_ERROR",
+      "Unable to complete login right now. Please try again."
+    );
   }
 }

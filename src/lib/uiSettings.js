@@ -30,6 +30,9 @@ export const defaultUiSettings = {
       exact: false,
     },
   },
+  system: {
+    zoom: 100, // percentage (80 - 125)
+  },
 };
 
 const isObject = (value) =>

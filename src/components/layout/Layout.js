@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import StaffLogin from "./StaffLogin";
 import POSLayout from "./POSLayout";
+import HelpChatBot from "../common/HelpChatBot";
 import { useStaff } from "../../context/StaffContext";
 import { getStoreLogo } from "../../lib/logoCache";
 
@@ -61,14 +62,22 @@ const Layout = ({ children }) => {
 
   // Show login if not authenticated
   if (!staff || !location) {
-    return <StaffLogin />;
+    return (
+      <>
+        <StaffLogin />
+        <HelpChatBot />
+      </>
+    );
   }
 
   // Show POS layout with children
   return (
-    <POSLayout>
-      {children}
-    </POSLayout>
+    <>
+      <POSLayout>
+        {children}
+      </POSLayout>
+      <HelpChatBot />
+    </>
   );
 };
 

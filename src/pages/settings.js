@@ -1,7 +1,7 @@
 /**
  * Settings Page
  *
- * Configure sidebar visibility, till controls, and layout sizing.
+ * Configure sidebar visibility, till controls, layout sizing, and system scale.
  */
 
 'use client';
@@ -47,6 +47,9 @@ const PAYMENT_SCALE_OPTIONS = [
   { value: 'large', label: 'Large' },
 ];
 
+const SYSTEM_ZOOM_MIN = 80;
+const SYSTEM_ZOOM_MAX = 125;
+
 export default function SettingsPage() {
   const router = useRouter();
   const { staff } = useStaff();
@@ -56,6 +59,7 @@ export default function SettingsPage() {
     till: true,
     layout: true,
     payment: true,
+    system: true,
     summary: true,
   });
   const [saving, setSaving] = useState(false);
@@ -128,6 +132,22 @@ export default function SettingsPage() {
         [key]: value,
       },
     }));
+  };
+
+  const updateSystemSetting = (key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      system: {
+        ...prev.system,
+        [key]: value,
+      },
+    }));
+  };
+
+  const adjustSystemZoom = (delta) => {
+    const current = Number(settings.system?.zoom || defaultUiSettings.system?.zoom || 100);
+    const next = Math.min(SYSTEM_ZOOM_MAX, Math.max(SYSTEM_ZOOM_MIN, current + delta));
+    updateSystemSetting('zoom', next);
   };
 
   const updateQuickAmount = (key, value) => {
@@ -210,6 +230,9 @@ export default function SettingsPage() {
         .map(([label]) => (label === 'exact' ? 'Exact' : `₦${label}`))
         .join(', ') || 'None'}`,
     ],
+    system: [
+      `System scale: ${settings.system?.zoom || defaultUiSettings.system?.zoom || 100}%`,
+    ],
   };
 
   return (
@@ -237,7 +260,7 @@ export default function SettingsPage() {
         <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white p-6">
           <h1 className="text-3xl font-bold">⚙️ System Settings</h1>
           <p className="text-slate-200 mt-2">
-            Configure sidebar menus, till controls, and layout spacing
+            Configure sidebar menus, till controls, layout spacing, and system scale
           </p>
         </div>
 
@@ -524,6 +547,55 @@ export default function SettingsPage() {
             )}
           </div>
 
+          {/* System Scale */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleSection('system')}
+              className="w-full flex items-center gap-3 px-5 py-4 bg-gray-50 hover:bg-gray-100 text-left font-semibold text-gray-800"
+            >
+              <FontAwesomeIcon icon={faRulerCombined} className="text-cyan-600 w-5 h-5" />
+              System Scale (Zoom)
+              <span className="ml-auto">
+                <FontAwesomeIcon icon={expanded.system ? faChevronDown : faChevronRight} />
+              </span>
+            </button>
+            {expanded.system && (
+              <div className="p-5 space-y-4 bg-white">
+                <p className="text-sm text-gray-600">
+                  Scale the full POS UI up or down, similar to browser zoom.
+                </p>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => adjustSystemZoom(-5)}
+                    className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-bold"
+                  >
+                    -5%
+                  </button>
+                  <input
+                    type="range"
+                    min={SYSTEM_ZOOM_MIN}
+                    max={SYSTEM_ZOOM_MAX}
+                    step={5}
+                    value={Number(settings.system?.zoom || 100)}
+                    onChange={(e) => updateSystemSetting('zoom', Number(e.target.value))}
+                    className="flex-1"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => adjustSystemZoom(5)}
+                    className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-bold"
+                  >
+                    +5%
+                  </button>
+                </div>
+                <div className="text-sm font-semibold text-gray-700">
+                  Current scale: {Number(settings.system?.zoom || 100)}%
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <button
@@ -546,15 +618,19 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">Till Controls</div>
-                  <div>{summary.till.join(' • ')}</div>
+                  <div>{summary.till.join(' | ')}</div>
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">Layout</div>
-                  <div>{summary.layout.join(' • ')}</div>
+                  <div>{summary.layout.join(' | ')}</div>
                 </div>
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">Complete Payment</div>
-                  <div>{summary.payment.join(' • ')}</div>
+                  <div>{summary.payment.join(' | ')}</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900 mb-1">System</div>
+                  <div>{summary.system.join(' | ')}</div>
                 </div>
               </div>
             )}

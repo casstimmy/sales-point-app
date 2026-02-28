@@ -19,10 +19,12 @@ import {
   faChevronDown,
   faSync,
   faUndo,
+  faPrint,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
 import { getCompletedTransactions, cacheCompletedTransactions, getCachedCompletedTransactions } from '../../lib/offlineSync';
+import { getReceiptSettings, printTransactionReceipt } from '../../lib/receiptPrinting';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
@@ -39,6 +41,8 @@ export default function OrdersScreen() {
   const [detailOrder, setDetailOrder] = useState(null);
   const [refundLoading, setRefundLoading] = useState(false);
   const [refundError, setRefundError] = useState(null);
+  const [printingOrderId, setPrintingOrderId] = useState(null);
+  const [receiptSettings, setReceiptSettings] = useState(null);
   const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
   const { staff, till } = useStaff();
 
@@ -190,6 +194,46 @@ export default function OrdersScreen() {
     }
   };
 
+  const buildPrintableTransaction = useCallback((order) => ({
+    _id: String(order.id || Date.now()),
+    createdAt: order.createdAt || new Date().toISOString(),
+    items: (order.items || []).map((item) => ({
+      productId: item.productId || item.id,
+      name: item.name,
+      qty: item.qty || item.quantity || 1,
+      salePriceIncTax: Number(item.salePriceIncTax || item.price || 0),
+    })),
+    subtotal: Number(order.subtotal || order.total || 0),
+    tax: Number(order.tax || 0),
+    discount: Number(order.discount || 0),
+    total: Number(order.total || 0),
+    amountPaid: Number(order.amountPaid || order.total || 0),
+    change: Number(order.change || 0),
+    customerName: order.customer || 'Walk-in',
+    staffName: order.staffMember || 'POS Staff',
+    tenderType: order.tenderType || null,
+    tenderPayments: order.tenderPayments || [],
+    location: order.location || till?.locationName || 'Main Store',
+    status: 'completed',
+  }), [till?.locationName]);
+
+  const handlePrintOrder = useCallback(async (order) => {
+    if (!order) return;
+    try {
+      setPrintingOrderId(order.id);
+      const settings = receiptSettings || (await getReceiptSettings());
+      if (!receiptSettings) {
+        setReceiptSettings(settings);
+      }
+      const printable = buildPrintableTransaction(order);
+      await printTransactionReceipt(printable, settings);
+    } catch (err) {
+      alert(err?.message || 'Failed to print transaction receipt.');
+    } finally {
+      setPrintingOrderId(null);
+    }
+  }, [buildPrintableTransaction, receiptSettings]);
+
   // Filter orders by status
   useEffect(() => {
     let sourceOrders = [];
@@ -213,8 +257,10 @@ export default function OrdersScreen() {
         return {
           id: tx.id || tx._id,
           time: tx.createdAt ? new Date(tx.createdAt).toLocaleString() : 'N/A',
+          createdAt: tx.createdAt || new Date().toISOString(),
           customer: tx.customerName || 'Walk-in',
           staffMember: tx.staffName || 'Unknown',
+          location: tx.location || 'Main Store',
           tenderType: tenderDisplay,
           tenderPayments: tx.tenderPayments || [],
           total: tx.total || 0,
@@ -373,7 +419,7 @@ export default function OrdersScreen() {
               <th className="text-left p-2 text-gray-700 hidden md:table-cell">STAFF MEMBER</th>
               <th className="text-left p-2 text-gray-700">TENDER TYPE</th>
               <th className="text-right p-2 text-gray-700">TOTAL</th>
-              {activeStatus === 'COMPLETE' && canRefund && <th className="text-center p-2 text-gray-700">ACTION</th>}
+              {activeStatus === 'COMPLETE' && <th className="text-center p-2 text-gray-700">ACTIONS</th>}
             </tr>
           </thead>
           <tbody>
@@ -426,19 +472,34 @@ export default function OrdersScreen() {
                 >
                   ₦{order.total.toLocaleString()}
                 </td>
-                {activeStatus === 'COMPLETE' && canRefund && (
+                {activeStatus === 'COMPLETE' && (
                   <td className="p-2 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedOrder(order);
-                        setShowRefundModal(true);
-                      }}
-                      className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-semibold flex items-center gap-1 mx-auto transition-colors"
-                    >
-                      <FontAwesomeIcon icon={faUndo} className="w-2.5 h-2.5" />
-                      Refund
-                    </button>
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrintOrder(order);
+                        }}
+                        disabled={printingOrderId === order.id}
+                        className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors disabled:opacity-60"
+                      >
+                        <FontAwesomeIcon icon={faPrint} className="w-2.5 h-2.5" />
+                        {printingOrderId === order.id ? 'Printing...' : 'Print'}
+                      </button>
+                      {canRefund && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedOrder(order);
+                            setShowRefundModal(true);
+                          }}
+                          className="px-2 py-1 bg-orange-500 hover:bg-orange-600 text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <FontAwesomeIcon icon={faUndo} className="w-2.5 h-2.5" />
+                          Refund
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>
@@ -555,8 +616,16 @@ export default function OrdersScreen() {
             </div>
 
             {/* Actions */}
-            <div className="p-3 bg-white border-t border-gray-200 flex gap-2 flex-shrink-0">
-              {canRefund && (
+            <div className="p-3 bg-white border-t border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0">
+              <button
+                onClick={() => handlePrintOrder(detailOrder)}
+                disabled={printingOrderId === detailOrder.id}
+                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
+              >
+                <FontAwesomeIcon icon={faPrint} className="mr-1 w-3.5 h-3.5" />
+                {printingOrderId === detailOrder.id ? 'Printing...' : 'Print'}
+              </button>
+              {canRefund ? (
                 <button
                   onClick={() => {
                     setShowDetailPanel(false);
@@ -568,10 +637,12 @@ export default function OrdersScreen() {
                   <FontAwesomeIcon icon={faUndo} className="mr-1 w-3.5 h-3.5" />
                   Refund
                 </button>
+              ) : (
+                <div />
               )}
               <button
                 onClick={() => setShowDetailPanel(false)}
-                className="flex-1 px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-semibold transition-colors active:scale-95"
+                className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-semibold transition-colors active:scale-95"
               >
                 Close
               </button>

@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
     // Build query filters
     const filters = {
-      status: { $in: ['completed', 'COMPLETE'] } // Accept both lowercase and uppercase
+      status: { $in: ['completed', 'COMPLETE', 'complete'] } // Legacy + normalized status support
     };
 
     // Optional filters

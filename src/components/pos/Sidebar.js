@@ -178,6 +178,18 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     }
   };
 
+  const handleOpenHelp = () => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(
+      new CustomEvent('help:open', {
+        detail: {
+          source: 'sidebar-support',
+          topic: 'support',
+        },
+      })
+    );
+  };
+
   const formatSyncTime = (isoString) => {
     if (!isoString) return 'Never';
     const date = new Date(isoString);
@@ -347,7 +359,10 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
               </div>
             )}
           </div>
-          <button className="w-full flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 hover:bg-neutral-100 rounded-lg text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-600 transition-colors duration-base">
+          <button
+            onClick={handleOpenHelp}
+            className="w-full flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 hover:bg-neutral-100 rounded-lg text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-600 transition-colors duration-base"
+          >
             <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4 sm:w-5 sm:h-5" />
             <span className="text-sm sm:text-base">Support</span>
           </button>

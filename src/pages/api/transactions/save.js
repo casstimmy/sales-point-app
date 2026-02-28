@@ -12,6 +12,15 @@ import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
 import crypto from 'crypto';
 
+const normalizeLocationName = (location) => {
+  if (typeof location === 'string' && location.trim()) return location.trim();
+  if (location && typeof location === 'object') {
+    if (typeof location.name === 'string' && location.name.trim()) return location.name.trim();
+    if (typeof location.code === 'string' && location.code.trim()) return location.code.trim();
+  }
+  return 'Main Store';
+};
+
 export default async function handler(req, res) {
   // Only POST method allowed
   if (req.method !== 'POST') {
@@ -22,7 +31,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log('💾 Direct transaction save request received');
+    console.log('ðŸ’¾ Direct transaction save request received');
     
     await mongooseConnect();
 
@@ -49,14 +58,15 @@ export default async function handler(req, res) {
       externalId
     } = req.body;
     
-    // Normalize staff name - don't leave it as 'Unknown'
+    // Normalize staff name and location for legacy/offline payloads
     const finalStaffName = staffName && staffName !== 'Unknown' ? staffName : 'POS Staff';
+    const normalizedLocation = normalizeLocationName(location);
     
-    console.log(`💰 Processing direct transaction - amount: ${total}, till: ${tillId}`);
+    console.log(`ðŸ’° Processing direct transaction - amount: ${total}, till: ${tillId}`);
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
-      console.error('❌ Validation error: items array required');
+      console.error('âŒ Validation error: items array required');
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: items array required',
@@ -64,31 +74,23 @@ export default async function handler(req, res) {
     }
 
     if (total === undefined) {
-      console.error('❌ Validation error: total required');
+      console.error('âŒ Validation error: total required');
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: total required',
       });
     }
 
-    if (!staffName || staffName === 'Unknown' || !location) {
-      console.error('❌ Validation error: staffName and location required');
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid transaction: staff name and location required',
-      });
-    }
-
     // Validate payment method
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
-    const rawStatus = String(status || 'completed').toLowerCase();
+    const rawStatus = String(status || 'completed').trim().toLowerCase();
     const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
     const isHeldTransaction = normalizedStatus === 'held';
     const isCompletedTransaction = normalizedStatus === 'completed';
 
     if (!isHeldTransaction && !hasSingleTender && !hasMultiplePayments) {
-      console.error('❌ Validation error: payment method required');
+      console.error('âŒ Validation error: payment method required');
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: tenderType or tenderPayments required',
@@ -119,7 +121,7 @@ export default async function handler(req, res) {
         tenderType: hasMultiplePayments ? null : (tenderType || null),
         tenderPayments: normalizedPayments,
         staffId: staffId ? String(staffId) : null,
-        location: location || null,
+        location: normalizedLocation || null,
         tillId: tillId ? String(tillId) : null,
         createdAt: roundedCreatedAt,
         status: normalizedStatus,
@@ -133,7 +135,7 @@ export default async function handler(req, res) {
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
-        console.log(`âš ï¸ Duplicate transaction detected - externalId ${externalId}`);
+        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - externalId ${externalId}`);
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -144,7 +146,7 @@ export default async function handler(req, res) {
     } else {
       const existingByKey = await Transaction.findOne({ dedupeKey });
       if (existingByKey) {
-        console.log(`âš ï¸ Duplicate transaction detected - dedupeKey ${dedupeKey}`);
+        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - dedupeKey ${dedupeKey}`);
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -160,11 +162,11 @@ export default async function handler(req, res) {
         createdAt: new Date(createdAt),
         total: total,
         tillId: new mongoose.Types.ObjectId(tillId),
-        location: location
+        location: normalizedLocation
       });
       
       if (existingTransaction) {
-        console.log(`⚠️ Duplicate transaction detected - already exists as ${existingTransaction._id}`);
+        console.log(`âš ï¸ Duplicate transaction detected - already exists as ${existingTransaction._id}`);
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -199,7 +201,7 @@ export default async function handler(req, res) {
       
       staff: staffId || null,
       staffName: finalStaffName, // Use normalized staff name
-      location: location || 'Default Location',
+      location: normalizedLocation,
       device: device || 'web',
       status: normalizedStatus,
       
@@ -216,12 +218,12 @@ export default async function handler(req, res) {
     // Save to database
     const savedTransaction = await transaction.save();
     
-    console.log(`✅ Transaction saved successfully - ID: ${savedTransaction._id}, Amount: ${total}`);
+    console.log(`âœ… Transaction saved successfully - ID: ${savedTransaction._id}, Amount: ${total}`);
 
     // Link transaction to till only for completed sales
     if (tillId && isCompletedTransaction) {
       try {
-        console.log(`🔗 Linking transaction to till: ${tillId}`);
+        console.log(`ðŸ”— Linking transaction to till: ${tillId}`);
         
         // First, get the current till to update tenderBreakdown
         const currentTill = await Till.findById(tillId);
@@ -239,14 +241,14 @@ export default async function handler(req, res) {
             tenderPayments.forEach(payment => {
               const currentAmount = currentTill.tenderBreakdown.get(payment.tenderName) || 0;
               currentTill.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
-              console.log(`   💳 ${payment.tenderName}: +₦${payment.amount} (now ₦${currentAmount + Number(payment.amount || 0)})`);
+              console.log(`   ðŸ’³ ${payment.tenderName}: +â‚¦${payment.amount} (now â‚¦${currentAmount + Number(payment.amount || 0)})`);
             });
           } else if (hasSingleTender) {
             // Handle single tender (legacy)
             const tenderKey = tenderType || 'CASH';
             const currentAmount = currentTill.tenderBreakdown.get(tenderKey) || 0;
             currentTill.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
-            console.log(`   💳 ${tenderKey}: +₦${total} (now ₦${currentAmount + Number(total || 0)})`);
+            console.log(`   ðŸ’³ ${tenderKey}: +â‚¦${total} (now â‚¦${currentAmount + Number(total || 0)})`);
           }
           
           // Add transaction to array and update counts
@@ -261,23 +263,23 @@ export default async function handler(req, res) {
           currentTill.markModified('tenderBreakdown');
           
           await currentTill.save();
-          console.log(`✅ Till updated - Total sales: ₦${currentTill.totalSales}, Transactions: ${currentTill.transactions.length}`);
+          console.log(`âœ… Till updated - Total sales: â‚¦${currentTill.totalSales}, Transactions: ${currentTill.transactions.length}`);
         } else {
-          console.warn(`⚠️ Till ${tillId} not found - transaction not linked`);
+          console.warn(`âš ï¸ Till ${tillId} not found - transaction not linked`);
         }
       } catch (linkError) {
-        console.error(`❌ Error linking transaction to till:`, linkError);
+        console.error(`âŒ Error linking transaction to till:`, linkError);
         // Don't fail the whole request if linking fails - transaction is still saved
       }
     } else if (tillId && !isCompletedTransaction) {
-      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
+      console.log(`â„¹ï¸ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     } else {
-      console.warn(`⚠️ No tillId provided - transaction will not be linked to till`);
+      console.warn(`âš ï¸ No tillId provided - transaction will not be linked to till`);
     }
     // Update product quantities after successful transaction save (idempotent)
     if (!savedTransaction.inventoryUpdated && isCompletedTransaction) {
       try {
-        console.log('📦 Updating product quantities for items:', mappedItems);
+        console.log('ðŸ“¦ Updating product quantities for items:', mappedItems);
         for (const item of mappedItems) {
           if (!item.productId || !item.qty) continue;
           const productResult = await Product.findByIdAndUpdate(
@@ -286,13 +288,13 @@ export default async function handler(req, res) {
             { new: true }
           );
           if (productResult) {
-            console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+            console.log(`âœ… Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
           }
         }
         savedTransaction.inventoryUpdated = true;
         await savedTransaction.save();
       } catch (quantityErr) {
-        console.warn('⚠️ Warning: Failed to update product quantities:', quantityErr.message);
+        console.warn('âš ï¸ Warning: Failed to update product quantities:', quantityErr.message);
         // Don't fail the transaction if quantity update fails
       }
     }
@@ -310,14 +312,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     if (error?.code === 11000 && (error?.keyPattern?.externalId || error?.keyPattern?.dedupeKey)) {
-      console.warn('⚠️ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId || error.keyValue?.dedupeKey);
+      console.warn('âš ï¸ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId || error.keyValue?.dedupeKey);
       return res.status(200).json({
         success: true,
         message: 'Transaction already exists (duplicate prevented)',
         duplicate: true,
       });
     }
-    console.error('❌ Direct save error:', error);
+    console.error('âŒ Direct save error:', error);
 
     // Return 500 so client knows to fallback to offline queue
     return res.status(500).json({
@@ -328,5 +330,7 @@ export default async function handler(req, res) {
     });
   }
 }
+
+
 
 
