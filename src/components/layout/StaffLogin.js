@@ -1202,7 +1202,7 @@ export default function StaffLogin() {
           <div className="w-full max-w-xs h-0.5 bg-white/30 mb-4"></div>
 
           {/* Numeric Keypad */}
-          <div className="grid grid-cols-3 gap-2 mb-4 w-full max-w-xs">
+          <div className="grid grid-cols-3 gap-2 mb-4 border border-cyan-500/60 shadow-md backdrop-blur-sm w-full max-w-xs">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
               <button
                 key={num}
