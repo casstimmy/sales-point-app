@@ -83,7 +83,7 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
   const storeLocation = storeData?.location || 'STORE LOCATION';
   const staffName = staffData?.name || 'Staff';
   const staffRole = staffData?.role || 'Attendant';
-  const locationName = staffData?.location?.name || staffData?.locationName || storeLocation;
+  const locationName = staffData?.location?.name || storeLocation || staffData?.locationName;
 
   return (
     <div className="flex flex-col bg-gradient-to-r from-primary-600 to-primary-700 text-white text-sm sm:text-base">

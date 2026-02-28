@@ -759,9 +759,16 @@ export default function StaffLogin() {
 
       console.log("✅ Found staff:", staffMember.name, "and location:", location.name);
 
+      // Ensure resumed session reflects the till's actual location
+      const sessionStaff = {
+        ...staffMember,
+        locationId: location?._id || till.locationId,
+        locationName: location?.name || till.locationName || staffMember?.locationName,
+      };
+
       // Authenticate with the staff's stored session (if available)
       // In this case, we trust the till record and proceed
-      login(staffMember, location);
+      login(sessionStaff, location);
       setCurrentTill(till);
       
       console.log("✅ Quick login successful! Proceeding to POS");
