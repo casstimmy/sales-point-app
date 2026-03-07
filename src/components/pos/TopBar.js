@@ -115,7 +115,8 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
       <div className="px-2.5 py-2 sm:px-3 sm:py-3 flex items-center justify-between gap-2 sm:gap-3">
         {/* Left: Hamburger + Store & Staff Info */}
         <div className="flex items-center gap-3 flex-1">
-          {/* Hamburger - Visible on all screens */}
+          {/* Hamburger - Visible only for senior staff */}
+          {onToggleSidebar && (
           <button
             onClick={onToggleSidebar}
             className="p-1.5 sm:p-2 hover:bg-white/20 rounded transition-colors duration-base touch-manipulation min-h-9 min-w-9 sm:min-h-10 sm:min-w-10"
@@ -123,6 +124,7 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
           >
             <FontAwesomeIcon icon={faBars} className="w-5 h-5" />
           </button>
+          )}
 
           {/* Store & Location Info */}
           <div className="flex-1">

@@ -28,6 +28,7 @@ import {
   faClock,
   faMoneyBill,
   faChevronDown,
+  faChevronUp,
   faBoxOpen,
   faGripVertical,
 } from "@fortawesome/free-solid-svg-icons";
@@ -37,6 +38,7 @@ import {
   printTransactionReceipt,
   getReceiptSettings,
 } from "../../lib/receiptPrinting";
+import { getUiSettings } from "../../lib/uiSettings";
 import AdjustFloatModal from "./AdjustFloatModal";
 
 export default function CartPanel() {
@@ -46,6 +48,8 @@ export default function CartPanel() {
   const selectedItemRef = useRef(null);
   const [showAdjustFloatModal, setShowAdjustFloatModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState({});
+  const [cartBtnSettings, setCartBtnSettings] = useState(getUiSettings().cartPanelButtons || {});
+  const [totalsCollapsed, setTotalsCollapsed] = useState(false);
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
   const {
     activeCart,
@@ -86,6 +90,16 @@ export default function CartPanel() {
       });
     }
   }, [selectedItemId]);
+
+  // Listen for settings changes
+  useEffect(() => {
+    const handleSettingsUpdate = (event) => {
+      const s = event?.detail || getUiSettings();
+      setCartBtnSettings(s.cartPanelButtons || {});
+    };
+    window.addEventListener("uiSettings:updated", handleSettingsUpdate);
+    return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
+  }, []);
 
   const handlePayment = async () => {
     if (isEmpty) {
@@ -440,17 +454,19 @@ export default function CartPanel() {
             })}
           </div>
 
-          {/* Collapse Button */}
+          {/* Collapse/Expand Totals Button */}
           <div className="bg-neutral-50 border-b border-neutral-200 flex justify-center py-2">
             <button
-              onClick={() => setSelectedItemId(null)}
+              onClick={() => setTotalsCollapsed(!totalsCollapsed)}
               className="text-neutral-600 hover:text-neutral-900 transition-colors duration-base"
+              title={totalsCollapsed ? "Show totals" : "Hide totals"}
             >
-              <FontAwesomeIcon icon={faChevronDown} className="w-4 h-4" />
+              <FontAwesomeIcon icon={totalsCollapsed ? faChevronUp : faChevronDown} className="w-4 h-4" />
             </button>
           </div>
 
           {/* Totals Section */}
+          {!totalsCollapsed && (
           <div className="bg-neutral-50 border-t border-neutral-300 p-3">
             {/* Customer Promotion Note */}
             {activeCart.appliedPromotion && (
@@ -504,54 +520,67 @@ export default function CartPanel() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Action Buttons Grid */}
           <div className="bg-white border-t border-neutral-300 p-2 space-y-2">
             {/* Row 1: Utility Buttons */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex gap-2">
+              {cartBtnSettings.print !== false && (
               <button
                 onClick={handlePrintCart}
-                className="px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16"
+                className="flex-1 px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16"
               >
                 <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
                 <span>PRINT</span>
               </button>
-              <button className="px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16">
+              )}
+              {cartBtnSettings.pettyCash !== false && (
+              <button className="flex-1 px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16">
                 <FontAwesomeIcon icon={faMoneyBill} className="w-4 h-4" />
                 <span>PETTY CASH</span>
               </button>
+              )}
+              {cartBtnSettings.adjust !== false && (
               <button
                 onClick={() => setShowAdjustFloatModal(true)}
-                className="px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16"
+                className="flex-1 px-2 py-2 sm:py-3 text-xs sm:text-sm font-bold bg-neutral-300 hover:bg-neutral-400 text-neutral-900 rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-16"
               >
                 <FontAwesomeIcon icon={faGripVertical} className="w-4 h-4" />
                 <span>ADJUST</span>
               </button>
+              )}
             </div>
 
             {/* Row 2: Action Buttons */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex gap-2">
+              {cartBtnSettings.delete !== false && (
               <button
                 onClick={deleteCart}
-                className="px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
+                className="flex-1 px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
               >
                 <FontAwesomeIcon icon={faTrashAlt} className="w-5 h-5" />
                 <span>DELETE</span>
               </button>
+              )}
+              {cartBtnSettings.hold !== false && (
               <button
                 onClick={() => holdOrder(staff, location)}
-                className="px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
+                className="flex-1 px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
               >
                 <FontAwesomeIcon icon={faClock} className="w-5 h-5" />
                 <span>HOLD</span>
               </button>
+              )}
+              {cartBtnSettings.pay !== false && (
               <button
                 onClick={handlePayment}
-                className="px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
+                className="flex-1 px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
               >
                 <FontAwesomeIcon icon={faMoneyBill} className="w-5 h-5" />
                 <span>PAY</span>
               </button>
+              )}
             </div>
           </div>
         </>

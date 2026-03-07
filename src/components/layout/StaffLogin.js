@@ -1146,9 +1146,9 @@ export default function StaffLogin() {
               {selectedLocation && (
                 <div>
                   <p className="text-white font-semibold text-xs mb-2">SELECT STAFF</p>
-                  <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[60vh] overflow-y-auto">
                     {staff.length === 0 ? (
-                      <div className="text-white text-center py-4 bg-cyan-800 rounded-lg text-sm">
+                      <div className="text-white text-center py-4 bg-cyan-800 rounded-lg text-sm col-span-full">
                         No staff available
                       </div>
                     ) : (
@@ -1156,14 +1156,25 @@ export default function StaffLogin() {
                         <button
                           key={member._id}
                           onClick={() => setSelectedStaff(member._id)}
-                          className={`p-2 rounded-lg text-left font-semibold transition text-sm ${
+                          className={`p-3 rounded-lg text-center font-semibold transition flex flex-col items-center gap-1 ${
                             selectedStaff === member._id
-                              ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300"
+                              ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-lg"
                               : "bg-cyan-800 text-white hover:bg-cyan-700"
                           }`}
                         >
-                          <div className="font-bold text-sm">{member.name}</div>
-                          <div className="text-xs opacity-80">@{member.username}</div>
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-base font-bold ${
+                            selectedStaff === member._id
+                              ? "bg-cyan-700 text-white"
+                              : "bg-cyan-600 text-white"
+                          }`}>
+                            {member.name?.charAt(0)?.toUpperCase() || '?'}
+                          </div>
+                          <div className="font-bold text-xs leading-tight break-words w-full">{member.name}</div>
+                          <div className={`text-[10px] capitalize px-2 py-0.5 rounded-full ${
+                            selectedStaff === member._id
+                              ? "bg-cyan-600 text-white"
+                              : "bg-cyan-900/40 text-cyan-200"
+                          }`}>{member.role || 'Staff'}</div>
                         </button>
                       ))
                     )}

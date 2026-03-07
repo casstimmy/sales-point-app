@@ -156,6 +156,9 @@ export default function POSLayout({ children }) {
     setSidebarOpen(!sidebarOpen);
   };
 
+  // Senior staff roles that can access sidebar
+  const isSeniorStaff = staff && ['admin', 'manager', 'senior staff'].includes(staff.role?.toLowerCase?.());
+
   const densityClass = {
     compact: "text-[15px]",
     comfortable: "text-[17px]",
@@ -255,7 +258,8 @@ export default function POSLayout({ children }) {
   return (
     <CartProvider>
       <div className={`flex h-screen bg-neutral-50 flex-col md:flex-row ${densityClass} pos-mobile-scale`}>
-        {/* Left Sidebar - Overlay Mode */}
+        {/* Left Sidebar - Overlay Mode (senior staff only) */}
+        {isSeniorStaff && (
         <div className="fixed inset-y-0 left-0 z-50">
           <Sidebar
             isOpen={sidebarOpen}
@@ -264,9 +268,10 @@ export default function POSLayout({ children }) {
             mobileWidthClass={sidebarWidths?.mobile}
           />
         </div>
+        )}
 
         {/* Overlay Backdrop */}
-        {sidebarOpen && (
+        {isSeniorStaff && sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/30 z-40"
             onClick={toggleSidebar}
@@ -286,7 +291,7 @@ export default function POSLayout({ children }) {
                 location,
                 locationName: location?.name || staff?.locationName || null,
               }}
-              onToggleSidebar={toggleSidebar}
+              onToggleSidebar={isSeniorStaff ? toggleSidebar : undefined}
             />
 
             {/* Screen content */}

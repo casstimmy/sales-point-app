@@ -22,26 +22,27 @@ export default function App({ Component, pageProps }) {
   }, []);
 
   useEffect(() => {
-    const applySystemZoom = (settings) => {
-      const rawZoom = Number(settings?.system?.zoom || 100);
-      const clampedZoom = Math.min(125, Math.max(80, rawZoom));
-      const zoomScale = clampedZoom / 100;
+    const applyContentScale = (settings) => {
+      const rawScale = Number(settings?.system?.contentScale || 100);
+      const clamped = Math.min(150, Math.max(60, rawScale));
+      const scale = clamped / 100;
 
       if (document?.documentElement) {
-        document.documentElement.style.zoom = String(zoomScale);
+        document.documentElement.style.setProperty('--content-scale', String(scale));
+        document.documentElement.style.fontSize = `${scale * 16}px`;
       }
     };
 
     const applyFromStoredSettings = () => {
       try {
-        applySystemZoom(getUiSettings());
+        applyContentScale(getUiSettings());
       } catch (err) {
-        applySystemZoom({ system: { zoom: 100 } });
+        applyContentScale({ system: { contentScale: 100 } });
       }
     };
 
     const handleUiSettingsUpdate = (event) => {
-      applySystemZoom(event?.detail || getUiSettings());
+      applyContentScale(event?.detail || getUiSettings());
     };
 
     applyFromStoredSettings();
@@ -50,7 +51,8 @@ export default function App({ Component, pageProps }) {
     return () => {
       window.removeEventListener("uiSettings:updated", handleUiSettingsUpdate);
       if (document?.documentElement) {
-        document.documentElement.style.zoom = "1";
+        document.documentElement.style.removeProperty('--content-scale');
+        document.documentElement.style.fontSize = '';
       }
     };
   }, []);

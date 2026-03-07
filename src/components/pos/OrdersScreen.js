@@ -48,6 +48,12 @@ export default function OrdersScreen() {
 
   // Check if current staff has refund access (admin, manager, senior staff)
   const canRefund = staff && ['admin', 'manager', 'senior staff'].includes(staff.role?.toLowerCase?.());
+  const isSeniorStaff = canRefund; // same role set
+
+  // Filter tabs based on role - ORDERED/PENDING restricted to senior staff
+  const visibleTabs = isSeniorStaff
+    ? ORDER_STATUS_TABS
+    : ORDER_STATUS_TABS.filter(t => t !== 'ORDERED' && t !== 'PENDING');
 
   // Fetch completed transactions from server (online) or IndexedDB (offline)
   const fetchCompletedTransactions = useCallback(async () => {
@@ -348,7 +354,7 @@ export default function OrdersScreen() {
 
       {/* Status Tabs */}
       <div className="bg-blue-600 text-white px-3 py-2 flex gap-1.5 overflow-x-auto">
-        {ORDER_STATUS_TABS.map(status => (
+        {visibleTabs.map(status => (
           <button
             key={status}
             onClick={() => setActiveStatus(status)}

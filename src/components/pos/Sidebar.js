@@ -335,7 +335,10 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
           {/* Settings with Printer Status */}
           <div className="flex items-center gap-2">
             <button 
-              onClick={() => router.push('/settings')}
+              onClick={() => {
+                onToggle();
+                router.push('/settings');
+              }}
               className={`flex-1 flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 rounded-lg text-left text-sm sm:text-base font-semibold transition-colors duration-base ${
                 router.pathname === '/settings' || router.pathname === '/printer-settings'
                   ? 'bg-primary-100 text-primary-700 shadow-md'
@@ -346,18 +349,19 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
               <span className="text-sm sm:text-base">Settings</span>
             </button>
             {/* Printer Status Badge */}
-            {printerAvailable !== null && (
-              <div
-                title={printerAvailable ? 'Printer Connected' : 'Printer Offline'}
-                className={`px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm ${
-                  printerAvailable
-                    ? 'bg-green-100 text-green-800 border border-green-300'
-                    : 'bg-red-100 text-red-800 border border-red-300'
-                }`}
-              >
-                {printerAvailable ? '🖨️ ✓' : '🖨️ ✕'}
-              </div>
-            )}
+            <div
+              title={printerAvailable === null ? 'Checking printer...' : printerAvailable ? 'Printer Connected' : 'Printer Not Connected'}
+              className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm ${
+                printerAvailable
+                  ? 'bg-green-100 text-green-800 border border-green-300'
+                  : 'bg-red-100 text-red-800 border border-red-300'
+              }`}
+            >
+              <FontAwesomeIcon icon={faPrint} className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                printerAvailable ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+              }`} />
+            </div>
           </div>
           <button
             onClick={handleOpenHelp}

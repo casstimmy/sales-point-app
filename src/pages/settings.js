@@ -20,6 +20,7 @@ import {
   faCoins,
   faRulerCombined,
   faSlidersH,
+  faShoppingCart,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   getUiSettings,
@@ -47,8 +48,8 @@ const PAYMENT_SCALE_OPTIONS = [
   { value: 'large', label: 'Large' },
 ];
 
-const SYSTEM_ZOOM_MIN = 80;
-const SYSTEM_ZOOM_MAX = 125;
+const CONTENT_SCALE_MIN = 60;
+const CONTENT_SCALE_MAX = 150;
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -57,6 +58,7 @@ export default function SettingsPage() {
   const [expanded, setExpanded] = useState({
     sidebar: true,
     till: true,
+    cartButtons: true,
     layout: true,
     payment: true,
     system: true,
@@ -114,6 +116,16 @@ export default function SettingsPage() {
     }));
   };
 
+  const updateCartPanelButton = (key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      cartPanelButtons: {
+        ...(prev.cartPanelButtons || {}),
+        [key]: value,
+      },
+    }));
+  };
+
   const updateLayoutSetting = (key, value) => {
     setSettings((prev) => ({
       ...prev,
@@ -144,10 +156,10 @@ export default function SettingsPage() {
     }));
   };
 
-  const adjustSystemZoom = (delta) => {
-    const current = Number(settings.system?.zoom || defaultUiSettings.system?.zoom || 100);
-    const next = Math.min(SYSTEM_ZOOM_MAX, Math.max(SYSTEM_ZOOM_MIN, current + delta));
-    updateSystemSetting('zoom', next);
+  const adjustContentScale = (delta) => {
+    const current = Number(settings.system?.contentScale || defaultUiSettings.system?.contentScale || 100);
+    const next = Math.min(CONTENT_SCALE_MAX, Math.max(CONTENT_SCALE_MIN, current + delta));
+    updateSystemSetting('contentScale', next);
   };
 
   const updateQuickAmount = (key, value) => {
@@ -231,7 +243,7 @@ export default function SettingsPage() {
         .join(', ') || 'None'}`,
     ],
     system: [
-      `System scale: ${settings.system?.zoom || defaultUiSettings.system?.zoom || 100}%`,
+      `Content scale: ${settings.system?.contentScale || defaultUiSettings.system?.contentScale || 100}%`,
     ],
   };
 
@@ -369,6 +381,47 @@ export default function SettingsPage() {
                   <FontAwesomeIcon icon={faCoins} className="text-emerald-600 w-4 h-4" />
                   <span className="font-semibold text-gray-700">Adjust Float (Add/Remove Cash)</span>
                 </label>
+              </div>
+            )}
+          </div>
+
+          {/* Cart Panel Buttons */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleSection('cartButtons')}
+              className="w-full flex items-center gap-3 px-5 py-4 bg-gray-50 hover:bg-gray-100 text-left font-semibold text-gray-800"
+            >
+              <FontAwesomeIcon icon={faShoppingCart} className="text-cyan-600 w-5 h-5" />
+              Cart Panel Buttons
+              <span className="ml-auto">
+                <FontAwesomeIcon icon={expanded.cartButtons ? faChevronDown : faChevronRight} />
+              </span>
+            </button>
+            {expanded.cartButtons && (
+              <div className="p-5 space-y-4 bg-white">
+                <p className="text-sm text-gray-600">
+                  Control which action buttons are visible in the cart panel. Hidden buttons&apos; space is redistributed to visible ones.
+                </p>
+                {[
+                  { key: 'print', label: 'Print', desc: 'Print current order receipt' },
+                  { key: 'pettyCash', label: 'Petty Cash', desc: 'Record petty cash withdrawal' },
+                  { key: 'adjust', label: 'Adjust Float', desc: 'Add/remove cash from till' },
+                  { key: 'delete', label: 'Delete', desc: 'Clear the current cart' },
+                  { key: 'hold', label: 'Hold', desc: 'Hold current order for later' },
+                  { key: 'pay', label: 'Pay', desc: 'Proceed to payment' },
+                ].map((btn) => (
+                  <label key={btn.key} className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={settings.cartPanelButtons?.[btn.key] !== false}
+                      onChange={(e) => updateCartPanelButton(btn.key, e.target.checked)}
+                    />
+                    <div>
+                      <span className="font-semibold text-gray-700">{btn.label}</span>
+                      <span className="text-xs text-gray-500 ml-2">{btn.desc}</span>
+                    </div>
+                  </label>
+                ))}
               </div>
             )}
           </div>
@@ -547,14 +600,14 @@ export default function SettingsPage() {
             )}
           </div>
 
-          {/* System Scale */}
+          {/* Content Scale */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <button
               onClick={() => toggleSection('system')}
               className="w-full flex items-center gap-3 px-5 py-4 bg-gray-50 hover:bg-gray-100 text-left font-semibold text-gray-800"
             >
               <FontAwesomeIcon icon={faRulerCombined} className="text-cyan-600 w-5 h-5" />
-              System Scale (Zoom)
+              Content Scale
               <span className="ml-auto">
                 <FontAwesomeIcon icon={expanded.system ? faChevronDown : faChevronRight} />
               </span>
@@ -562,35 +615,35 @@ export default function SettingsPage() {
             {expanded.system && (
               <div className="p-5 space-y-4 bg-white">
                 <p className="text-sm text-gray-600">
-                  Scale the full POS UI up or down, similar to browser zoom.
+                  Scale content up or down for screens where resolution can&apos;t be adjusted.
                 </p>
                 <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => adjustSystemZoom(-5)}
+                    onClick={() => adjustContentScale(-5)}
                     className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-bold"
                   >
                     -5%
                   </button>
                   <input
                     type="range"
-                    min={SYSTEM_ZOOM_MIN}
-                    max={SYSTEM_ZOOM_MAX}
+                    min={CONTENT_SCALE_MIN}
+                    max={CONTENT_SCALE_MAX}
                     step={5}
-                    value={Number(settings.system?.zoom || 100)}
-                    onChange={(e) => updateSystemSetting('zoom', Number(e.target.value))}
+                    value={Number(settings.system?.contentScale || 100)}
+                    onChange={(e) => updateSystemSetting('contentScale', Number(e.target.value))}
                     className="flex-1"
                   />
                   <button
                     type="button"
-                    onClick={() => adjustSystemZoom(5)}
+                    onClick={() => adjustContentScale(5)}
                     className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded font-bold"
                   >
                     +5%
                   </button>
                 </div>
                 <div className="text-sm font-semibold text-gray-700">
-                  Current scale: {Number(settings.system?.zoom || 100)}%
+                  Current scale: {Number(settings.system?.contentScale || 100)}%
                 </div>
               </div>
             )}

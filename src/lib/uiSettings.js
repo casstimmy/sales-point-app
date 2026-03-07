@@ -10,6 +10,14 @@ export const defaultUiSettings = {
     openTillCashEntry: false,
     adjustFloat: false,
   },
+  cartPanelButtons: {
+    print: true,
+    pettyCash: true,
+    adjust: true,
+    delete: true,
+    hold: true,
+    pay: true,
+  },
   layout: {
     sidebarWidth: 'standard', // compact | standard | wide
     cartPanelWidth: 'standard', // compact | standard | wide
@@ -31,7 +39,7 @@ export const defaultUiSettings = {
     },
   },
   system: {
-    zoom: 100, // percentage (80 - 125)
+    contentScale: 100, // percentage (60 - 150) — scales content for screens where resolution can't be adjusted
   },
 };
 
