@@ -10,6 +10,167 @@ import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
+// Generate and print End-of-Day report
+const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closingNotes, locationName) => {
+  const formatNaira = (amount) =>
+    `₦${(amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-NG', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  const timeStr = now.toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const openedAt = tillData?.openedAt ? new Date(tillData.openedAt).toLocaleTimeString('en-NG', { hour: '2-digit', minute: '2-digit', hour12: false }) : 'N/A';
+
+  const logo = getStoreLogo();
+  const logoAbsolute = logo && logo !== '/images/placeholder.jpg'
+    ? (logo.startsWith('http') || logo.startsWith('data:') ? logo : `${window.location.origin}${logo.startsWith('/') ? '' : '/'}${logo}`)
+    : '';
+
+  // Build tender reconciliation rows
+  const tenderRows = (tenders || []).map(tender => {
+    const expected = summaryData?.tenderBreakdown?.[tender.name] || 0;
+    const physical = parseFloat(tenderCounts?.[tender.id]) || 0;
+    const variance = physical - expected;
+    return `
+      <tr>
+        <td style="padding: 2px 0; text-align: left;">${tender.name}</td>
+        <td style="padding: 2px 0; text-align: right;">${formatNaira(expected)}</td>
+        <td style="padding: 2px 0; text-align: right;">${formatNaira(physical)}</td>
+        <td style="padding: 2px 0; text-align: right; color: ${variance === 0 ? '#000' : variance > 0 ? '#065f46' : '#991b1b'};">
+          ${formatNaira(variance)} ${variance === 0 ? '✓' : variance > 0 ? '↑' : '↓'}
+        </td>
+      </tr>`;
+  }).join('');
+
+  const totalPhysical = (tenders || []).reduce((sum, t) => sum + (parseFloat(tenderCounts?.[t.id]) || 0), 0);
+  const totalExpected = (summaryData?.openingBalance || 0) + (summaryData?.totalSales || 0);
+  const totalVariance = totalPhysical - totalExpected;
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>End of Day Report</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    body {
+      font-family: 'Arial', 'Helvetica Neue', sans-serif;
+      width: 58mm;
+      margin: 0;
+      padding: 2mm;
+      background: white;
+      font-size: 9pt;
+      line-height: 1.2;
+    }
+    .report { width: 100%; color: #000; }
+    .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2mm; }
+    .logo { max-width: 35mm; max-height: 20mm; display: block; margin: 0 auto 2mm auto; filter: grayscale(100%); }
+    .title { font-weight: bold; font-size: 11pt; margin: 1mm 0; letter-spacing: 1px; }
+    .subtitle { font-size: 8pt; color: #333; }
+    .section { margin: 2mm 0; padding: 1mm 0; border-bottom: 1px dashed #000; }
+    .section-title { font-weight: bold; font-size: 9pt; margin-bottom: 1mm; text-transform: uppercase; }
+    .row { display: flex; justify-content: space-between; margin: 0.5mm 0; font-size: 9pt; }
+    .row-bold { display: flex; justify-content: space-between; margin: 1mm 0; font-weight: bold; font-size: 10pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 8pt; }
+    th { text-align: left; font-weight: bold; padding: 1px 0; border-bottom: 1px solid #000; font-size: 8pt; }
+    .notes { font-size: 8pt; font-style: italic; margin: 1mm 0; padding: 1mm; background: #f5f5f5; }
+    .footer { text-align: center; font-size: 7pt; margin-top: 3mm; padding-top: 2mm; border-top: 2px solid #000; }
+    @media print {
+      html, body { margin: 0 !important; padding: 2mm !important; width: 58mm; }
+      @page { size: 58mm auto; margin: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report">
+    <div class="header">
+      ${logoAbsolute ? `<img src="${logoAbsolute}" class="logo" alt="Logo" onerror="this.style.display='none'">` : ''}
+      <div class="title">END OF DAY REPORT</div>
+      <div class="subtitle">${locationName || 'Store Location'}</div>
+      <div class="subtitle">${dateStr} ${timeStr}</div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Till Session</div>
+      <div class="row"><span>Opened:</span><span>${openedAt}</span></div>
+      <div class="row"><span>Closed:</span><span>${timeStr}</span></div>
+      <div class="row"><span>Staff:</span><span>${tillData?.staffName || 'N/A'}</span></div>
+      <div class="row"><span>Transactions:</span><span>${tillData?.transactionCount || 0}</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Financial Summary</div>
+      <div class="row"><span>Opening Balance:</span><span>${formatNaira(summaryData?.openingBalance)}</span></div>
+      <div class="row"><span>Total Sales:</span><span>${formatNaira(summaryData?.totalSales)}</span></div>
+      <div class="row-bold"><span>Expected Closing:</span><span>${formatNaira(totalExpected)}</span></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Tender Reconciliation</div>
+      <table>
+        <thead>
+          <tr>
+            <th style="text-align: left;">Tender</th>
+            <th style="text-align: right;">Expected</th>
+            <th style="text-align: right;">Actual</th>
+            <th style="text-align: right;">Var.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tenderRows}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <div class="row-bold"><span>Total Physical:</span><span>${formatNaira(totalPhysical)}</span></div>
+      <div class="row-bold"><span>Total Variance:</span><span style="color: ${totalVariance === 0 ? '#000' : totalVariance > 0 ? '#065f46' : '#991b1b'};">${formatNaira(totalVariance)} ${totalVariance === 0 ? '✓ OK' : totalVariance > 0 ? 'OVER' : 'SHORT'}</span></div>
+    </div>
+
+    ${closingNotes ? `<div class="section"><div class="section-title">Notes</div><div class="notes">${closingNotes}</div></div>` : ''}
+
+    <div class="footer">
+      <div style="font-weight: bold;">— End of Report —</div>
+      <div style="margin-top: 1mm;">Printed: ${dateStr} ${timeStr}</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  // Print via iframe
+  try {
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    iframe.style.visibility = 'hidden';
+    document.body.appendChild(iframe);
+
+    iframe.contentDocument.write(html);
+    iframe.contentDocument.close();
+
+    let printed = false;
+    const doPrint = () => {
+      if (printed) return;
+      printed = true;
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) {
+        console.error('EOD print error:', e);
+      }
+      setTimeout(() => {
+        try { document.body.removeChild(iframe); } catch (e) { /* ignore */ }
+      }, 5000);
+    };
+
+    iframe.contentWindow.addEventListener('load', doPrint, { once: true });
+    setTimeout(doPrint, 1000);
+  } catch (err) {
+    console.error('Failed to print end-of-day report:', err);
+  }
+};
+
 
 // Helper to get offline till data from IndexedDB
 const getOfflineTillData = async (tillId) => {
@@ -429,6 +590,26 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         setLoadingStep("Till closed offline...");
         onTillClosed({ ...payload, offline: true });
       }
+
+      setLoadingProgress(80);
+      setLoadingStep("Printing end-of-day report...");
+      
+      // Print end-of-day report before clearing session
+      try {
+        printEndOfDayReport(
+          till,
+          summary,
+          tenderCountsForAPI,
+          tenders,
+          closingNotes.trim(),
+          location?.name || ''
+        );
+      } catch (printErr) {
+        console.warn('Could not print end-of-day report:', printErr);
+      }
+
+      // Wait for print dialog to appear
+      await new Promise(resolve => setTimeout(resolve, 1500));
 
       setLoadingProgress(85);
       setLoadingStep("Clearing session data...");

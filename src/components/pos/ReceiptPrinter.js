@@ -64,7 +64,7 @@ export default function ReceiptPrinter({
             <title>Transaction Receipt</title>
             <style>
               body {
-                font-family: 'Courier New', monospace;
+                font-family: 'Arial', 'Helvetica Neue', sans-serif;
                 width: 58mm;
                 margin: 0;
                 padding: 0;
@@ -304,7 +304,7 @@ export default function ReceiptPrinter({
 
   const {
     companyDisplayName = "St's Michael Hub",
-    companyLogo = '/images/logo.png',
+    companyLogo: rawReceiptLogo = '',
     storePhone = '',
     email = '',
     website = '',
@@ -315,6 +315,9 @@ export default function ReceiptPrinter({
     qrDescription = '',
     paymentStatus = 'paid',
   } = receiptSettings;
+
+  // Ensure logo is an absolute URL for printing contexts
+  const companyLogo = rawReceiptLogo || '/images/placeholder.jpg';
 
   return (
     <div>

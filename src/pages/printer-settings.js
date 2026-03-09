@@ -89,14 +89,19 @@ export default function PrinterSettings() {
       setConnectionStatus(null);
       setError('');
 
-      if (settings.connectionMode !== 'network') {
-        setError('Network printer testing requires network connection mode');
-        setTestingConnection(false);
-        return;
+      if (settings.connectionMode === 'network') {
+        const result = await testPrinterConnection(settings);
+        setConnectionStatus(result);
+      } else {
+        // USB mode: check printer status via status API
+        const result = await getPrinterStatus(settings);
+        setConnectionStatus({
+          success: result.available === true,
+          message: result.available
+            ? result.message || 'USB printer detected and ready'
+            : result.message || 'USB printer not detected. Check connection and driver.',
+        });
       }
-
-      const result = await testPrinterConnection(settings);
-      setConnectionStatus(result);
 
       if (result.success) {
         setSuccess('✅ Printer connected successfully!');

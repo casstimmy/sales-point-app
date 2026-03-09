@@ -62,16 +62,23 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
     const printerSettings = getPrinterSettings();
 
     // Try silent printer only if enabled (skip API call if disabled)
-    if (printerSettings.enabled && printerSettings.connectionMode === 'usb') {
+    if (printerSettings.enabled && (printerSettings.connectionMode === 'usb' || printerSettings.connectionMode === 'network')) {
       try {
-        // Fire and forget - don't await the API call
-        sendDirectPrint(transaction, settings, printerSettings).catch(() => {
-          // Silently fail - will fall back to dialog anyway
-        });
-        // Don't wait for response - show dialog immediately
+        const directResult = await sendDirectPrint(transaction, settings, printerSettings).catch(() => null);
+        // If autoPrint is on and direct print was attempted, skip browser dialog
+        if (printerSettings.autoPrint && directResult?.success) {
+          console.log('🖨️ Auto-printed via direct print (no dialog)');
+          return;
+        }
       } catch (error) {
-        // Ignore
+        // Ignore - fall through to browser print
       }
+    }
+
+    // If autoPrint is enabled with printMethod 'direct', don't show dialog
+    if (printerSettings.autoPrint && printerSettings.printMethod === 'direct') {
+      console.log('🖨️ Auto-print mode (direct only) — skipping browser dialog');
+      return;
     }
 
     // Show print dialog immediately (don't wait for thermal printer)
@@ -198,7 +205,7 @@ function generateReceiptHTML(transaction, settings) {
 
   const {
     companyDisplayName = "St's Michael Hub",
-    companyLogo = getStoreLogo(),
+    companyLogo: rawLogo = '',
     storePhone = '',
     email = '',
     website = '',
@@ -208,6 +215,15 @@ function generateReceiptHTML(transaction, settings) {
     qrUrl = '',
     qrDescription = '',
   } = settings;
+
+  // Ensure logo URL is absolute for print context (iframe/new window)
+  const fallbackLogo = getStoreLogo();
+  const logoSrc = rawLogo || fallbackLogo;
+  const companyLogo = logoSrc && logoSrc !== '/images/placeholder.jpg'
+    ? (logoSrc.startsWith('http') || logoSrc.startsWith('data:')
+        ? logoSrc
+        : `${typeof window !== 'undefined' ? window.location.origin : ''}${logoSrc.startsWith('/') ? '' : '/'}${logoSrc}`)
+    : '';
 
   const formatNaira = (amount) => {
     return `₦${(amount || 0).toLocaleString('en-NG', { 
@@ -267,7 +283,7 @@ function generateReceiptHTML(transaction, settings) {
         <style>
           * { margin: 0; padding: 0; }
           body {
-            font-family: 'Courier New', monospace;
+            font-family: 'Arial', 'Helvetica Neue', sans-serif;
             width: 58mm;
             margin: 0;
             padding: 2mm;

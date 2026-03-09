@@ -98,6 +98,50 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
   const [uiSettings, setUiSettings] = useState(getUiSettings());
   const { lastSyncTime, isOnline, pendingSyncCount, manualSync } = useCart();
   const { till, setCurrentTill } = useStaff();
+
+  // Derive content scale classes from sidebar width setting
+  const sidebarScale = uiSettings.layout?.sidebarWidth || 'standard';
+  const scaleClasses = {
+    compact: {
+      text: 'text-[11px] sm:text-xs',
+      heading: 'text-xs sm:text-sm',
+      icon: 'w-3.5 h-3.5 sm:w-4 sm:h-4',
+      iconLg: 'w-4 h-4 sm:w-5 sm:h-5',
+      padding: 'px-2 py-2 sm:px-3 sm:py-2.5',
+      paddingLg: 'px-2.5 py-2.5 sm:px-3 sm:py-3',
+      gap: 'gap-2',
+      logoSize: 32,
+    },
+    standard: {
+      text: 'text-xs sm:text-sm',
+      heading: 'text-sm sm:text-base',
+      icon: 'w-4 h-4 sm:w-5 sm:h-5',
+      iconLg: 'w-5 h-5 sm:w-6 sm:h-6',
+      padding: 'px-4 py-3 sm:px-5 sm:py-4',
+      paddingLg: 'px-3 py-3 sm:px-4 sm:py-4',
+      gap: 'gap-3',
+      logoSize: 40,
+    },
+    wide: {
+      text: 'text-sm sm:text-base',
+      heading: 'text-base sm:text-lg',
+      icon: 'w-5 h-5 sm:w-6 sm:h-6',
+      iconLg: 'w-6 h-6 sm:w-7 sm:h-7',
+      padding: 'px-5 py-4 sm:px-6 sm:py-5',
+      paddingLg: 'px-4 py-4 sm:px-5 sm:py-5',
+      gap: 'gap-4',
+      logoSize: 48,
+    },
+  }[sidebarScale] || {
+    text: 'text-xs sm:text-sm',
+    heading: 'text-sm sm:text-base',
+    icon: 'w-4 h-4 sm:w-5 sm:h-5',
+    iconLg: 'w-5 h-5 sm:w-6 sm:h-6',
+    padding: 'px-4 py-3 sm:px-5 sm:py-4',
+    paddingLg: 'px-3 py-3 sm:px-4 sm:py-4',
+    gap: 'gap-3',
+    logoSize: 40,
+  };
   const [effectiveTill, setEffectiveTill] = useState(till || null);
 
   // Check printer availability on mount only (not periodically)
@@ -226,12 +270,12 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     <div className="flex flex-col h-full bg-gradient-to-b from-neutral-50 to-neutral-100 text-neutral-800 text-xs sm:text-sm">
       {/* Logo Section */}
       <div className="p-3 sm:p-4 bg-white border-b-2 border-primary-200 shadow-sm">
-        <div className="flex items-center gap-3">
+        <div className={`flex items-center ${scaleClasses.gap}`}>
           <Image 
             src={getStoreLogo()} 
             alt="Store Logo" 
-            width={40}
-            height={40}
+            width={scaleClasses.logoSize}
+            height={scaleClasses.logoSize}
             className="object-contain rounded-lg"
             onError={(e) => {
               e.target.onerror = null;
@@ -240,12 +284,12 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             }}
             unoptimized
           />
-          <div className="w-10 h-10 bg-primary-600 rounded-lg items-center justify-center hidden text-white font-bold text-lg">
+          <div className={`${scaleClasses.logoSize === 32 ? 'w-8 h-8' : scaleClasses.logoSize === 48 ? 'w-12 h-12' : 'w-10 h-10'} bg-primary-600 rounded-lg items-center justify-center hidden text-white font-bold text-lg`}>
             SP
           </div>
           <div className="hidden md:block flex-1">
-            <div className="text-base font-bold text-neutral-900">SalesPOS</div>
-            <div className="text-sm text-primary-600 font-semibold">Point of Sale</div>
+            <div className={`${scaleClasses.heading} font-bold text-neutral-900`}>SalesPOS</div>
+            <div className={`${scaleClasses.text} text-primary-600 font-semibold`}>Point of Sale</div>
           </div>
         </div>
       </div>
@@ -257,15 +301,15 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             {/* Section Header */}
             <button
               onClick={() => toggleSection(section.id)}
-              className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-neutral-800 hover:text-primary-700 text-sm sm:text-lg"
+              className={`w-full flex items-center ${scaleClasses.gap} ${scaleClasses.padding} hover:bg-primary-50 transition-colors duration-base text-left font-semibold text-neutral-800 hover:text-primary-700`}
             >
-              <FontAwesomeIcon icon={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 text-primary-600" />
-              <span className="text-sm sm:text-base font-semibold text-neutral-800 flex-1">
+              <FontAwesomeIcon icon={section.icon} className={`${scaleClasses.iconLg} text-primary-600`} />
+              <span className={`${scaleClasses.heading} font-semibold text-neutral-800 flex-1`}>
                 {section.label}
               </span>
               <FontAwesomeIcon
                 icon={expandedSections[section.id] ? faChevronDown : faChevronRight}
-                className="w-5 h-5 text-primary-600 hidden md:inline"
+                className={`${scaleClasses.icon} text-primary-600 hidden md:inline`}
               />
             </button>
 
@@ -283,10 +327,10 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                       }
                     }}
                     disabled={(item.label === 'Close Till' || item.label === 'Adjust Float') && !effectiveTill}
-                    className="w-full flex items-center gap-3 px-4 py-3 sm:px-5 sm:py-4 hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed"
+                    className={`w-full flex items-center ${scaleClasses.gap} ${scaleClasses.padding} hover:bg-primary-100 border-l-4 border-transparent hover:border-primary-500 text-left font-semibold text-neutral-700 hover:text-primary-700 transition-colors duration-base disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    <FontAwesomeIcon icon={item.icon} className="w-4 h-4 sm:w-5 sm:h-5 text-primary-500" />
-                    <span className="text-sm sm:text-base">{item.label}</span>
+                    <FontAwesomeIcon icon={item.icon} className={`${scaleClasses.icon} text-primary-500`} />
+                    <span className={scaleClasses.heading}>{item.label}</span>
                   </button>
                 ))}
               </div>
@@ -298,21 +342,21 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
       {/* Bottom Section */}
       <div className="border-t-2 border-neutral-200 bg-white p-3 sm:p-4 space-y-3 sm:space-y-4 shadow-lg">
         {/* Cloud Sync Status */}
-        <div className="text-xs sm:text-sm text-neutral-700 p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200 shadow-sm">
+        <div className={`${scaleClasses.text} text-neutral-700 p-3 sm:p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200 shadow-sm`}>
           <div className="flex items-center gap-2 mb-2">
             <FontAwesomeIcon
               icon={faCloud}
-              className={`w-4 h-4 sm:w-5 sm:h-5 ${isOnline ? 'text-green-600' : 'text-red-600'}`}
+              className={`${scaleClasses.icon} ${isOnline ? 'text-green-600' : 'text-red-600'}`}
             />
-            <span className={`text-xs sm:text-sm font-bold ${isOnline ? 'text-green-700' : 'text-red-700'}`}>
+            <span className={`${scaleClasses.text} font-bold ${isOnline ? 'text-green-700' : 'text-red-700'}`}>
               {isOnline ? '● Online' : '● Offline'}
             </span>
           </div>
-          <div className="text-neutral-600 mb-2 text-xs sm:text-sm font-medium">
+          <div className={`text-neutral-600 mb-2 ${scaleClasses.text} font-medium`}>
             Last sync: {formatSyncTime(lastSyncTime)}
           </div>
           {pendingSyncCount > 0 && (
-            <div className="text-red-700 font-bold text-xs sm:text-sm mb-2">
+            <div className={`text-red-700 font-bold ${scaleClasses.text} mb-2`}>
               ⚠️ {pendingSyncCount} pending transaction{pendingSyncCount !== 1 ? 's' : ''}
             </div>
           )}
@@ -323,7 +367,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
           <button
             onClick={handleManualSync}
             disabled={isSyncing || !isOnline}
-            className="w-full flex items-center justify-center gap-2 px-3 py-3 sm:px-4 sm:py-4 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base text-sm sm:text-base font-bold shadow-md hover:shadow-lg"
+            className={`w-full flex items-center justify-center gap-2 ${scaleClasses.paddingLg} bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base ${scaleClasses.heading} font-bold shadow-md hover:shadow-lg`}
           >
             <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
             {isSyncing ? 'Syncing...' : 'Sync Transactions'}
@@ -339,36 +383,57 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                 onToggle();
                 router.push('/settings');
               }}
-              className={`flex-1 flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 rounded-lg text-left text-sm sm:text-base font-semibold transition-colors duration-base ${
+              className={`flex-1 flex items-center ${scaleClasses.gap} ${scaleClasses.paddingLg} rounded-lg text-left ${scaleClasses.heading} font-semibold transition-colors duration-base ${
                 router.pathname === '/settings' || router.pathname === '/printer-settings'
                   ? 'bg-primary-100 text-primary-700 shadow-md'
                   : 'text-neutral-700 hover:bg-neutral-100 hover:text-primary-600'
               }`}
             >
-              <FontAwesomeIcon icon={faGear} className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className="text-sm sm:text-base">Settings</span>
+              <FontAwesomeIcon icon={faGear} className={scaleClasses.icon} />
+              <span className={scaleClasses.heading}>Settings</span>
             </button>
             {/* Printer Status Badge */}
-            <div
-              title={printerAvailable === null ? 'Checking printer...' : printerAvailable ? 'Printer Connected' : 'Printer Not Connected'}
-              className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm ${
-                printerAvailable
-                  ? 'bg-green-100 text-green-800 border border-green-300'
-                  : 'bg-red-100 text-red-800 border border-red-300'
+            <button
+              onClick={() => {
+                onToggle();
+                router.push('/printer-settings');
+              }}
+              title={
+                checkingPrinter
+                  ? 'Checking printer...'
+                  : printerAvailable === null
+                  ? 'Printer status unknown'
+                  : printerAvailable
+                  ? 'Printer Connected — Click to open Printer Settings'
+                  : 'Printer Not Connected — Click to open Printer Settings'
+              }
+              className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-colors ${
+                checkingPrinter
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                  : printerAvailable
+                  ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                  : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
               }`}
             >
               <FontAwesomeIcon icon={faPrint} className="w-4 h-4 sm:w-5 sm:h-5" />
               <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-                printerAvailable ? 'bg-green-500 animate-pulse' : 'bg-red-500'
+                checkingPrinter
+                  ? 'bg-yellow-500 animate-pulse'
+                  : printerAvailable
+                  ? 'bg-green-500 animate-pulse'
+                  : 'bg-red-500'
               }`} />
-            </div>
+              <span className="sr-only">
+                {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : 'Inactive'}
+              </span>
+            </button>
           </div>
           <button
             onClick={handleOpenHelp}
-            className="w-full flex items-center gap-3 px-3 py-3 sm:px-4 sm:py-4 hover:bg-neutral-100 rounded-lg text-left text-sm sm:text-base font-semibold text-neutral-700 hover:text-primary-600 transition-colors duration-base"
+            className={`w-full flex items-center ${scaleClasses.gap} ${scaleClasses.paddingLg} hover:bg-neutral-100 rounded-lg text-left ${scaleClasses.heading} font-semibold text-neutral-700 hover:text-primary-600 transition-colors duration-base`}
           >
-            <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4 sm:w-5 sm:h-5" />
-            <span className="text-sm sm:text-base">Support</span>
+            <FontAwesomeIcon icon={faQuestionCircle} className={scaleClasses.icon} />
+            <span className={scaleClasses.heading}>Support</span>
           </button>
         </div>
       </div>

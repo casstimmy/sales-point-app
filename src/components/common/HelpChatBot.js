@@ -166,6 +166,7 @@ const getBotReply = (question) => {
 export default function HelpChatBot() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const [showButton, setShowButton] = useState(false);
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([firstMessage]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -185,6 +186,7 @@ export default function HelpChatBot() {
   }, []);
 
   const openWithTopic = useCallback((topic) => {
+    setShowButton(true);
     setIsOpen(true);
     if (!topic) return;
     const topicPrompt = `Help: ${topic}`;
@@ -211,6 +213,10 @@ export default function HelpChatBot() {
   }, []);
 
   const quickPrompts = useMemo(() => isLoggedIn ? QUICK_PROMPTS_POS : QUICK_PROMPTS_LOGIN, [isLoggedIn]);
+
+  if (!showButton && !isOpen) {
+    return null;
+  }
 
   if (!isOpen) {
     return (
