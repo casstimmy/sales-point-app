@@ -218,8 +218,8 @@ export default function PaymentPanel() {
       <ThankYouNote
         isOpen={showThankYouModal}
         onClose={() => setShowThankYouModal(false)}
-        receiptSettings={receiptSettings}
-        companyLogo={receiptSettings.companyLogo}
+        receiptSettings={receiptSettings || {}}
+        companyLogo={receiptSettings?.companyLogo}
       />
 
       <OpenTillModal
