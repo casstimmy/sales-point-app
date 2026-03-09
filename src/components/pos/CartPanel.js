@@ -47,7 +47,7 @@ export default function CartPanel() {
   const [prevItemsLength, setPrevItemsLength] = useState(0);
   const selectedItemRef = useRef(null);
   const [showAdjustFloatModal, setShowAdjustFloatModal] = useState(false);
-  const [receiptSettings, setReceiptSettings] = useState({});
+  const [receiptSettings, setReceiptSettings] = useState(null);
   const [cartBtnSettings, setCartBtnSettings] = useState(getUiSettings().cartPanelButtons || {});
   const [totalsCollapsed, setTotalsCollapsed] = useState(false);
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
@@ -99,6 +99,11 @@ export default function CartPanel() {
     };
     window.addEventListener("uiSettings:updated", handleSettingsUpdate);
     return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
+  }, []);
+
+  // Preload receipt settings so logo and branding are ready for printing
+  useEffect(() => {
+    getReceiptSettings().then((s) => setReceiptSettings(s)).catch(() => {});
   }, []);
 
   const handlePayment = async () => {

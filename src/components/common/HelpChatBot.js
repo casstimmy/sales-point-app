@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -170,6 +170,53 @@ export default function HelpChatBot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([firstMessage]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const idleTimerRef = useRef(null);
+  const buttonTimerRef = useRef(null);
+
+  // Auto-hide idle timeout durations (ms)
+  const CHAT_IDLE_MS = 15000;   // Close chat after 15s of no interaction
+  const BUTTON_IDLE_MS = 8000;  // Hide floating button after 8s if chat not opened
+
+  // Clear all idle timers
+  const clearIdleTimers = useCallback(() => {
+    if (idleTimerRef.current) { clearTimeout(idleTimerRef.current); idleTimerRef.current = null; }
+    if (buttonTimerRef.current) { clearTimeout(buttonTimerRef.current); buttonTimerRef.current = null; }
+  }, []);
+
+  // Start/reset the chat idle timer (auto-close chat when idle)
+  const resetChatIdleTimer = useCallback(() => {
+    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    idleTimerRef.current = setTimeout(() => {
+      setIsOpen(false);
+      // After closing, show button briefly then hide
+      buttonTimerRef.current = setTimeout(() => {
+        setShowButton(false);
+      }, BUTTON_IDLE_MS);
+    }, CHAT_IDLE_MS);
+  }, [CHAT_IDLE_MS, BUTTON_IDLE_MS]);
+
+  // Start button idle timer (hide button if chat not opened)
+  const startButtonIdleTimer = useCallback(() => {
+    if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+    buttonTimerRef.current = setTimeout(() => {
+      setShowButton((prev) => {
+        // Only hide if chat is not open
+        return false;
+      });
+    }, BUTTON_IDLE_MS);
+  }, [BUTTON_IDLE_MS]);
+
+  // When chat opens, start idle timer; when it closes, start button timer
+  useEffect(() => {
+    if (isOpen) {
+      if (buttonTimerRef.current) clearTimeout(buttonTimerRef.current);
+      resetChatIdleTimer();
+    } else if (showButton) {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      startButtonIdleTimer();
+    }
+    return () => clearIdleTimers();
+  }, [isOpen, showButton, resetChatIdleTimer, startButtonIdleTimer, clearIdleTimers]);
 
   useEffect(() => {
     const checkLoginState = () => {
@@ -210,7 +257,9 @@ export default function HelpChatBot() {
     const reply = getBotReply(text);
     setMessages((prev) => [...prev, { role: "user", text }, { role: "bot", text: reply.text }]);
     setInput("");
-  }, []);
+    // Reset idle timer on interaction
+    resetChatIdleTimer();
+  }, [resetChatIdleTimer]);
 
   const quickPrompts = useMemo(() => isLoggedIn ? QUICK_PROMPTS_POS : QUICK_PROMPTS_LOGIN, [isLoggedIn]);
 
@@ -318,7 +367,7 @@ export default function HelpChatBot() {
         <div className="flex gap-2">
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); resetChatIdleTimer(); }}
             onKeyDown={(e) => {
               if (e.key === "Enter") sendMessage(input);
             }}

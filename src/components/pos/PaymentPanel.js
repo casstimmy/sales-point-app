@@ -27,7 +27,7 @@ import OpenTillModal from "./OpenTillModal";
 export default function PaymentPanel() {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [showOpenTillModal, setShowOpenTillModal] = useState(false);
-  const [receiptSettings, setReceiptSettings] = useState({});
+  const [receiptSettings, setReceiptSettings] = useState(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const { staff, location, till } = useStaff();
   const { handleError } = useErrorHandler();
@@ -55,6 +55,11 @@ export default function PaymentPanel() {
     handleSettingsUpdate();
     window.addEventListener("uiSettings:updated", handleSettingsUpdate);
     return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
+  }, []);
+
+  // Preload receipt settings so logo and branding are ready for printing
+  useEffect(() => {
+    getReceiptSettings().then((s) => setReceiptSettings(s)).catch(() => {});
   }, []);
 
   const handlePaymentConfirm = async (paymentDetails) => {

@@ -61,27 +61,51 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
     // Get printer settings
     const printerSettings = getPrinterSettings();
 
-    // Try silent printer only if enabled (skip API call if disabled)
-    if (printerSettings.enabled && (printerSettings.connectionMode === 'usb' || printerSettings.connectionMode === 'network')) {
+    const shouldTryDirect = printerSettings.enabled &&
+      (printerSettings.printMethod === 'direct' || printerSettings.printMethod === 'both') &&
+      (printerSettings.connectionMode === 'usb' || printerSettings.connectionMode === 'network');
+
+    const shouldTryBrowser = !printerSettings.enabled ||
+      printerSettings.printMethod === 'browser' ||
+      printerSettings.printMethod === 'both';
+
+    let directSuccess = false;
+
+    // Try direct thermal print if configured
+    if (shouldTryDirect) {
       try {
         const directResult = await sendDirectPrint(transaction, settings, printerSettings).catch(() => null);
-        // If autoPrint is on and direct print was attempted, skip browser dialog
-        if (printerSettings.autoPrint && directResult?.success) {
-          console.log('🖨️ Auto-printed via direct print (no dialog)');
-          return;
+        directSuccess = directResult?.success === true;
+        if (directSuccess) {
+          console.log('🖨️ Direct print succeeded');
         }
       } catch (error) {
-        // Ignore - fall through to browser print
+        console.warn('⚠️ Direct print failed, will try fallback');
       }
     }
 
-    // If autoPrint is enabled with printMethod 'direct', don't show dialog
-    if (printerSettings.autoPrint && printerSettings.printMethod === 'direct') {
-      console.log('🖨️ Auto-print mode (direct only) — skipping browser dialog');
+    // If direct succeeded and autoPrint is on, skip browser dialog entirely
+    if (directSuccess && printerSettings.autoPrint) {
+      console.log('🖨️ Auto-printed via direct print (no dialog)');
       return;
     }
 
-    // Show print dialog immediately (don't wait for thermal printer)
+    // If method is direct-only, don't fall back to browser
+    if (printerSettings.enabled && printerSettings.printMethod === 'direct') {
+      if (!directSuccess) {
+        console.warn('⚠️ Direct print failed — direct-only mode, no browser fallback');
+      }
+      return;
+    }
+
+    // Skip browser print if direct already succeeded (method = 'both')
+    if (directSuccess) {
+      return;
+    }
+
+    // Show browser print dialog for 'browser' or 'both' (when direct failed) methods
+    if (!shouldTryBrowser) return;
+
     console.log('🖨️ Showing print dialog...');
     
     const receiptHTML = generateReceiptHTML(transaction, settings);
@@ -139,6 +163,28 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
           }
         }
       };
+
+      // Wait for all images to load before printing
+      const waitForImages = () => {
+        const images = iframe.contentDocument.querySelectorAll('img');
+        if (images.length === 0) {
+          doPrint();
+          return;
+        }
+        let loaded = 0;
+        const onImageReady = () => {
+          loaded++;
+          if (loaded >= images.length) doPrint();
+        };
+        images.forEach((img) => {
+          if (img.complete) {
+            onImageReady();
+          } else {
+            img.addEventListener('load', onImageReady, { once: true });
+            img.addEventListener('error', onImageReady, { once: true });
+          }
+        });
+      };
       
       // Listen for afterprint event (fires when print dialog closes)
       iframe.contentWindow.addEventListener('afterprint', () => {
@@ -146,23 +192,23 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
         cleanupIframe();
       }, { once: true });
       
-      // Try to print on load event first
-      iframe.contentWindow.addEventListener('load', doPrint, { once: true });
+      // Wait for document load, then wait for images
+      iframe.contentWindow.addEventListener('load', waitForImages, { once: true });
       
-      // Fallback: print immediately if window is ready
+      // Fallback: if load already fired
       if (iframe.contentDocument.readyState === 'complete') {
-        doPrint();
+        waitForImages();
       }
       
-      // Safety timeout: ensure print happens within 1 second
+      // Safety timeout: ensure print happens within 3 seconds even if images fail
       setTimeout(() => {
         doPrint();
-      }, 1000);
+      }, 3000);
       
       // Final safety cleanup (if nothing else triggered)
       setTimeout(() => {
         cleanupIframe();
-      }, 10000); // Max 10 seconds before cleanup
+      }, 15000); // Max 15 seconds before cleanup
     } catch (printError) {
       console.error('❌ Print error:', printError);
       try {
