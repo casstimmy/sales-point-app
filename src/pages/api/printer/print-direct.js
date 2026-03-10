@@ -291,16 +291,16 @@ export default async function handler(req, res) {
           }
         }, 2000);
         
-        // Always return false to show browser dialog
+        // Return success so autoPrint can skip browser dialog
         return res.status(200).json({
-          success: false,
-          message: 'Will display print dialog for user',
+          success: true,
+          message: 'Receipt sent to USB printer',
         });
         
       } catch (error) {
         return res.status(200).json({
           success: false,
-          message: 'Will display print dialog',
+          message: 'USB print failed, will display print dialog',
         });
       }
     }

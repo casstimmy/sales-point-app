@@ -205,9 +205,9 @@ export default function OrdersScreen() {
     createdAt: order.createdAt || new Date().toISOString(),
     items: (order.items || []).map((item) => ({
       productId: item.productId || item.id,
-      name: item.name,
-      qty: item.qty || item.quantity || 1,
-      salePriceIncTax: Number(item.salePriceIncTax || item.price || 0),
+      name: item.name || 'Unknown Item',
+      quantity: item.quantity || item.qty || 1,
+      price: Number(item.price || item.salePriceIncTax || 0),
     })),
     subtotal: Number(order.subtotal || order.total || 0),
     tax: Number(order.tax || 0),

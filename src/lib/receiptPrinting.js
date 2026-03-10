@@ -84,9 +84,13 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
       }
     }
 
-    // If direct succeeded and autoPrint is on, skip browser dialog entirely
-    if (directSuccess && printerSettings.autoPrint) {
-      console.log('🖨️ Auto-printed via direct print (no dialog)');
+    // If autoPrint is enabled, skip browser dialog entirely regardless of result
+    if (printerSettings.enabled && printerSettings.autoPrint) {
+      if (directSuccess) {
+        console.log('🖨️ Auto-printed via direct print (no dialog)');
+      } else {
+        console.warn('⚠️ Auto-print enabled but direct print failed — skipping browser dialog');
+      }
       return;
     }
 
