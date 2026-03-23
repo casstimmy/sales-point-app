@@ -273,13 +273,15 @@ export default async function handler(req, res) {
         fs.writeFileSync(filePath, Buffer.from(receiptData));
         
         // Try print.exe in background
+        let printed = false;
         try {
           execSync(`print /d:XP-80C "${filePath}"`, {
             timeout: 3000,
             stdio: 'ignore'
           });
+          printed = true;
         } catch (error) {
-          // Silently fail
+          console.warn('âš ï¸ USB direct print command failed:', error.message);
         }
         
         // Clean up temp file after delay
@@ -291,10 +293,16 @@ export default async function handler(req, res) {
           }
         }, 2000);
         
-        // Return success so autoPrint can skip browser dialog
+        if (printed) {
+          return res.status(200).json({
+            success: true,
+            message: 'Receipt sent to USB printer',
+          });
+        }
+
         return res.status(200).json({
-          success: true,
-          message: 'Receipt sent to USB printer',
+          success: false,
+          message: 'USB print command failed, browser fallback required',
         });
         
       } catch (error) {

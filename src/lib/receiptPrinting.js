@@ -84,6 +84,10 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
       }
     }
 
+    if (printerSettings.enabled && printerSettings.autoPrint && !directSuccess) {
+      printerSettings.autoPrint = false;
+    }
+
     // If autoPrint is enabled, skip browser dialog entirely regardless of result
     if (printerSettings.enabled && printerSettings.autoPrint) {
       if (directSuccess) {
@@ -338,8 +342,8 @@ function generateReceiptHTML(transaction, settings) {
             margin: 0;
             padding: 2mm;
             background: white;
-            font-size: 10pt;
-            line-height: 1.1;
+            font-size: 8.5pt;
+            line-height: 1.05;
           }
           .receipt {
             width: 100%;
@@ -363,17 +367,17 @@ function generateReceiptHTML(transaction, settings) {
           }
           .company-name {
             font-weight: bold;
-            font-size: 12pt;
+            font-size: 10pt;
             letter-spacing: 1px;
             margin: 1mm 0;
           }
           .company-info {
-            font-size: 8pt;
-            line-height: 1.3;
+            font-size: 7pt;
+            line-height: 1.2;
           }
 
           .details {
-            font-size: 9pt;
+            font-size: 7.5pt;
             margin: 0.5mm 0;
             text-align: left;
           }
@@ -396,13 +400,13 @@ function generateReceiptHTML(transaction, settings) {
             gap: 2mm;
             font-weight: bold;
             margin-bottom: 0.5mm;
-            font-size: 8pt;
+            font-size: 7pt;
             text-align: left;
           }
           .items-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9pt;
+            font-size: 7.25pt;
             text-align: left;
           }
           .items-table td {
@@ -410,7 +414,7 @@ function generateReceiptHTML(transaction, settings) {
           }
           .totals {
             margin: 0.5mm 0;
-            font-size: 9pt;
+            font-size: 7.5pt;
             text-align: left;
           }
           .total-row {
@@ -421,7 +425,7 @@ function generateReceiptHTML(transaction, settings) {
           }
           .final-total {
             font-weight: bold;
-            font-size: 11pt;
+            font-size: 9pt;
             border-top: 1px solid #000;
             border-bottom: 1px solid #000;
             padding: 1mm 0;
@@ -436,13 +440,13 @@ function generateReceiptHTML(transaction, settings) {
           }
           .payment-title {
             font-weight: bold;
-            font-size: 9pt;
+            font-size: 7.5pt;
             margin-bottom: 0.5mm;
           }
           .payment-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 9pt;
+            font-size: 7.25pt;
           }
           .payment-table td {
             padding: 0.3mm 0;
@@ -450,12 +454,12 @@ function generateReceiptHTML(transaction, settings) {
           .thank-you {
             text-align: center;
             font-weight: bold;
-            font-size: 12pt;
+            font-size: 10pt;
             margin: 1mm 0;
           }
           .footer {
             text-align: center;
-            font-size: 8pt;
+            font-size: 7pt;
             margin-top: 1mm;
             padding-top: 1mm;
             border-top: 1px solid #000;
@@ -463,14 +467,14 @@ function generateReceiptHTML(transaction, settings) {
           .status-box {
             text-align: center;
             font-weight: bold;
-            font-size: 12pt;
+            font-size: 9pt;
             border: 2px solid #000;
             padding: 1mm;
             margin: 1mm 0;
           }
           .message {
             text-align: center;
-            font-size: 8pt;
+            font-size: 7pt;
             margin: 0.5mm 0;
             padding: 1mm 0;
             border-top: 1px solid #000;
@@ -520,7 +524,7 @@ function generateReceiptHTML(transaction, settings) {
 
           <!-- Receipt Details -->
           <div class="details">
-            <div style="font-weight: bold; margin-bottom: 2mm;">Receipt of Purchase (Inc Tax)</div>
+            <div style="font-weight: bold; margin-bottom: 1mm;">Receipt of Purchase (Inc Tax)</div>
             <div class="detail-row">
               <span>${formatDateTime(createdAt)}</span>
               <span>${_id.substring(0, 8).toUpperCase()}</span>
@@ -533,7 +537,7 @@ function generateReceiptHTML(transaction, settings) {
 
           <!-- Items -->
           <div class="items-section">
-            <table style="width: 100%; font-size: 8pt;">
+            <table style="width: 100%; font-size: 7pt;">
               <thead>
                 <tr style="font-weight: bold;">
                   <td style="text-align: left;">PRODUCT</td>

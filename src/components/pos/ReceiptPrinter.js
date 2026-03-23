@@ -74,8 +74,8 @@ export default function ReceiptPrinter({
               .receipt {
                 width: 100%;
                 padding: 5mm;
-                font-size: 10pt;
-                line-height: 1.4;
+                font-size: 8pt;
+                line-height: 1.2;
                 color: #000;
               }
               
@@ -95,14 +95,14 @@ export default function ReceiptPrinter({
               
               .company-name {
                 font-weight: bold;
-                font-size: 12pt;
+                font-size: 10pt;
                 margin: 3mm 0;
                 letter-spacing: 1px;
               }
               
               .company-info {
-                font-size: 8pt;
-                line-height: 1.3;
+                font-size: 7pt;
+                line-height: 1.2;
                 color: #333;
               }
               
@@ -112,7 +112,7 @@ export default function ReceiptPrinter({
               
               .receipt-details {
                 text-align: left;
-                font-size: 9pt;
+                font-size: 7.5pt;
                 margin: 3mm 0;
               }
               
@@ -135,7 +135,7 @@ export default function ReceiptPrinter({
                 gap: 2mm;
                 font-weight: bold;
                 margin-bottom: 2mm;
-                font-size: 8pt;
+                font-size: 7pt;
               }
               
               .item-row {
@@ -143,7 +143,7 @@ export default function ReceiptPrinter({
                 grid-template-columns: 1fr 0.5fr 0.75fr;
                 gap: 2mm;
                 margin: 1mm 0;
-                font-size: 9pt;
+                font-size: 7.5pt;
               }
               
               .item-name {
@@ -162,7 +162,7 @@ export default function ReceiptPrinter({
               
               .totals-section {
                 margin: 3mm 0;
-                font-size: 9pt;
+                font-size: 7.5pt;
               }
               
               .total-row {
@@ -173,7 +173,7 @@ export default function ReceiptPrinter({
               
               .final-total {
                 font-weight: bold;
-                font-size: 11pt;
+                font-size: 9pt;
                 border-top: 1px solid #000;
                 padding-top: 2mm;
                 margin: 2mm 0;
@@ -188,7 +188,7 @@ export default function ReceiptPrinter({
               
               .payment-title {
                 font-weight: bold;
-                font-size: 9pt;
+                font-size: 7.5pt;
                 margin-bottom: 2mm;
               }
               
@@ -196,7 +196,7 @@ export default function ReceiptPrinter({
                 display: flex;
                 justify-content: space-between;
                 margin: 1mm 0;
-                font-size: 9pt;
+                font-size: 7.5pt;
               }
               
               .qr-section {
@@ -215,12 +215,12 @@ export default function ReceiptPrinter({
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 8pt;
+                font-size: 7pt;
                 color: #666;
               }
               
               .qr-description {
-                font-size: 8pt;
+                font-size: 7pt;
                 margin: 2mm 0;
                 font-weight: bold;
               }
@@ -237,13 +237,13 @@ export default function ReceiptPrinter({
               .thank-you {
                 text-align: center;
                 font-weight: bold;
-                font-size: 11pt;
+                font-size: 9pt;
                 margin: 5mm 0;
               }
               
               .footer {
                 text-align: center;
-                font-size: 8pt;
+                font-size: 7pt;
                 margin-top: 5mm;
                 color: #666;
               }
@@ -251,7 +251,7 @@ export default function ReceiptPrinter({
               .status-box {
                 text-align: center;
                 font-weight: bold;
-                font-size: 12pt;
+                font-size: 9pt;
                 border: 2px solid #000;
                 padding: 2mm;
                 margin: 3mm 0;
