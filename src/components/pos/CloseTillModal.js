@@ -58,22 +58,22 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       margin: 0;
       padding: 2mm;
       background: white;
-      font-size: 9pt;
-      line-height: 1.2;
+      font-size: 7.5pt;
+      line-height: 1.1;
     }
     .report { width: 100%; color: #000; }
     .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2mm; }
     .logo { max-width: 35mm; max-height: 20mm; display: block; margin: 0 auto 2mm auto; filter: grayscale(100%); }
-    .title { font-weight: bold; font-size: 11pt; margin: 1mm 0; letter-spacing: 1px; }
-    .subtitle { font-size: 8pt; color: #333; }
+    .title { font-weight: bold; font-size: 9pt; margin: 1mm 0; letter-spacing: 1px; }
+    .subtitle { font-size: 7pt; color: #333; }
     .section { margin: 2mm 0; padding: 1mm 0; border-bottom: 1px dashed #000; }
-    .section-title { font-weight: bold; font-size: 9pt; margin-bottom: 1mm; text-transform: uppercase; }
-    .row { display: flex; justify-content: space-between; margin: 0.5mm 0; font-size: 9pt; }
-    .row-bold { display: flex; justify-content: space-between; margin: 1mm 0; font-weight: bold; font-size: 10pt; }
-    table { width: 100%; border-collapse: collapse; font-size: 8pt; }
-    th { text-align: left; font-weight: bold; padding: 1px 0; border-bottom: 1px solid #000; font-size: 8pt; }
-    .notes { font-size: 8pt; font-style: italic; margin: 1mm 0; padding: 1mm; background: #f5f5f5; }
-    .footer { text-align: center; font-size: 7pt; margin-top: 3mm; padding-top: 2mm; border-top: 2px solid #000; }
+    .section-title { font-weight: bold; font-size: 7.5pt; margin-bottom: 1mm; text-transform: uppercase; }
+    .row { display: flex; justify-content: space-between; margin: 0.5mm 0; font-size: 7.5pt; }
+    .row-bold { display: flex; justify-content: space-between; margin: 1mm 0; font-weight: bold; font-size: 8.5pt; }
+    table { width: 100%; border-collapse: collapse; font-size: 7pt; }
+    th { text-align: left; font-weight: bold; padding: 1px 0; border-bottom: 1px solid #000; font-size: 7pt; }
+    .notes { font-size: 7pt; font-style: italic; margin: 1mm 0; padding: 1mm; background: #f5f5f5; }
+    .footer { text-align: center; font-size: 6.5pt; margin-top: 3mm; padding-top: 2mm; border-top: 2px solid #000; }
     @media print {
       html, body { margin: 0 !important; padding: 2mm !important; width: 58mm; }
       @page { size: 58mm auto; margin: 0; }

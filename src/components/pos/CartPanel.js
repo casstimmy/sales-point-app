@@ -40,6 +40,7 @@ import {
 } from "../../lib/receiptPrinting";
 import { getUiSettings } from "../../lib/uiSettings";
 import AdjustFloatModal from "./AdjustFloatModal";
+import NumKeypad from "../common/NumKeypad";
 
 export default function CartPanel() {
   const [selectedItemId, setSelectedItemId] = useState(null);
@@ -50,6 +51,8 @@ export default function CartPanel() {
   const [receiptSettings, setReceiptSettings] = useState(null);
   const [cartBtnSettings, setCartBtnSettings] = useState(getUiSettings().cartPanelButtons || {});
   const [totalsCollapsed, setTotalsCollapsed] = useState(false);
+  const [qtyEditorItemId, setQtyEditorItemId] = useState(null);
+  const [qtyDraft, setQtyDraft] = useState("");
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
   const {
     activeCart,
@@ -142,6 +145,7 @@ export default function CartPanel() {
         staffName: staff?.name,
         locationId: location?._id,
         locationName: location?.name,
+        locationAddress: location?.address || "",
         tillId: till?._id,
         tillNumber: till?.number,
         timestamp: new Date(),
@@ -161,6 +165,22 @@ export default function CartPanel() {
       console.error("❌ Error printing receipt:", error);
       alert("Error printing receipt. Please try again.");
     }
+  };
+
+  const openQtyEditor = (item) => {
+    setQtyEditorItemId(item.id);
+    setQtyDraft(String(item.quantity || 1));
+  };
+
+  const closeQtyEditor = () => {
+    setQtyEditorItemId(null);
+    setQtyDraft("");
+  };
+
+  const applyQtyDraft = (itemId) => {
+    const parsed = Math.max(1, Math.floor(Number(qtyDraft) || 1));
+    updateQuantity(itemId, parsed);
+    closeQtyEditor();
   };
 
   return (
@@ -363,11 +383,17 @@ export default function CartPanel() {
                               className="w-4 h-4"
                             />
                           </button>
-                          <div className="text-center w-10">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openQtyEditor(item);
+                            }}
+                            className="text-center w-14 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition py-1"
+                          >
                             <div className="text-2xl font-bold">
                               {item.quantity}
                             </div>
-                          </div>
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -385,6 +411,46 @@ export default function CartPanel() {
                         {/* Quantity Label */}
                         <div className="text-center text-xs font-semibold tracking-wider">
                           QTY
+                        </div>
+
+                        <div
+                          className={`overflow-hidden transition-all duration-300 ${
+                            qtyEditorItemId === item.id ? "max-h-[420px] opacity-100 pt-2" : "max-h-0 opacity-0"
+                          }`}
+                        >
+                          <div className="bg-primary-600/80 border border-blue-300 rounded-xl p-2 space-y-2">
+                            <div className="text-center text-xs font-bold tracking-wider text-blue-100">
+                              ENTER QUANTITY
+                            </div>
+                            <NumKeypad
+                              value={qtyDraft}
+                              onChange={(next) => {
+                                const sanitized = String(next || "").replace(/[^0-9]/g, "");
+                                setQtyDraft(sanitized);
+                              }}
+                              placeholder="QTY"
+                            />
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  closeQtyEditor();
+                                }}
+                                className="py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition"
+                              >
+                                CANCEL
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  applyQtyDraft(item.id);
+                                }}
+                                className="py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-xs transition"
+                              >
+                                APPLY QTY
+                              </button>
+                            </div>
+                          </div>
                         </div>
 
                         {/* Action Buttons */}

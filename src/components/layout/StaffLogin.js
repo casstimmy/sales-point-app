@@ -50,6 +50,33 @@ export default function StaffLogin() {
   const [syncingPendingCloses, setSyncingPendingCloses] = useState(false);
     const [loginAttempts, setLoginAttempts] = useState(0);
 
+  const isRestrictedStaffRole = useCallback((role) => {
+    const normalized = String(role || "").trim().toLowerCase();
+    return normalized === "staff" || normalized === "lower staff";
+  }, []);
+
+  const resolveStaffLocationId = useCallback((member) => {
+    if (!member) return "";
+    const directId = member.locationId?.toString?.() || member.locationId || "";
+    if (directId && locations.some((loc) => String(loc._id) === String(directId))) {
+      return String(directId);
+    }
+
+    if (member.locationName) {
+      const matched = locations.find((loc) => loc.name === member.locationName);
+      if (matched?._id) return String(matched._id);
+    }
+
+    if (member.location) {
+      const matched = locations.find(
+        (loc) => String(loc._id) === String(member.location) || loc.name === member.location
+      );
+      if (matched?._id) return String(matched._id);
+    }
+
+    return "";
+  }, [locations]);
+
   const runWithTimeout = async (promise, ms = 8000) => {
     let timeoutId;
     const timeout = new Promise((resolve) => {
@@ -793,6 +820,17 @@ export default function StaffLogin() {
     return () => window.removeEventListener("keypress", handleKeyPress);
   }, [handleKeyPress]);
 
+  useEffect(() => {
+    if (!selectedStaff) return;
+    const member = staff.find((item) => String(item._id) === String(selectedStaff));
+    if (!member || !isRestrictedStaffRole(member.role)) return;
+
+    const assignedLocationId = resolveStaffLocationId(member);
+    if (assignedLocationId && assignedLocationId !== selectedLocation) {
+      setSelectedLocation(assignedLocationId);
+    }
+  }, [selectedStaff, staff, selectedLocation, isRestrictedStaffRole, resolveStaffLocationId]);
+
   // Handle refresh of store/location data
   const handleRefreshData = async () => {
     setLoadingData(true);
@@ -1143,7 +1181,7 @@ export default function StaffLogin() {
               )}
 
               {/* Staff Cards */}
-              {selectedLocation && (
+              {(selectedStore || locations.length > 0) && (
                 <div>
                   <p className="text-white font-semibold text-xs mb-2">SELECT STAFF</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[60vh] overflow-y-auto">
@@ -1155,7 +1193,15 @@ export default function StaffLogin() {
                       staff.map((member) => (
                         <button
                           key={member._id}
-                          onClick={() => setSelectedStaff(member._id)}
+                          onClick={() => {
+                            setSelectedStaff(member._id);
+                            if (isRestrictedStaffRole(member.role)) {
+                              const assignedLocationId = resolveStaffLocationId(member);
+                              if (assignedLocationId) {
+                                setSelectedLocation(assignedLocationId);
+                              }
+                            }
+                          }}
                           className={`p-3 rounded-lg text-center font-semibold transition flex flex-col items-center gap-1 ${
                             selectedStaff === member._id
                               ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-lg"
@@ -1175,6 +1221,15 @@ export default function StaffLogin() {
                               ? "bg-cyan-600 text-white"
                               : "bg-cyan-900/40 text-cyan-200"
                           }`}>{member.role || 'Staff'}</div>
+                          {isRestrictedStaffRole(member.role) && resolveStaffLocationId(member) && (
+                            <div className={`text-[10px] px-2 py-0.5 rounded-full ${
+                              selectedStaff === member._id
+                                ? "bg-white/80 text-cyan-900"
+                                : "bg-cyan-700 text-cyan-100"
+                            }`}>
+                              {locations.find((loc) => String(loc._id) === String(resolveStaffLocationId(member)))?.name || member.locationName || "Assigned location"}
+                            </div>
+                          )}
                         </button>
                       ))
                     )}

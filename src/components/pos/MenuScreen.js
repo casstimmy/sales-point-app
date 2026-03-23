@@ -34,6 +34,7 @@ import { useStaff } from '../../context/StaffContext';
 import { getLocalCategories, getLocalProductsByCategory, syncCategories, syncProducts, getAllLocalProducts } from '../../lib/indexedDB';
 import { initOfflineSync, getOnlineStatus, getImageUrl, shouldShowPlaceholder, syncPendingTransactions, syncPendingTillCloses } from '../../lib/offlineSync';
 import { cleanupOldTransactions } from '../../lib/indexedDBCleanup';
+import AlphaKeyboardModal from '../common/AlphaKeyboardModal';
 
 // Color mapping for categories
 const CATEGORY_COLORS = {
@@ -161,6 +162,7 @@ export default function MenuScreen() {
   const [error, setError] = useState(null); // Track errors for data fetching
   const [isOnline, setIsOnline] = useState(true); // Track online status
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
+  const [showSearchKeyboard, setShowSearchKeyboard] = useState(false);
   const imageObserver = useRef(null);
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
@@ -655,7 +657,8 @@ export default function MenuScreen() {
   const handleSearchClick = () => {
     const value = searchTerm.trim();
     setAppliedSearch(value);
-    setSearchTerm('');
+    setSearchTerm(value);
+    setShowSearchKeyboard(false);
   };
 
   return (
@@ -737,18 +740,20 @@ export default function MenuScreen() {
                   type="text"
                   placeholder="Search products or categories..."
                   value={searchTerm}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setSearchTerm(value);
-                    if (!value.trim()) {
-                      setAppliedSearch('');
-                    }
-                  }}
+                  readOnly
+                  onClick={() => setShowSearchKeyboard(true)}
+                  onFocus={() => setShowSearchKeyboard(true)}
                   className="w-full pl-8 pr-3 py-1.5 sm:py-2 text-xs sm:text-sm border border-neutral-200 rounded-lg focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-200 transition-all font-medium"
                 />
               </div>
               <button
-                onClick={handleSearchClick}
+                onClick={() => {
+                  if (!searchTerm.trim()) {
+                    setShowSearchKeyboard(true);
+                    return;
+                  }
+                  handleSearchClick();
+                }}
                 className="px-2.5 py-1.5 sm:px-3 sm:py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-lg text-xs sm:text-sm transition-colors duration-base flex items-center gap-1.5"
               >
                 <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
@@ -1058,6 +1063,21 @@ export default function MenuScreen() {
         )}
         </div>
       )}
+
+      <AlphaKeyboardModal
+        isOpen={showSearchKeyboard}
+        value={searchTerm}
+        title="Search Products"
+        placeholder="Search products or categories..."
+        onChange={(value) => {
+          setSearchTerm(value);
+          if (!value.trim()) {
+            setAppliedSearch('');
+          }
+        }}
+        onClose={() => setShowSearchKeyboard(false)}
+        onSubmit={handleSearchClick}
+      />
     </div>
   );
 }

@@ -30,6 +30,7 @@ export async function getReceiptSettings() {
       storePhone: '',
       email: '',
       website: '',
+      businessAddress: '',
       refundDays: 0,
       receiptMessage: 'Thank you for shopping with us!',
     };
@@ -248,6 +249,7 @@ function generateReceiptHTML(transaction, settings) {
     staffName = 'Unknown Staff',
     location,
     locationName,
+    locationAddress,
     createdAt = new Date().toISOString(),
     tenderPayments = [],
     _id = '',
@@ -256,6 +258,7 @@ function generateReceiptHTML(transaction, settings) {
 
   // Use locationName or location, fallback to company display name
   const displayLocation = locationName || location || settings?.companyDisplayName || "St's Michael Hub";
+  const displayAddress = locationAddress || settings?.businessAddress || '';
 
   const {
     companyDisplayName = "St's Michael Hub",
@@ -263,6 +266,7 @@ function generateReceiptHTML(transaction, settings) {
     storePhone = '',
     email = '',
     website = '',
+    businessAddress = '',
     taxNumber = '',
     refundDays = 0,
     receiptMessage = '',
@@ -515,6 +519,7 @@ function generateReceiptHTML(transaction, settings) {
             <div class="company-name">${companyDisplayName}</div>
             <div class="company-info">
               <div>${displayLocation}</div>
+              ${displayAddress ? `<div>${displayAddress}</div>` : ''}
               ${storePhone ? `<div>Tel: ${storePhone}</div>` : ''}
               ${email ? `<div>${email}</div>` : ''}
               ${website ? `<div>${website}</div>` : ''}
@@ -603,11 +608,6 @@ function generateReceiptHTML(transaction, settings) {
               <div style="background: #f0f0f0; border: 1px solid #000; width: 30mm; height: 30mm; margin: 2mm auto; display: flex; align-items: center; justify-content: center; font-size: 8pt;">[QR CODE]</div>
             </div>
           ` : ''}
-
-          <!-- Footer -->
-          <div class="footer">
-            <div style="margin-top: 2mm;">Thank you for shopping with us!</div>
-          </div>
         </div>
       </body>
     </html>

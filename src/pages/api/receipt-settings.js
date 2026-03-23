@@ -26,6 +26,7 @@ export default async function handler(req, res) {
       storePhone: "",
       email: "",
       website: "",
+      businessAddress: "",
       taxNumber: "",
       refundDays: 0,
       receiptMessage: "Thank you for shopping with us!",
@@ -49,6 +50,11 @@ export default async function handler(req, res) {
       storePhone: store.storePhone || defaultSettings.storePhone,
       email: store.email || defaultSettings.email,
       website: store.website || defaultSettings.website,
+      businessAddress:
+        store.address ||
+        store.locations?.find((loc) => loc?.isActive !== false)?.address ||
+        store.locations?.[0]?.address ||
+        defaultSettings.businessAddress,
       taxNumber: store.taxNumber || defaultSettings.taxNumber,
       refundDays: store.refundDays || defaultSettings.refundDays,
       receiptMessage: store.receiptMessage || defaultSettings.receiptMessage,
@@ -77,6 +83,7 @@ export default async function handler(req, res) {
         storePhone: "",
         email: "",
         website: "",
+        businessAddress: "",
         taxNumber: "",
         refundDays: 0,
         receiptMessage: "Thank you for shopping with us!",

@@ -52,6 +52,7 @@ function generateReceiptCommands(transaction, settings) {
     change = 0,
     staffName = 'Unknown Staff',
     location = 'Default Location',
+    locationAddress = '',
     createdAt = new Date().toISOString(),
     tenderPayments = [],
     _id = '',
@@ -62,6 +63,7 @@ function generateReceiptCommands(transaction, settings) {
     storePhone = '',
     email = '',
     website = '',
+    businessAddress = '',
     taxNumber = '',
     refundDays = 0,
     qrUrl = '',
@@ -76,6 +78,7 @@ function generateReceiptCommands(transaction, settings) {
   // Store Info
   printer.setAlignment(1);
   printer.text(location);
+  if (locationAddress || businessAddress) printer.text(locationAddress || businessAddress);
   if (storePhone) printer.text(`Tel: ${storePhone}`);
   if (email) printer.text(email);
   if (website) printer.text(website);

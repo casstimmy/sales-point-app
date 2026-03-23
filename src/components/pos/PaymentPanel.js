@@ -105,6 +105,7 @@ export default function PaymentPanel() {
         location: location?.name || "Default Location",
         locationId: location?._id,
         locationName: location?.name,
+        locationAddress: location?.address || "",
         device: "POS",
         tableName: null,
         customerName: activeCart.customer?.name,

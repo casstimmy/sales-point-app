@@ -220,6 +220,7 @@ export default function OrdersScreen() {
     tenderType: order.tenderType || null,
     tenderPayments: order.tenderPayments || [],
     location: order.location || till?.locationName || 'Main Store',
+    locationAddress: order.locationAddress || '',
     status: 'completed',
   }), [till?.locationName]);
 
@@ -267,6 +268,7 @@ export default function OrdersScreen() {
           customer: tx.customerName || 'Walk-in',
           staffMember: tx.staffName || 'Unknown',
           location: tx.location || 'Main Store',
+          locationAddress: tx.locationAddress || '',
           tenderType: tenderDisplay,
           tenderPayments: tx.tenderPayments || [],
           total: tx.total || 0,

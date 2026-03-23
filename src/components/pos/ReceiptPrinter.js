@@ -297,6 +297,7 @@ export default function ReceiptPrinter({
     change = 0,
     staffName = 'Unknown Staff',
     location = 'Default Location',
+    locationAddress = '',
     createdAt = new Date().toISOString(),
     tenderPayments = [],
     _id = '',
@@ -308,6 +309,7 @@ export default function ReceiptPrinter({
     storePhone = '',
     email = '',
     website = '',
+    businessAddress = '',
     taxNumber = '',
     refundDays = 0,
     receiptMessage = '',
@@ -355,6 +357,7 @@ export default function ReceiptPrinter({
           {/* Store Info */}
           <div className="company-info">
             {location && <div>{location}</div>}
+            {(locationAddress || businessAddress) && <div>{locationAddress || businessAddress}</div>}
             {storePhone && <div>Tel: {storePhone}</div>}
             {email && <div>{email}</div>}
             {website && <div>{website}</div>}
