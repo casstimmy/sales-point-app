@@ -15,6 +15,54 @@ export function useLocationTenders() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  const buildFallbackTenders = (sourceTenders = []) =>
+    (sourceTenders || [])
+      .map((tender, index) => {
+        if (!tender) return null;
+
+        if (typeof tender === 'object' && (tender.id || tender._id)) {
+          return {
+            id: tender.id?.toString?.() || tender._id?.toString?.(),
+            name: tender.name || `Tender ${index + 1}`,
+            description: tender.description || 'Offline fallback',
+            buttonColor: tender.buttonColor || '#9dccebff',
+            classification: tender.classification || 'Other',
+            active: tender.active !== false,
+          };
+        }
+
+        const tenderId = tender?.toString?.() || String(tender);
+        if (!tenderId) return null;
+
+        let cachedTender = null;
+        if (typeof window !== 'undefined') {
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (!key || !key.startsWith('tenders_')) continue;
+              const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+              cachedTender = (parsed || []).find((item) => {
+                const itemId = item?.id?.toString?.() || item?._id?.toString?.();
+                return itemId === tenderId;
+              });
+              if (cachedTender) break;
+            }
+          } catch (cacheError) {
+            console.warn('useLocationTenders: Failed to search cached tender definitions:', cacheError);
+          }
+        }
+
+        return {
+          id: tenderId,
+          name: cachedTender?.name || `Tender ${tenderId.slice(-4)}`,
+          description: cachedTender?.description || 'Offline fallback',
+          buttonColor: cachedTender?.buttonColor || '#9dccebff',
+          classification: cachedTender?.classification || 'Other',
+          active: cachedTender?.active !== false,
+        };
+      })
+      .filter(Boolean);
+
   useEffect(() => {
     // Guard against missing location
     if (!location?._id) {
@@ -42,14 +90,7 @@ export function useLocationTenders() {
 
       // Offline fallback: use location's tender IDs if available
       if (isOffline && Array.isArray(location.tenders) && location.tenders.length > 0) {
-        const fallbackTenders = location.tenders.map((tenderId, index) => ({
-          id: tenderId?.toString?.() || String(tenderId),
-          name: 'Tender ' + (index + 1),
-          description: 'Offline fallback',
-          buttonColor: '#9dccebff',
-          classification: 'Other',
-          active: true,
-        }));
+        const fallbackTenders = buildFallbackTenders(location.tenders);
         console.warn('⚠️ useLocationTenders: Offline fallback using ' + fallbackTenders.length + ' tender IDs');
         setTenders(fallbackTenders);
         setLoading(false);
@@ -131,14 +172,7 @@ export function useLocationTenders() {
         console.error('useLocationTenders: Location:', location?.name, location?._id);
 
         if (Array.isArray(location.tenders) && location.tenders.length > 0) {
-          const fallbackTenders = location.tenders.map((tenderId, index) => ({
-            id: tenderId?.toString?.() || String(tenderId),
-            name: 'Tender ' + (index + 1),
-            description: 'Offline fallback',
-            buttonColor: '#9dccebff',
-            classification: 'Other',
-            active: true,
-          }));
+          const fallbackTenders = buildFallbackTenders(location.tenders);
           console.warn('useLocationTenders: Fallback using location tender IDs after fetch failure');
           setTenders(fallbackTenders);
           setError(null);
