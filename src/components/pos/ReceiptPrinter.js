@@ -63,20 +63,33 @@ export default function ReceiptPrinter({
             <meta charset="UTF-8">
             <title>Transaction Receipt</title>
             <style>
-              body {
-                font-family: 'Arial', 'Helvetica Neue', sans-serif;
-                width: 58mm;
-                margin: 0;
-                padding: 0;
-                background: white;
-              }
-              
-              .receipt {
-                width: 100%;
-                padding: 5mm;
-                font-size: 8pt;
-                line-height: 1.2;
-                color: #000;
+	              html, body {
+	                margin: 0;
+	                padding: 0;
+	                background: white;
+	              }
+
+	              body {
+	                font-family: 'Arial', 'Helvetica Neue', sans-serif;
+	              }
+
+	              .receipt-page {
+	                width: 58mm;
+	                min-width: 58mm;
+	                max-width: 58mm;
+	                margin: 0 auto;
+	                padding: 0;
+	                background: white;
+	                display: flex;
+	                justify-content: center;
+	              }
+	              
+	              .receipt {
+	                width: 100%;
+	                padding: 2mm 1.5mm 1.5mm;
+	                font-size: 8pt;
+	                line-height: 1.2;
+	                color: #000;
               }
               
               .receipt-header {
@@ -258,21 +271,28 @@ export default function ReceiptPrinter({
               }
               
               @media print {
-                body {
-                  margin: 0;
-                  padding: 0;
-                  width: 58mm;
-                }
-                .receipt {
-                  margin: 0;
-                  padding: 2mm;
-                }
-              }
-            </style>
+	                html, body {
+	                  margin: 0 !important;
+	                  padding: 0 !important;
+	                  background: white;
+	                }
+	                .receipt-page {
+	                  width: 58mm;
+	                  min-width: 58mm;
+	                  max-width: 58mm;
+	                  margin: 0 auto !important;
+	                  padding: 0 !important;
+	                }
+	                .receipt {
+	                  margin: 0;
+	                  padding: 2mm 1.5mm 1.5mm;
+	                }
+	              }
+	            </style>
           </head>
-          <body>
-            ${receiptHTML}
-          </body>
+	          <body>
+	            <div class="receipt-page">${receiptHTML}</div>
+	          </body>
         </html>
       `);
       

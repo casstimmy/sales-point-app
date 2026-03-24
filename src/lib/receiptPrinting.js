@@ -340,19 +340,31 @@ function generateReceiptHTML(transaction, settings) {
         <title>Transaction Receipt</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body {
-            font-family: 'Arial', 'Helvetica Neue', sans-serif;
-            width: 58mm;
+          html, body {
             margin: 0;
             padding: 0;
             background: white;
+          }
+          body {
+            font-family: 'Arial', 'Helvetica Neue', sans-serif;
             font-size: 8.5pt;
             line-height: 1.05;
+            overflow-x: hidden;
+          }
+          .receipt-page {
+            width: 58mm;
+            min-width: 58mm;
+            max-width: 58mm;
+            margin: 0 auto;
+            padding: 0;
+            background: white;
+            display: flex;
+            justify-content: center;
           }
           .receipt {
             width: 100%;
-            margin: 0 auto;
-            padding: 2mm 1mm;
+            margin: 0;
+            padding: 2mm 1.5mm 1.5mm;
             color: #000;
             text-align: center;
           }
@@ -493,17 +505,24 @@ function generateReceiptHTML(transaction, settings) {
             border-top: 1px solid #000;
           }
           @media print {
-            html, body { 
-              margin: 0 !important; 
+            html, body {
+              margin: 0 !important;
               padding: 0 !important;
-              width: 58mm;
               height: auto;
               background: white;
+              overflow-x: hidden;
+            }
+            .receipt-page {
+              width: 58mm;
+              min-width: 58mm;
+              max-width: 58mm;
+              margin: 0 auto !important;
+              padding: 0 !important;
             }
             .receipt {
               width: 100%;
-              margin: 0 auto;
-              padding: 2mm 1mm;
+              margin: 0;
+              padding: 2mm 1.5mm 1.5mm;
             }
             @page {
               size: 58mm auto;
@@ -514,6 +533,7 @@ function generateReceiptHTML(transaction, settings) {
         </style>
       </head>
       <body>
+        <div class="receipt-page">
         <div class="receipt">
           <!-- Header -->
           <div class="header">
@@ -610,6 +630,7 @@ function generateReceiptHTML(transaction, settings) {
               <div style="background: #f0f0f0; border: 1px solid #000; width: 30mm; height: 30mm; margin: 2mm auto; display: flex; align-items: center; justify-content: center; font-size: 8pt;">[QR CODE]</div>
             </div>
           ` : ''}
+        </div>
         </div>
       </body>
     </html>

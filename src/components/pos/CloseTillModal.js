@@ -52,19 +52,31 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
   <title>End of Day Report</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: 'Arial', 'Helvetica Neue', sans-serif;
-      width: 58mm;
+    html, body {
       margin: 0;
       padding: 0;
       background: white;
+    }
+    body {
+      font-family: 'Arial', 'Helvetica Neue', sans-serif;
       font-size: 7.5pt;
       line-height: 1.1;
+      overflow-x: hidden;
+    }
+    .report-page {
+      width: 58mm;
+      min-width: 58mm;
+      max-width: 58mm;
+      margin: 0 auto;
+      padding: 0;
+      background: white;
+      display: flex;
+      justify-content: center;
     }
     .report {
       width: 100%;
-      margin: 0 auto;
-      padding: 2mm 1mm;
+      margin: 0;
+      padding: 2mm 1.5mm 1.5mm;
       color: #000;
     }
     .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2mm; }
@@ -83,19 +95,27 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       html, body {
         margin: 0 !important;
         padding: 0 !important;
-        width: 58mm;
         background: white;
+        overflow-x: hidden;
+      }
+      .report-page {
+        width: 58mm;
+        min-width: 58mm;
+        max-width: 58mm;
+        margin: 0 auto !important;
+        padding: 0 !important;
       }
       .report {
         width: 100%;
-        margin: 0 auto;
-        padding: 2mm 1mm;
+        margin: 0;
+        padding: 2mm 1.5mm 1.5mm;
       }
       @page { size: 58mm auto; margin: 0; }
     }
   </style>
 </head>
 <body>
+  <div class="report-page">
   <div class="report">
     <div class="header">
       ${logoAbsolute ? `<img src="${logoAbsolute}" class="logo" alt="Logo" onerror="this.style.display='none'">` : ''}
@@ -147,6 +167,7 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       <div style="font-weight: bold;">— End of Report —</div>
       <div style="margin-top: 1mm;">Printed: ${dateStr} ${timeStr}</div>
     </div>
+  </div>
   </div>
 </body>
 </html>`;
