@@ -10,6 +10,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { useStaff } from '@/src/context/StaffContext';
+import { hasPosPermission } from '@/src/lib/posPermissions';
 import {
   getPrinterSettings,
   setPrinterSettings,
@@ -20,6 +22,7 @@ import {
 
 export default function PrinterSettings() {
   const router = useRouter();
+  const { staff } = useStaff();
   const [settings, setSettings] = useState(getDefaultPrinterSettings());
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
@@ -28,15 +31,21 @@ export default function PrinterSettings() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const canAccessPrinterSettings = hasPosPermission(staff, 'printerSettingsAccess');
 
   useEffect(() => {
+    if (staff && !canAccessPrinterSettings) {
+      router.replace('/');
+      return;
+    }
+
     // Load saved settings on mount
     const saved = getPrinterSettings();
     setSettings(saved);
     
     // Check printer availability on mount
     checkPrinterAvailability(saved);
-  }, []);
+  }, [canAccessPrinterSettings, router, staff]);
 
   // Check if printer is available
   const checkPrinterAvailability = async (printerSettings) => {
@@ -130,6 +139,10 @@ export default function PrinterSettings() {
       setTimeout(() => setSuccess(''), 3000);
     }
   };
+
+  if (staff && !canAccessPrinterSettings) {
+    return <div className="max-w-3xl mx-auto p-6 text-center text-gray-600">You do not have permission to access printer settings.</div>;
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-4">

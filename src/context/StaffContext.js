@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { normalizeStaffMember } from "@/src/lib/posPermissions";
 
 const StaffContext = createContext();
 
@@ -22,7 +23,7 @@ export function StaffProvider({ children }) {
       const savedShift = localStorage.getItem("shift");
       const savedTill = localStorage.getItem("till");
 
-      if (savedStaff) setStaff(JSON.parse(savedStaff));
+      if (savedStaff) setStaff(normalizeStaffMember(JSON.parse(savedStaff)));
       if (savedLocation) setLocation(JSON.parse(savedLocation));
       if (savedLocations) {
         const parsedLocations = JSON.parse(savedLocations);
@@ -62,7 +63,7 @@ export function StaffProvider({ children }) {
   }, [staff, location, shift, till, isHydrated]);
 
   const login = (staffData, locationData) => {
-    setStaff(staffData);
+    setStaff(normalizeStaffMember(staffData));
     setLocation(locationData);
     setShift({
       start: new Date().toISOString(),

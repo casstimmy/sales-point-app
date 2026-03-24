@@ -19,6 +19,7 @@ import { useErrorHandler } from "../../hooks/useErrorHandler";
 import { saveUiSettings } from "@/src/lib/uiSettings";
 import { getUiSettings } from "@/src/lib/uiSettings";
 import { getStoreLogo, setStoreLogo } from "@/src/lib/logoCache";
+import { hasPosPermission } from "@/src/lib/posPermissions";
 
 export default function POSLayout({ children }) {
   const router = useRouter();
@@ -156,8 +157,7 @@ export default function POSLayout({ children }) {
     setSidebarOpen(!sidebarOpen);
   };
 
-  // Senior staff roles that can access sidebar
-  const isSeniorStaff = staff && ['admin', 'manager', 'senior staff'].includes(staff.role?.toLowerCase?.());
+  const canAccessSidebar = hasPosPermission(staff, "sidebarAccess");
 
   const densityClass = {
     compact: "text-[15px]",
@@ -259,7 +259,7 @@ export default function POSLayout({ children }) {
     <CartProvider>
       <div className={`flex h-screen bg-neutral-50 flex-col md:flex-row ${densityClass} pos-mobile-scale`}>
         {/* Left Sidebar - Overlay Mode (senior staff only) */}
-        {isSeniorStaff && (
+        {canAccessSidebar && (
         <div className="fixed inset-y-0 left-0 z-50">
           <Sidebar
             isOpen={sidebarOpen}
@@ -271,7 +271,7 @@ export default function POSLayout({ children }) {
         )}
 
         {/* Overlay Backdrop */}
-        {isSeniorStaff && sidebarOpen && (
+        {canAccessSidebar && sidebarOpen && (
           <div 
             className="fixed inset-0 bg-black/30 z-40"
             onClick={toggleSidebar}
@@ -291,7 +291,7 @@ export default function POSLayout({ children }) {
                 location,
                 locationName: location?.name || staff?.locationName || null,
               }}
-              onToggleSidebar={isSeniorStaff ? toggleSidebar : undefined}
+              onToggleSidebar={canAccessSidebar ? toggleSidebar : undefined}
             />
 
             {/* Screen content */}

@@ -1,5 +1,6 @@
 // models/Staff.js
 import mongoose, { Schema, models } from "mongoose";
+import { getDefaultPosPermissions } from "@/src/lib/posPermissions";
 
 const StaffSchema = new Schema(
   {
@@ -17,6 +18,13 @@ const StaffSchema = new Schema(
     role: {
       type: String,
       default: "staff",
+    },
+
+    posPermissions: {
+      type: Object,
+      default: function defaultPosPermissions() {
+        return getDefaultPosPermissions(this.role);
+      },
     },
 
     location: {

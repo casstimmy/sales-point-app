@@ -15,6 +15,7 @@ import {
   faRedo,
   faSync,
 } from "@fortawesome/free-solid-svg-icons";
+import { normalizeStaffList, normalizeStaffMember } from "@/src/lib/posPermissions";
 
 /**
  * Professional POS Login Page
@@ -148,7 +149,7 @@ export default function StaffLogin() {
       }
 
       if (cachedStaff) {
-        const staffArray = JSON.parse(cachedStaff);
+        const staffArray = normalizeStaffList(JSON.parse(cachedStaff));
         setStaff(staffArray);
         console.log(`✅ Loaded ${staffArray.length} staff from cache`);
       }
@@ -425,7 +426,7 @@ export default function StaffLogin() {
           
           // API returns { success: true, count: X, data: [...] }
           const staffList = staffData.data || staffData || [];
-          const staffArray = Array.isArray(staffList) ? staffList : [];
+          const staffArray = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
           console.log(`✅ [LOGIN] Found ${staffArray.length} staff members:`, staffArray.map(s => ({ name: s.name, role: s.role })));
           
           setStaff(staffArray);
@@ -535,7 +536,7 @@ export default function StaffLogin() {
           if (staffResponse.ok) {
             const staffData = await staffResponse.json();
             const staffList = staffData.data || staffData || [];
-            const staffArray = Array.isArray(staffList) ? staffList : [];
+            const staffArray = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
             setStaff(staffArray);
             console.log(`✅ Refreshed staff data: ${staffArray.length} members`);
           }
@@ -565,7 +566,7 @@ export default function StaffLogin() {
     console.log(`   Available locations from cache: ${locations.map(l => l.name).join(', ')}`);
     console.log(`   Available staff from cache: ${staff.map(s => s.name).join(', ')}`);
 
-    const selectedStaffData = staff.find(s => s._id === selectedStaff);
+    const selectedStaffData = normalizeStaffMember(staff.find(s => s._id === selectedStaff));
     const selectedLocationData = locations.find(loc => loc._id === selectedLocation);
 
     if (!selectedStaffData || !selectedLocationData) {
@@ -675,13 +676,13 @@ export default function StaffLogin() {
             console.log("   Till Status:", tillData.till?.status);
             console.log("   Opening Balance:", tillData.till?.openingBalance);
             
-            login(data.staff, data.location);
+            login(normalizeStaffMember(data.staff), data.location);
             setCurrentTill(tillData.till);
             router.push("/");
           } else {
             // No open till, show OpenTillModal
             console.log("❌ No open till found - showing OpenTillModal");
-            setLoginData({ staff: data.staff, location: data.location });
+            setLoginData({ staff: normalizeStaffMember(data.staff), location: data.location });
             setShowOpenTillModal(true);
           }
         } else {
@@ -762,7 +763,7 @@ export default function StaffLogin() {
         if (staffResponse.ok) {
           const staffData = await staffResponse.json();
           const staffList = staffData.data || staffData || [];
-          const refreshedStaff = Array.isArray(staffList) ? staffList : [];
+          const refreshedStaff = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
           setStaff(refreshedStaff);
           staffMember = refreshedStaff.find(s => s._id === till.staffId);
         }
@@ -788,11 +789,11 @@ export default function StaffLogin() {
       console.log("✅ Found staff:", staffMember.name, "and location:", location.name);
 
       // Ensure resumed session reflects the till's actual location
-      const sessionStaff = {
+      const sessionStaff = normalizeStaffMember({
         ...staffMember,
         locationId: location?._id || till.locationId,
         locationName: location?.name || till.locationName || staffMember?.locationName,
-      };
+      });
 
       // Authenticate with the staff's stored session (if available)
       // In this case, we trust the till record and proceed
@@ -885,9 +886,9 @@ export default function StaffLogin() {
         if (staffResponse.ok) {
           const staffData = await staffResponse.json();
           const staffList = staffData.data || staffData || [];
-          const refreshedStaff = Array.isArray(staffList) ? staffList : [];
+          const refreshedStaff = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
           setStaff(refreshedStaff);
-          localStorage.setItem("staff", JSON.stringify(refreshedStaff));
+          localStorage.setItem("cachedStaff", JSON.stringify(refreshedStaff));
           console.log("✅ Refreshed staff from cloud");
         }
       } else {

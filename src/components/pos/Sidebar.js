@@ -38,6 +38,7 @@ import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
 import { checkPrinterAvailable } from '@/src/lib/printerConfig';
 import { getUiSettings } from '@/src/lib/uiSettings';
+import { hasPosPermission } from '@/src/lib/posPermissions';
 import CloseTillModal from './CloseTillModal';
 import AdjustFloatModal from './AdjustFloatModal';
 
@@ -97,7 +98,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
   const [checkingPrinter, setCheckingPrinter] = useState(false);
   const [uiSettings, setUiSettings] = useState(getUiSettings());
   const { lastSyncTime, isOnline, pendingSyncCount, manualSync } = useCart();
-  const { till, setCurrentTill } = useStaff();
+  const { staff, till, setCurrentTill } = useStaff();
 
   // Derive content scale classes from sidebar width setting
   const sidebarScale = uiSettings.layout?.sidebarWidth || 'standard';
@@ -256,11 +257,14 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     })
     .map((section) => {
       if (section.id !== 'admin') return section;
-      const allowAdjustFloat = uiSettings.adminControls?.adjustFloat !== false;
+      const allowAdjustFloat =
+        uiSettings.adminControls?.adjustFloat !== false && hasPosPermission(staff, 'adjustFloat');
+      const allowCloseTill = hasPosPermission(staff, 'closeTill');
       return {
         ...section,
         items: section.items.filter((item) => {
           if (item.id === 'adjustFloat') return allowAdjustFloat;
+          if (item.id === 'closeTill') return allowCloseTill;
           return true;
         }),
       };

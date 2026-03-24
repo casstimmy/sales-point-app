@@ -29,6 +29,7 @@ import {
   defaultUiSettings,
 } from '@/src/lib/uiSettings';
 import { useStaff } from '@/src/context/StaffContext';
+import { hasPosPermission } from '@/src/lib/posPermissions';
 
 const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact' },
@@ -68,6 +69,7 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [saveLabel, setSaveLabel] = useState('Save Settings');
+  const canAccessSettings = hasPosPermission(staff, 'settingsAccess');
 
   useEffect(() => {
     setSettings(getUiSettings());
@@ -246,6 +248,10 @@ export default function SettingsPage() {
       `Content scale: ${settings.system?.contentScale || defaultUiSettings.system?.contentScale || 100}%`,
     ],
   };
+
+  if (staff && !canAccessSettings) {
+    return <div className="max-w-3xl mx-auto p-6 text-center text-gray-600">You do not have permission to access POS settings.</div>;
+  }
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-4">

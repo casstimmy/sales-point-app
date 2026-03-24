@@ -2,6 +2,7 @@ import { mongooseConnect } from "@/src/lib/mongoose";
 import { Staff } from "@/src/models/Staff";
 import Store from "@/src/models/Store";
 import bcrypt from "bcryptjs";
+import { normalizePosPermissions } from "@/src/lib/posPermissions";
 
 const sendError = (res, status, code, message, details = {}) =>
   res.status(status).json({

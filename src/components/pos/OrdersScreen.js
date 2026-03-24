@@ -25,6 +25,7 @@ import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
 import { getCompletedTransactions, cacheCompletedTransactions, getCachedCompletedTransactions } from '../../lib/offlineSync';
 import { getReceiptSettings, printTransactionReceipt } from '../../lib/receiptPrinting';
+import { hasPosPermission } from '@/src/lib/posPermissions';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
@@ -46,12 +47,10 @@ export default function OrdersScreen() {
   const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
   const { staff, till } = useStaff();
 
-  // Check if current staff has refund access (admin, manager, senior staff)
-  const canRefund = staff && ['admin', 'manager', 'senior staff'].includes(staff.role?.toLowerCase?.());
-  const isSeniorStaff = canRefund; // same role set
+  const canRefund = hasPosPermission(staff, 'refundAccess');
+  const canViewAdvancedOrders = hasPosPermission(staff, 'viewAdvancedOrders');
 
-  // Filter tabs based on role - ORDERED/PENDING restricted to senior staff
-  const visibleTabs = isSeniorStaff
+  const visibleTabs = canViewAdvancedOrders
     ? ORDER_STATUS_TABS
     : ORDER_STATUS_TABS.filter(t => t !== 'ORDERED' && t !== 'PENDING');
 

@@ -4,6 +4,7 @@ import { useStaff } from "../../context/StaffContext";
 import NumKeypad from "../common/NumKeypad";
 import { getUiSettings } from "@/src/lib/uiSettings";
 import { saveTillOpenOffline } from "../../lib/offlineSync";
+import { hasPosPermission } from "@/src/lib/posPermissions";
 
 export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData = null, locationData = null }) {
   const contextStaff = useStaff();
@@ -233,7 +234,9 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
     }
   };
 
-  const openTillCashEntryEnabled = uiSettings.adminControls?.openTillCashEntry !== false;
+  const openTillCashEntryEnabled =
+    uiSettings.adminControls?.openTillCashEntry !== false &&
+    hasPosPermission(staff, "openTillCashEntry");
 
   if (!isOpen) return null;
 

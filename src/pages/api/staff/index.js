@@ -1,6 +1,6 @@
 /**
  * API Endpoint: GET /api/staff
- * 
+ *
  * Fetches all active staff members
  * Query params:
  * - location: Filter by location name
@@ -8,6 +8,7 @@
 
 import { mongooseConnect } from "@/src/lib/mongoose";
 import { Staff } from "@/src/models/Staff";
+import { normalizePosPermissions } from "@/src/lib/posPermissions";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -20,30 +21,30 @@ export default async function handler(req, res) {
     const { location } = req.query;
     let query = {};
 
-    // Build query dynamically
     if (location) {
       query.locationName = location;
     }
 
-    // First try with isActive filter
     let staff = await Staff.find({ ...query, isActive: true })
-      .select("_id name username role locationName")
+      .select("_id name username role locationName posPermissions")
       .lean();
 
-    // If no results with isActive filter, try without it (in case field doesn't exist)
     if (staff.length === 0) {
-      console.log("ℹ️ No staff found with isActive filter, trying without filter");
+      console.log("No staff found with isActive filter, trying without filter");
       staff = await Staff.find(query)
-        .select("_id name username role locationName")
+        .select("_id name username role locationName posPermissions")
         .lean();
     }
 
-    console.log(`✅ Fetched ${staff.length} staff members from database`);
+    const normalized = staff.map((member) => ({
+      ...member,
+      posPermissions: normalizePosPermissions(member.role, member.posPermissions),
+    }));
 
     return res.status(200).json({
       success: true,
-      count: staff.length,
-      data: staff,
+      count: normalized.length,
+      data: normalized,
     });
   } catch (err) {
     console.error("Error fetching staff:", err);
@@ -52,9 +53,7 @@ export default async function handler(req, res) {
       code: err.code,
       name: err.name,
     });
-    
-    // Return default demo staff when MongoDB is unavailable
-    console.log("⚠️ MongoDB unavailable, returning default demo staff");
+
     const defaultStaff = [
       {
         _id: "staff_1",
@@ -62,6 +61,7 @@ export default async function handler(req, res) {
         username: "cashier",
         role: "staff",
         locationName: "Main Store",
+        posPermissions: normalizePosPermissions("staff"),
       },
       {
         _id: "staff_2",
@@ -69,8 +69,10 @@ export default async function handler(req, res) {
         username: "manager",
         role: "manager",
         locationName: "Main Store",
+        posPermissions: normalizePosPermissions("manager"),
       },
     ];
+
     return res.status(200).json({
       success: true,
       count: defaultStaff.length,
