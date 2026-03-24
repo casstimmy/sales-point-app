@@ -99,6 +99,8 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
   const [uiSettings, setUiSettings] = useState(getUiSettings());
   const { lastSyncTime, isOnline, pendingSyncCount, manualSync } = useCart();
   const { staff, till, setCurrentTill } = useStaff();
+  const canAccessSettings = hasPosPermission(staff, 'settingsAccess');
+  const canAccessPrinterSettings = hasPosPermission(staff, 'printerSettingsAccess');
 
   // Derive content scale classes from sidebar width setting
   const sidebarScale = uiSettings.layout?.sidebarWidth || 'standard';
@@ -380,58 +382,62 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
 
         {/* Settings & Support */}
         <div className="space-y-2 pt-2">
-          {/* Settings with Printer Status */}
-          <div className="flex items-center gap-2">
-            <button 
-              onClick={() => {
-                onToggle();
-                router.push('/settings');
-              }}
-              className={`flex-1 flex items-center ${scaleClasses.gap} ${scaleClasses.paddingLg} rounded-lg text-left ${scaleClasses.heading} font-semibold transition-colors duration-base ${
-                router.pathname === '/settings' || router.pathname === '/printer-settings'
-                  ? 'bg-primary-100 text-primary-700 shadow-md'
-                  : 'text-neutral-700 hover:bg-neutral-100 hover:text-primary-600'
-              }`}
-            >
-              <FontAwesomeIcon icon={faGear} className={scaleClasses.icon} />
-              <span className={scaleClasses.heading}>Settings</span>
-            </button>
-            {/* Printer Status Badge */}
-            <button
-              onClick={() => {
-                onToggle();
-                router.push('/printer-settings');
-              }}
-              title={
-                checkingPrinter
-                  ? 'Checking printer...'
-                  : printerAvailable === null
-                  ? 'Printer status unknown'
-                  : printerAvailable
-                  ? 'Printer Connected — Click to open Printer Settings'
-                  : 'Printer Not Connected — Click to open Printer Settings'
-              }
-              className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-colors ${
-                checkingPrinter
-                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-                  : printerAvailable
-                  ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
-                  : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
-              }`}
-            >
-              <FontAwesomeIcon icon={faPrint} className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-                checkingPrinter
-                  ? 'bg-yellow-500 animate-pulse'
-                  : printerAvailable
-                  ? 'bg-green-500 animate-pulse'
-                  : 'bg-red-500'
-              }`} />
-              <span className="sr-only">
-                {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : 'Inactive'}
-              </span>
-            </button>
-          </div>
+          {(canAccessSettings || canAccessPrinterSettings) && (
+            <div className="flex items-center gap-2">
+              {canAccessSettings && (
+                <button 
+                  onClick={() => {
+                    onToggle();
+                    router.push('/settings');
+                  }}
+                  className={`flex-1 flex items-center ${scaleClasses.gap} ${scaleClasses.paddingLg} rounded-lg text-left ${scaleClasses.heading} font-semibold transition-colors duration-base ${
+                    router.pathname === '/settings' || router.pathname === '/printer-settings'
+                      ? 'bg-primary-100 text-primary-700 shadow-md'
+                      : 'text-neutral-700 hover:bg-neutral-100 hover:text-primary-600'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faGear} className={scaleClasses.icon} />
+                  <span className={scaleClasses.heading}>Settings</span>
+                </button>
+              )}
+              {canAccessPrinterSettings && (
+                <button
+                  onClick={() => {
+                    onToggle();
+                    router.push('/printer-settings');
+                  }}
+                  title={
+                    checkingPrinter
+                      ? 'Checking printer...'
+                      : printerAvailable === null
+                      ? 'Printer status unknown'
+                      : printerAvailable
+                      ? 'Printer Connected — Click to open Printer Settings'
+                      : 'Printer Not Connected — Click to open Printer Settings'
+                  }
+                  className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-colors ${
+                    checkingPrinter
+                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                      : printerAvailable
+                      ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                      : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                  }`}
+                >
+                  <FontAwesomeIcon icon={faPrint} className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                    checkingPrinter
+                      ? 'bg-yellow-500 animate-pulse'
+                      : printerAvailable
+                      ? 'bg-green-500 animate-pulse'
+                      : 'bg-red-500'
+                  }`} />
+                  <span className="sr-only">
+                    {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : 'Inactive'}
+                  </span>
+                </button>
+              )}
+            </div>
+          )}
           <button
             onClick={handleOpenHelp}
             className={`w-full flex items-center ${scaleClasses.gap} ${scaleClasses.paddingLg} hover:bg-neutral-100 rounded-lg text-left ${scaleClasses.heading} font-semibold text-neutral-700 hover:text-primary-600 transition-colors duration-base`}

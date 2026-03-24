@@ -339,18 +339,20 @@ function generateReceiptHTML(transaction, settings) {
         <meta charset="UTF-8">
         <title>Transaction Receipt</title>
         <style>
-          * { margin: 0; padding: 0; }
+          * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: 'Arial', 'Helvetica Neue', sans-serif;
-            width: 58mm;
+            width: 100%;
             margin: 0;
-            padding: 2mm;
+            padding: 0;
             background: white;
             font-size: 8.5pt;
             line-height: 1.05;
           }
           .receipt {
-            width: 100%;
+            width: 54mm;
+            margin: 0 auto;
+            padding: 2mm 1.5mm;
             color: #000;
             text-align: center;
           }
@@ -493,15 +495,15 @@ function generateReceiptHTML(transaction, settings) {
           @media print {
             html, body { 
               margin: 0 !important; 
-              padding: 2mm !important;
+              padding: 0 !important;
               width: 58mm;
               height: auto;
               background: white;
             }
             .receipt {
-              width: 100%;
-              margin: 0;
-              padding: 0;
+              width: 54mm;
+              margin: 0 auto;
+              padding: 2mm 1.5mm;
             }
             @page {
               size: 58mm auto;

@@ -51,17 +51,22 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
   <meta charset="UTF-8">
   <title>End of Day Report</title>
   <style>
-    * { margin: 0; padding: 0; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Arial', 'Helvetica Neue', sans-serif;
-      width: 58mm;
+      width: 100%;
       margin: 0;
-      padding: 2mm;
+      padding: 0;
       background: white;
       font-size: 7.5pt;
       line-height: 1.1;
     }
-    .report { width: 100%; color: #000; }
+    .report {
+      width: 54mm;
+      margin: 0 auto;
+      padding: 2mm 1.5mm;
+      color: #000;
+    }
     .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2mm; }
     .logo { max-width: 35mm; max-height: 20mm; display: block; margin: 0 auto 2mm auto; filter: grayscale(100%); }
     .title { font-weight: bold; font-size: 9pt; margin: 1mm 0; letter-spacing: 1px; }
@@ -75,7 +80,17 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
     .notes { font-size: 7pt; font-style: italic; margin: 1mm 0; padding: 1mm; background: #f5f5f5; }
     .footer { text-align: center; font-size: 6.5pt; margin-top: 3mm; padding-top: 2mm; border-top: 2px solid #000; }
     @media print {
-      html, body { margin: 0 !important; padding: 2mm !important; width: 58mm; }
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 58mm;
+        background: white;
+      }
+      .report {
+        width: 54mm;
+        margin: 0 auto;
+        padding: 2mm 1.5mm;
+      }
       @page { size: 58mm auto; margin: 0; }
     }
   </style>
