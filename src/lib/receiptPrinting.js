@@ -342,7 +342,7 @@ function generateReceiptHTML(transaction, settings) {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body {
             font-family: 'Arial', 'Helvetica Neue', sans-serif;
-            width: 100%;
+            width: 58mm;
             margin: 0;
             padding: 0;
             background: white;
@@ -350,9 +350,9 @@ function generateReceiptHTML(transaction, settings) {
             line-height: 1.05;
           }
           .receipt {
-            width: 54mm;
+            width: 100%;
             margin: 0 auto;
-            padding: 2mm 1.5mm;
+            padding: 2mm 1mm;
             color: #000;
             text-align: center;
           }
@@ -501,9 +501,9 @@ function generateReceiptHTML(transaction, settings) {
               background: white;
             }
             .receipt {
-              width: 54mm;
+              width: 100%;
               margin: 0 auto;
-              padding: 2mm 1.5mm;
+              padding: 2mm 1mm;
             }
             @page {
               size: 58mm auto;

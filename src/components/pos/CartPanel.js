@@ -183,8 +183,10 @@ export default function CartPanel() {
     closeQtyEditor();
   };
 
+  const qtyEditItem = activeCart.items.find((item) => item.id === qtyEditorItemId) || null;
+
   return (
-    <div className="flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200 text-xs sm:text-sm">
+    <div className="relative flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200 text-xs sm:text-sm">
       {isEmpty ? (
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-3 text-center">
@@ -413,46 +415,6 @@ export default function CartPanel() {
                           QTY
                         </div>
 
-                        <div
-                          className={`overflow-hidden transition-all duration-300 ${
-                            qtyEditorItemId === item.id ? "max-h-[420px] opacity-100 pt-2" : "max-h-0 opacity-0"
-                          }`}
-                        >
-                          <div className="bg-primary-600/80 border border-blue-300 rounded-xl p-2 space-y-2">
-                            <div className="text-center text-xs font-bold tracking-wider text-blue-100">
-                              ENTER QUANTITY
-                            </div>
-                            <NumKeypad
-                              value={qtyDraft}
-                              onChange={(next) => {
-                                const sanitized = String(next || "").replace(/[^0-9]/g, "");
-                                setQtyDraft(sanitized);
-                              }}
-                              placeholder="QTY"
-                            />
-                            <div className="grid grid-cols-2 gap-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  closeQtyEditor();
-                                }}
-                                className="py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition"
-                              >
-                                CANCEL
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  applyQtyDraft(item.id);
-                                }}
-                                className="py-2 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-xs transition"
-                              >
-                                APPLY QTY
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
                         {/* Action Buttons */}
                         <div className="flex gap-1.5 pt-1 justify-center">
                           <button
@@ -662,6 +624,54 @@ export default function CartPanel() {
         isOpen={showAdjustFloatModal}
         onClose={() => setShowAdjustFloatModal(false)}
       />
+
+      {qtyEditItem && (
+        <div className="absolute inset-0 z-40 bg-black/35 flex items-end" onClick={closeQtyEditor}>
+          <div
+            className="w-full bg-gradient-to-b from-cyan-600 to-cyan-700 border-t border-cyan-300 rounded-t-2xl shadow-2xl p-3 space-y-3 max-h-[78%] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-white font-bold text-sm">Enter Quantity</div>
+                <div className="text-cyan-100 text-xs">{qtyEditItem.name}</div>
+              </div>
+              <button
+                onClick={closeQtyEditor}
+                className="px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition"
+              >
+                CLOSE
+              </button>
+            </div>
+
+            <div className="bg-white/10 border border-cyan-300 rounded-xl p-2">
+              <NumKeypad
+                value={qtyDraft}
+                onChange={(next) => {
+                  const sanitized = String(next || "").replace(/[^0-9]/g, "");
+                  setQtyDraft(sanitized);
+                }}
+                placeholder="QTY"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={closeQtyEditor}
+                className="py-3 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => applyQtyDraft(qtyEditItem.id)}
+                className="py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-sm transition"
+              >
+                Apply Qty
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

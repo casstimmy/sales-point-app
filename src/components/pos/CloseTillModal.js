@@ -54,7 +54,7 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Arial', 'Helvetica Neue', sans-serif;
-      width: 100%;
+      width: 58mm;
       margin: 0;
       padding: 0;
       background: white;
@@ -62,9 +62,9 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       line-height: 1.1;
     }
     .report {
-      width: 54mm;
+      width: 100%;
       margin: 0 auto;
-      padding: 2mm 1.5mm;
+      padding: 2mm 1mm;
       color: #000;
     }
     .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 2mm; margin-bottom: 2mm; }
@@ -87,9 +87,9 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
         background: white;
       }
       .report {
-        width: 54mm;
+        width: 100%;
         margin: 0 auto;
-        padding: 2mm 1.5mm;
+        padding: 2mm 1mm;
       }
       @page { size: 58mm auto; margin: 0; }
     }
