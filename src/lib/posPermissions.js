@@ -38,7 +38,7 @@ export function getDefaultPosPermissions(role) {
   if (normalizedRole === "junior staff") {
     return {
       sidebarAccess: false,
-      settingsAccess: false,
+      settingsAccess: true,
       printerSettingsAccess: false,
       refundAccess: false,
       adjustFloat: false,
@@ -50,7 +50,7 @@ export function getDefaultPosPermissions(role) {
 
   return {
     sidebarAccess: false,
-    settingsAccess: false,
+    settingsAccess: true,
     printerSettingsAccess: false,
     refundAccess: false,
     adjustFloat: false,

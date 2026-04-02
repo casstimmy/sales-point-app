@@ -12,7 +12,6 @@
 import React, { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faSearch,
   faSignOutAlt,
   faX,
   faWifi,
@@ -159,12 +158,6 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
               </span>
             )}
           </div>
-          <button
-            className="p-1.5 sm:p-2 hover:bg-white/20 rounded transition-colors duration-base touch-manipulation min-h-9 min-w-9 sm:min-h-10 sm:min-w-10"
-            title="Search products"
-          >
-            <FontAwesomeIcon icon={faSearch} className="w-5 h-5" />
-          </button>
           <button
             onClick={onLogout}
             className="p-1.5 sm:p-2 hover:bg-white/20 rounded transition-colors duration-base touch-manipulation min-h-9 min-w-9 sm:min-h-10 sm:min-w-10"

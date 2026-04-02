@@ -23,6 +23,7 @@ import {
   faPercent,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
+import { showToast } from '../common/Toast';
 
 const CUSTOMER_TYPES = ['REGULAR', 'VIP', 'NEW', 'INACTIVE', 'BULK_BUYER', 'ONLINE'];
 
@@ -35,7 +36,7 @@ const CUSTOMER_TYPE_COLORS = {
   ONLINE: 'bg-cyan-100 text-cyan-800 border-cyan-300',
 };
 
-export default function CustomersScreen() {
+export default function CustomersScreen({ onNavigateToMenu }) {
   const { activeCart, setCustomer, clearCustomer } = useCart();
   const [customers, setCustomers] = useState([]);
   const [promotions, setPromotions] = useState([]);
@@ -134,6 +135,8 @@ export default function CustomersScreen() {
     if (promotion) {
       console.log(`✅ Applied promotion "${promotion.name}" for ${customer.type} customer`);
     }
+    // Auto-navigate back to menu after selecting a customer
+    if (onNavigateToMenu) onNavigateToMenu();
   };
 
   // Handle customer deselection
@@ -143,7 +146,7 @@ export default function CustomersScreen() {
 
   const handleAddCustomer = async () => {
     if (!formData.name || !formData.phone) {
-      alert('Name and phone are required');
+      showToast('Name and phone are required', 'warning');
       return;
     }
 
@@ -166,11 +169,11 @@ export default function CustomersScreen() {
           type: 'REGULAR',
         });
         setShowAddForm(false);
-        alert('Customer added successfully!');
+        showToast('Customer added successfully!', 'success');
       }
     } catch (error) {
       console.error('Failed to add customer:', error);
-      alert('Error adding customer');
+      showToast('Error adding customer', 'error');
     } finally {
       setAdding(false);
     }

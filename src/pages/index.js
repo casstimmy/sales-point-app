@@ -21,9 +21,9 @@ export default function POSPage({ activeTab, onTabChange }) {
       case 'MENU':
         return <MenuScreen />;
       case 'CUSTOMERS':
-        return <CustomersScreen />;
+        return <CustomersScreen onNavigateToMenu={() => setCurrentTab('MENU')} />;
       case 'ORDERS':
-        return <OrdersScreen />;
+        return <OrdersScreen onNavigateToMenu={() => setCurrentTab('MENU')} />;
       default:
         return <MenuScreen />;
     }

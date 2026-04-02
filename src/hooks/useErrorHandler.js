@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react';
 import { useStaff } from '../context/StaffContext';
+import { showToast } from '../components/common/Toast';
 
 // Error types that should redirect to login
 const LOGIN_REDIRECT_ERRORS = [
@@ -77,7 +78,7 @@ export function useErrorHandler() {
       // Show alert if needed
       if (showAlert) {
         const message = alertMessage || 'Session expired. Please log in again.';
-        alert(message);
+        showToast(message, 'error', 5000);
       }
 
       // Logout will clear staff state, which triggers redirect in Layout component
@@ -88,7 +89,7 @@ export function useErrorHandler() {
     // Show non-critical error alert if requested
     if (showAlert) {
       const message = alertMessage || error?.message || 'An error occurred. Please try again.';
-      alert(message);
+      showToast(message, 'error');
     }
 
     return false;
@@ -140,7 +141,7 @@ export function useErrorHandler() {
   const forceLoginRedirect = useCallback((message = 'Please log in again.') => {
     console.log('🔒 Force redirect to login triggered');
     if (message) {
-      alert(message);
+      showToast(message, 'error', 5000);
     }
     logout();
   }, [logout]);

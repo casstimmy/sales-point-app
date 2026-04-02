@@ -26,10 +26,11 @@ import { useStaff } from '../../context/StaffContext';
 import { getCompletedTransactions, cacheCompletedTransactions, getCachedCompletedTransactions } from '../../lib/offlineSync';
 import { getReceiptSettings, printTransactionReceipt } from '../../lib/receiptPrinting';
 import { hasPosPermission } from '@/src/lib/posPermissions';
+import { showToast } from '../common/Toast';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
-export default function OrdersScreen() {
+export default function OrdersScreen({ onNavigateToMenu }) {
   const [activeStatus, setActiveStatus] = useState('HELD');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
@@ -151,7 +152,7 @@ export default function OrdersScreen() {
   // Handle refund request
   const handleRefund = async (order, action) => {
     if (!canRefund) {
-      alert('You do not have permission to refund transactions.');
+      showToast('You do not have permission to refund transactions.', 'error');
       return;
     }
 
@@ -180,14 +181,16 @@ export default function OrdersScreen() {
         }
 
         const data = await response.json();
-        alert(`Transaction marked as ${data.refundStatus}${data.subStatus ? ` (${data.subStatus})` : ''}`);
+        showToast(`Transaction marked as ${data.refundStatus}${data.subStatus ? ` (${data.subStatus})` : ''}`, 'success');
         
         // Refresh completed transactions
         await fetchCompletedTransactions();
       } else if (action === 'recall') {
         // Recall to cart without saving as refund
         recallTransactionToCart(order);
-        alert('Transaction recalled to cart. Make edits and complete again to save as edited.');
+        showToast('Transaction recalled to cart. Make edits and complete again.', 'success');
+        // Auto-navigate back to menu after recalling to cart
+        if (onNavigateToMenu) onNavigateToMenu();
       }
 
       setShowRefundModal(false);
@@ -234,7 +237,7 @@ export default function OrdersScreen() {
       const printable = buildPrintableTransaction(order);
       await printTransactionReceipt(printable, settings);
     } catch (err) {
-      alert(err?.message || 'Failed to print transaction receipt.');
+      showToast(err?.message || 'Failed to print transaction receipt.', 'error');
     } finally {
       setPrintingOrderId(null);
     }
@@ -324,6 +327,8 @@ export default function OrdersScreen() {
     } else {
       // Resume held orders to cart
       resumeOrder(order.id);
+      // Auto-navigate back to menu after resuming held order
+      if (onNavigateToMenu) onNavigateToMenu();
     }
   };
 

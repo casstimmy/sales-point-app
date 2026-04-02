@@ -30,6 +30,8 @@ import {
 } from '@/src/lib/uiSettings';
 import { useStaff } from '@/src/context/StaffContext';
 import { hasPosPermission } from '@/src/lib/posPermissions';
+import { showConfirm } from '@/src/components/common/ConfirmDialog';
+import { showToast } from '@/src/components/common/Toast';
 
 const DENSITY_OPTIONS = [
   { value: 'compact', label: 'Compact' },
@@ -211,12 +213,16 @@ export default function SettingsPage() {
     }
   };
 
-  const handleReset = () => {
-    if (confirm('Reset settings to defaults?')) {
+  const handleReset = async () => {
+    const ok = await showConfirm('Reset settings to defaults?', {
+      title: 'Reset Settings',
+      confirmLabel: 'Reset',
+      variant: 'danger',
+    });
+    if (ok) {
       const defaults = resetUiSettings();
       setSettings(defaults);
-      setSuccess('✅ Settings reset to defaults');
-      setTimeout(() => setSuccess(''), 2500);
+      showToast('Settings reset to defaults', 'success');
     }
   };
 
@@ -249,9 +255,7 @@ export default function SettingsPage() {
     ],
   };
 
-  if (staff && !canAccessSettings) {
-    return <div className="max-w-3xl mx-auto p-6 text-center text-gray-600">You do not have permission to access POS settings.</div>;
-  }
+  // Settings page is accessible to all staff roles - settings are store-wide
 
   return (
     <div className="max-w-5xl mx-auto p-6 space-y-4">

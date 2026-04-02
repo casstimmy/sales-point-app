@@ -41,6 +41,7 @@ import {
 import { getUiSettings } from "../../lib/uiSettings";
 import AdjustFloatModal from "./AdjustFloatModal";
 import NumKeypad from "../common/NumKeypad";
+import { showToast } from "../common/Toast";
 
 export default function CartPanel() {
   const [selectedItemId, setSelectedItemId] = useState(null);
@@ -111,7 +112,7 @@ export default function CartPanel() {
 
   const handlePayment = async () => {
     if (isEmpty) {
-      alert("Cart is empty. Add items to complete payment.");
+      showToast("Cart is empty. Add items to complete payment.", "warning");
       return;
     }
     setShowPaymentPanel(true);
@@ -119,7 +120,7 @@ export default function CartPanel() {
 
   const handlePrintCart = async () => {
     if (isEmpty) {
-      alert("Cart is empty. Add items to print.");
+      showToast("Cart is empty. Add items to print.", "warning");
       return;
     }
 
@@ -163,7 +164,7 @@ export default function CartPanel() {
       });
     } catch (error) {
       console.error("❌ Error printing receipt:", error);
-      alert("Error printing receipt. Please try again.");
+      showToast("Error printing receipt. Please try again.", "error");
     }
   };
 

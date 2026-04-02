@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPaperPlane, faTimes } from "@fortawesome/free-solid-svg-icons";
+import { faPaperPlane, faTimes, faEnvelope, faArrowLeft, faCheck } from "@fortawesome/free-solid-svg-icons";
 
 const BOT_NAME = "POS Assistant";
 
@@ -170,6 +170,9 @@ export default function HelpChatBot() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([firstMessage]);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
   const idleTimerRef = useRef(null);
   const buttonTimerRef = useRef(null);
 
@@ -263,6 +266,48 @@ export default function HelpChatBot() {
 
   const quickPrompts = useMemo(() => isLoggedIn ? QUICK_PROMPTS_POS : QUICK_PROMPTS_LOGIN, [isLoggedIn]);
 
+  // Get store and staff info for email subject
+  const getEmailContext = useCallback(() => {
+    try {
+      const staffRaw = localStorage.getItem("staff");
+      const locationRaw = localStorage.getItem("location");
+      const storeRaw = localStorage.getItem("cachedStore");
+      const staff = staffRaw ? JSON.parse(staffRaw) : null;
+      const location = locationRaw ? JSON.parse(locationRaw) : null;
+      const store = storeRaw ? JSON.parse(storeRaw) : null;
+      return {
+        storeName: store?.name || "Unknown Store",
+        locationName: location?.name || staff?.locationName || "Unknown Location",
+        staffName: staff?.name || "Unknown Staff",
+      };
+    } catch {
+      return { storeName: "Unknown Store", locationName: "Unknown Location", staffName: "Unknown Staff" };
+    }
+  }, []);
+
+  const handleSendEmail = useCallback(() => {
+    const msg = emailMessage.trim();
+    if (!msg) return;
+    const ctx = getEmailContext();
+    const subject = encodeURIComponent(`Support - ${ctx.storeName} | ${ctx.locationName} | ${ctx.staffName}`);
+    const body = encodeURIComponent(
+      `${msg}\n\n---\nSent from POS Support Chat\nStore: ${ctx.storeName}\nLocation: ${ctx.locationName}\nStaff: ${ctx.staffName}\nDate: ${new Date().toLocaleString()}`
+    );
+    window.open(`mailto:hello.ayoola@gmail.com?subject=${subject}&body=${body}`, "_blank");
+    setEmailSent(true);
+    setMessages((prev) => [
+      ...prev,
+      { role: "user", text: `[Email Support] ${msg}` },
+      { role: "bot", text: "Your email client has been opened with your support message. Please click Send in your email app to deliver it." },
+    ]);
+    setTimeout(() => {
+      setShowEmailForm(false);
+      setEmailMessage("");
+      setEmailSent(false);
+    }, 2000);
+    resetChatIdleTimer();
+  }, [emailMessage, getEmailContext, resetChatIdleTimer]);
+
   if (!showButton && !isOpen) {
     return null;
   }
@@ -304,6 +349,15 @@ export default function HelpChatBot() {
           {BOT_NAME}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => { setShowEmailForm(!showEmailForm); setEmailSent(false); }}
+            className={`text-[11px] px-2 py-1 rounded flex items-center gap-1 ${showEmailForm ? 'bg-amber-500 hover:bg-amber-400' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+            title="Send support email"
+          >
+            <FontAwesomeIcon icon={faEnvelope} className="w-3 h-3" />
+            Email
+          </button>
           <button
             type="button"
             onClick={() => router.push("/settings")}
@@ -352,8 +406,56 @@ export default function HelpChatBot() {
       </div>
 
       <div className="border-t border-slate-200 p-2 bg-white">
-        <div className="flex flex-wrap gap-1 mb-2">
-          {quickPrompts.map((prompt) => (
+        {showEmailForm ? (
+          /* Email Compose Form */
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEmailForm(false)}
+                className="p-1 hover:bg-slate-100 rounded"
+              >
+                <FontAwesomeIcon icon={faArrowLeft} className="w-3 h-3 text-slate-500" />
+              </button>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <FontAwesomeIcon icon={faEnvelope} className="w-3 h-3 text-amber-500" />
+                  Send Support Email
+                </p>
+                <p className="text-[10px] text-slate-500">To: hello.ayoola@gmail.com</p>
+              </div>
+            </div>
+            {emailSent ? (
+              <div className="flex items-center justify-center gap-2 py-3 text-green-600">
+                <FontAwesomeIcon icon={faCheck} className="w-4 h-4" />
+                <span className="text-sm font-semibold">Email client opened!</span>
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={emailMessage}
+                  onChange={(e) => { setEmailMessage(e.target.value); resetChatIdleTimer(); }}
+                  placeholder="Describe your issue or question..."
+                  rows={3}
+                  className="w-full border border-slate-300 rounded-lg px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-200 resize-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleSendEmail}
+                  disabled={!emailMessage.trim()}
+                  className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  <FontAwesomeIcon icon={faPaperPlane} className="w-3.5 h-3.5" />
+                  Send Support Email
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          /* Normal Chat Input */
+          <>
+            <div className="flex flex-wrap gap-1 mb-2">
+              {quickPrompts.map((prompt) => (
             <button
               key={prompt}
               type="button"
@@ -383,6 +485,8 @@ export default function HelpChatBot() {
             <FontAwesomeIcon icon={faPaperPlane} className="w-4 h-4" />
           </button>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

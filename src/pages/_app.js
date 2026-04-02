@@ -5,6 +5,8 @@ import Layout from "@/src/components/layout/Layout";
 import { StaffProvider } from "@/src/context/StaffContext";
 import POSErrorBoundary from "@/src/components/common/POSErrorBoundary";
 import { getUiSettings } from "@/src/lib/uiSettings";
+import { ToastContainer } from "@/src/components/common/Toast";
+import { ConfirmDialogContainer } from "@/src/components/common/ConfirmDialog";
 
 export default function App({ Component, pageProps }) {
   // Register service worker for offline support
@@ -90,6 +92,8 @@ export default function App({ Component, pageProps }) {
           <Component {...pageProps} />
         </Layout>
       </POSErrorBoundary>
+      <ToastContainer />
+      <ConfirmDialogContainer />
     </StaffProvider>
   );
 }

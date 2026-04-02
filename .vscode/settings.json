@@ -3,6 +3,10 @@
         "/^Copy-Item \"c:\\\\Users\\\\hp\\\\Downloads\\\\icon\\.ico\" \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\sales-point-app\\\\public\\\\images\\\\bot-icon\\.ico\"$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^Get-ChildItem -Recurse -Path \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\sales-point-app\\\\src\" -Include \"StaffLogin\\.js\",\"index\\.js\",\"CartPanel\\.js\",\"OrdersScreen\\.js\",\"settings\\.js\",\"HelpChatBot\\.js\",\"Header\\.js\",\"TopBar\\.js\",\"StaffContext\\.js\",\"CustomersScreen\\.js\",\"MenuScreen\\.js\",\"TabNavigation\\.js\",\"EpoNowLayout\\.js\",\"Sidebar\\.js\" \\| ForEach-Object \\{ \\$lines = \\(Get-Content \\$_\\.FullName \\| Measure-Object -Line\\)\\.Lines; \"\\$\\(\\$_\\.FullName\\) => \\$lines lines\" \\}$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

@@ -12,6 +12,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { useStaff } from '@/src/context/StaffContext';
 import { hasPosPermission } from '@/src/lib/posPermissions';
+import { showConfirm } from '@/src/components/common/ConfirmDialog';
+import { showToast } from '@/src/components/common/Toast';
 import {
   getPrinterSettings,
   setPrinterSettings,
@@ -130,13 +132,17 @@ export default function PrinterSettings() {
     }
   };
 
-  const handleResetDefaults = () => {
-    if (confirm('Reset to default settings?')) {
+  const handleResetDefaults = async () => {
+    const ok = await showConfirm('Reset to default settings?', {
+      title: 'Reset Printer Settings',
+      confirmLabel: 'Reset',
+      variant: 'danger',
+    });
+    if (ok) {
       const defaults = getDefaultPrinterSettings();
       setSettings(defaults);
       setPrinterSettings(defaults);
-      setSuccess('✅ Reset to default settings');
-      setTimeout(() => setSuccess(''), 3000);
+      showToast('Reset to default settings', 'success');
     }
   };
 

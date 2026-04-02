@@ -56,6 +56,11 @@ export default function StaffLogin() {
     return normalized === "staff" || normalized === "lower staff";
   }, []);
 
+  const isNonAdminRole = useCallback((role) => {
+    const normalized = String(role || "").trim().toLowerCase();
+    return normalized !== "admin";
+  }, []);
+
   const resolveStaffLocationId = useCallback((member) => {
     if (!member) return "";
     const directId = member.locationId?.toString?.() || member.locationId || "";
@@ -824,13 +829,13 @@ export default function StaffLogin() {
   useEffect(() => {
     if (!selectedStaff) return;
     const member = staff.find((item) => String(item._id) === String(selectedStaff));
-    if (!member || !isRestrictedStaffRole(member.role)) return;
+    if (!member || !isNonAdminRole(member.role)) return;
 
     const assignedLocationId = resolveStaffLocationId(member);
     if (assignedLocationId && assignedLocationId !== selectedLocation) {
       setSelectedLocation(assignedLocationId);
     }
-  }, [selectedStaff, staff, selectedLocation, isRestrictedStaffRole, resolveStaffLocationId]);
+  }, [selectedStaff, staff, selectedLocation, isNonAdminRole, resolveStaffLocationId]);
 
   // Handle refresh of store/location data
   const handleRefreshData = async () => {
@@ -1142,36 +1147,40 @@ export default function StaffLogin() {
                 </div>
               </div>
 
-              {/* Location Dropdown with Refresh Button */}
+              {/* Location Selection Bar */}
               {(selectedStore || locations.length > 0) && (
-                <div className="mb-4">
-                  <label className="text-white font-semibold text-xs mb-1 block">
-                    SELECT LOCATION {!isOnline && <span className="text-yellow-300">(Cached)</span>}
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={selectedLocation}
-                      onChange={(e) => {
-                        setSelectedLocation(e.target.value);
-                        setSelectedStaff("");
-                      }}
-                      className="flex-1 px-3 py-2 bg-cyan-800 text-white border-2 border-cyan-700 rounded-lg font-semibold text-sm focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400"
-                    >
-                      <option value="">-- Select Location ({locations.length} available) --</option>
-                      {locations.map((loc) => (
-                        <option key={loc._id} value={loc._id}>
-                          {loc.name}
-                        </option>
-                      ))}
-                    </select>
+                <div className="mb-4 bg-cyan-800/80 rounded-xl p-3 border border-cyan-600 shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-white font-bold text-xs flex items-center gap-2">
+                      📍 SELECT LOCATION {!isOnline && <span className="text-yellow-300 font-normal">(Cached)</span>}
+                    </label>
                     <button
                       onClick={handleRefreshData}
                       disabled={loadingData}
-                      className="px-3 py-2 bg-cyan-800 hover:bg-cyan-600 text-white rounded-lg transition border-2 border-cyan-700 disabled:opacity-50"
+                      className="px-2.5 py-1.5 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg transition border border-cyan-600 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5"
                       title="Refresh locations from cloud/local"
                     >
-                      <FontAwesomeIcon icon={faRedo} className={`w-4 h-4 ${loadingData ? 'animate-spin' : ''}`} />
+                      <FontAwesomeIcon icon={faRedo} className={`w-3 h-3 ${loadingData ? 'animate-spin' : ''}`} />
+                      Refresh
                     </button>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {locations.map((loc) => (
+                      <button
+                        key={loc._id}
+                        onClick={() => {
+                          setSelectedLocation(loc._id);
+                          setSelectedStaff("");
+                        }}
+                        className={`px-3 py-2.5 rounded-lg font-bold text-xs transition-all ${
+                          selectedLocation === loc._id
+                            ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-md"
+                            : "bg-cyan-700 text-white hover:bg-cyan-600 border border-cyan-600"
+                        }`}
+                      >
+                        {loc.name}
+                      </button>
+                    ))}
                   </div>
                   {locations.length === 0 && (
                     <p className="text-yellow-300 text-xs mt-2 text-center">
@@ -1196,7 +1205,7 @@ export default function StaffLogin() {
                           key={member._id}
                           onClick={() => {
                             setSelectedStaff(member._id);
-                            if (isRestrictedStaffRole(member.role)) {
+                            if (isNonAdminRole(member.role)) {
                               const assignedLocationId = resolveStaffLocationId(member);
                               if (assignedLocationId) {
                                 setSelectedLocation(assignedLocationId);
@@ -1222,7 +1231,7 @@ export default function StaffLogin() {
                               ? "bg-cyan-600 text-white"
                               : "bg-cyan-900/40 text-cyan-200"
                           }`}>{member.role || 'Staff'}</div>
-                          {isRestrictedStaffRole(member.role) && resolveStaffLocationId(member) && (
+                          {isNonAdminRole(member.role) && resolveStaffLocationId(member) && (
                             <div className={`text-[10px] px-2 py-0.5 rounded-full ${
                               selectedStaff === member._id
                                 ? "bg-white/80 text-cyan-900"
