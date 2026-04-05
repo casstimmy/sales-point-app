@@ -12,6 +12,7 @@ import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
 import EndOfDayReport from '@/src/models/EndOfDayReport';
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 const getTenderEntries = (transaction) => {
   if (Array.isArray(transaction?.tenderPayments) && transaction.tenderPayments.length > 0) {
@@ -77,6 +78,8 @@ export default async function handler(req, res) {
       error: 'Method not allowed'
     });
   }
+
+  req.body = sanitizeBody(req.body);
 
   try {
     await mongooseConnect();

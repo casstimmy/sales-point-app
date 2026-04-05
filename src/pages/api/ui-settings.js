@@ -7,6 +7,7 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import Store from '@/src/models/Store';
 import { defaultUiSettings } from '@/src/lib/uiSettings';
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 const isObject = (value) => value && typeof value === 'object' && !Array.isArray(value);
 
@@ -46,6 +47,7 @@ export default async function handler(req, res) {
     }
 
     if (method === 'PUT') {
+      req.body = sanitizeBody(req.body);
       const incoming = req.body.settings || {};
       const merged = mergeDeep(defaultUiSettings, incoming);
       store.uiSettings = merged;

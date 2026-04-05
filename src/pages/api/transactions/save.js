@@ -11,6 +11,7 @@ import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
 import crypto from 'crypto';
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -29,6 +30,8 @@ export default async function handler(req, res) {
       error: 'Method not allowed' 
     });
   }
+
+  req.body = sanitizeBody(req.body);
 
   try {
     console.log('ðŸ’¾ Direct transaction save request received');

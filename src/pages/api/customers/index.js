@@ -7,6 +7,7 @@
 
 import { mongooseConnect } from "@/src/lib/mongoose";
 import Customer from "@/src/models/Customer";
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
   if (req.method === "GET") {
@@ -27,6 +28,7 @@ export default async function handler(req, res) {
   } 
   
   if (req.method === "POST") {
+    req.body = sanitizeBody(req.body);
     try {
       await mongooseConnect();
       

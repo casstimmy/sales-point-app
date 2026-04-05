@@ -1,10 +1,12 @@
 import dbConnect from '@/src/lib/mongoose';
 import Staff from '@/src/models/Staff';
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method === 'POST') {
+    req.body = sanitizeBody(req.body);
     const { staffId, type, locationId, locationName, notes } = req.body;
 
     if (!staffId || !type) {

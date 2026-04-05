@@ -3,6 +3,8 @@ import { Staff } from "@/src/models/Staff";
 import Store from "@/src/models/Store";
 import bcrypt from "bcryptjs";
 import { normalizePosPermissions } from "@/src/lib/posPermissions";
+import { setSessionCookie } from "@/src/lib/sessionAuth";
+import { sanitizeString } from "@/src/lib/apiValidation";
 
 const sendError = (res, status, code, message, details = {}) =>
   res.status(status).json({
@@ -61,9 +63,9 @@ export default async function handler(req, res) {
   }
 
   const payload = req.body || {};
-  const staffId = payload.newStaffId || payload.staffId || payload.staff;
+  const staffId = sanitizeString(payload.newStaffId || payload.staffId || payload.staff || "");
   const pin = normalizePin(payload.pin);
-  const requestedLocation = payload.location;
+  const requestedLocation = sanitizeString(payload.location || "");
 
   if (!staffId || !pin) {
     return sendError(
@@ -159,6 +161,9 @@ export default async function handler(req, res) {
     };
 
     const storeName = storeObj?.storeName || storeObj?.companyName || "Default Store";
+
+    // Set session cookie for API auth
+    setSessionCookie(res, String(staffMember._id));
 
     return res.status(200).json({
       success: true,

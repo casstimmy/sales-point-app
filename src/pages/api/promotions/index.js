@@ -7,6 +7,7 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import Promotion from '@/src/models/Promotion';
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
   await mongooseConnect();
@@ -46,6 +47,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    req.body = sanitizeBody(req.body);
     try {
       const promotionData = req.body;
 

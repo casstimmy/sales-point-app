@@ -12,12 +12,15 @@
 
 import { mongooseConnect } from "@/src/lib/mongoose";
 import { Category } from "@/src/models/Category";
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
   // Only allow POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  req.body = sanitizeBody(req.body);
 
   try {
     await mongooseConnect();

@@ -119,6 +119,9 @@ export function StaffProvider({ children }) {
     localStorage.removeItem("location");
     localStorage.removeItem("shift");
     // NOTE: Do NOT remove till from localStorage - it should persist across logouts
+
+    // Clear server session cookie
+    fetch('/api/staff/logout', { method: 'POST' }).catch(() => {});
   };
 
   const setCurrentTill = (tillData) => {

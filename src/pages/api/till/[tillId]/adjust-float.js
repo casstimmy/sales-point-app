@@ -7,12 +7,15 @@
 
 import Till from "@/src/models/Till";
 import { mongooseConnect } from "@/src/lib/mongoose";
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
   // Only allow PUT requests
   if (req.method !== "PUT") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+
+  req.body = sanitizeBody(req.body);
 
   try {
     await mongooseConnect();

@@ -6,11 +6,14 @@ import EndOfDayReport from "@/src/models/EndOfDayReport";
 import Tender from "@/src/models/Tender";
 import Store from "@/src/models/Store";
 import mongoose from "mongoose";
+import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+
+  req.body = sanitizeBody(req.body);
 
   try {
     await mongooseConnect();
