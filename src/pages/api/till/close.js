@@ -94,7 +94,11 @@ export default async function handler(req, res) {
     const tenderAggregation = await Transaction.aggregate([
       {
         $match: {
-          _id: { $in: till.transactions.map(id => new mongoose.Types.ObjectId(id)) },
+          _id: { $in: (till.transactions || []).map(id => {
+            if (id && id._id) return id._id; // populated doc
+            if (typeof id === 'string') return new mongoose.Types.ObjectId(id);
+            return id; // already ObjectId
+          }) },
           // IMPORTANT: Only include actual sales transactions (amount > 0)
           // This prevents open-till operations or void transactions from being counted
           total: { $gt: 0 }
@@ -156,6 +160,28 @@ export default async function handler(req, res) {
     });
 
     console.log(`\n✅ Total Sales Calculated: ₦${totalSales.toLocaleString('en-NG')}`);
+
+    // If aggregation returned nothing, fall back to stored tenderBreakdown
+    if (Object.keys(tenderBreakdown).length === 0 && till.tenderBreakdown) {
+      console.log('🔄 Aggregation empty, using stored tenderBreakdown as fallback');
+      if (till.tenderBreakdown instanceof Map) {
+        till.tenderBreakdown.forEach((value, key) => {
+          tenderBreakdown[key] = value;
+          totalSales += value;
+        });
+      } else if (typeof till.tenderBreakdown === 'object') {
+        Object.entries(till.tenderBreakdown).forEach(([key, value]) => {
+          if (typeof value === 'number') {
+            tenderBreakdown[key] = value;
+            totalSales += value;
+          }
+        });
+      }
+    }
+    // If still nothing but we have stored totalSales, use that
+    if (totalSales === 0 && till.totalSales > 0) {
+      totalSales = till.totalSales;
+    }
 
     // Get tender mapping (ID to name)
     const tenderDocs = await Tender.find();

@@ -11,6 +11,10 @@
         "/^npm install nodemailer$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^npx next dev 2>&1$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
