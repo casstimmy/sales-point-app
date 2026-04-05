@@ -763,7 +763,7 @@ export default function StaffLogin() {
     setError("");
   };
 
-  const handleQuickLogin = async (till) => {
+  const handleQuickLogin = useCallback(async (till) => {
     // Resume an existing till after PIN verification
     try {
       setLoading(true);
@@ -853,7 +853,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router, normalizeStaffMember, normalizeStaffList]);
 
   const handleKeyPress = useCallback((e) => {
     if (e.key === "Enter" && pin.length === 4 && selectedStore && selectedLocation && selectedStaff) {
