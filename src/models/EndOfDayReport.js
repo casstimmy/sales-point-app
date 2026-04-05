@@ -29,10 +29,28 @@ const EndOfDayReportSchema = new mongoose.Schema({
   totalSales: Number,
   transactionCount: Number,
   
-  // Tender Breakdown
+  // Tender Breakdown (expected/processed amounts per tender)
   tenderBreakdown: {
     type: Map,
     of: Number,
+    default: {},
+  },
+
+  // Tender Actual (physical counted amounts per tender)
+  tenderActual: {
+    type: Map,
+    of: Number,
+    default: {},
+  },
+
+  // Tender Variances (per-tender reconciliation: processed vs counted)
+  tenderVariances: {
+    type: Map,
+    of: {
+      processed: Number,
+      counted: Number,
+      variance: Number,
+    },
     default: {},
   },
   

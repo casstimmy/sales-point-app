@@ -31,7 +31,7 @@ export default async function handler(req, res) {
       })
       .populate({
         path: "tillId",
-        select: "openedAt openingBalance closedAt totalSales transactionCount tenderBreakdown"
+        select: "openedAt openingBalance closedAt totalSales transactionCount tenderBreakdown tenderVariances"
       })
       .populate({
         path: "closedBy",

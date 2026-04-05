@@ -314,6 +314,15 @@ export default async function handler(req, res) {
       if (existingReport) {
         console.log(`📊 EndOfDayReport already exists - ID: ${existingReport._id}`);
       } else {
+        // Build tenderActual map (physical counted amounts per tender)
+        const tenderActualMap = {};
+        for (const [tenderId, countedAmount] of Object.entries(safeTenderCounts)) {
+          const tenderName = tenderMap[tenderId];
+          if (tenderName) {
+            tenderActualMap[tenderName] = parseFloat(countedAmount) || 0;
+          }
+        }
+
         const report = new EndOfDayReport({
         storeId: updatedTill.storeId,
         locationId: updatedTill.locationId,
@@ -321,6 +330,7 @@ export default async function handler(req, res) {
         tillId: updatedTill._id,
         staffId: updatedTill.staffId,
         staffName: updatedTill.staffName,
+        closedBy: updatedTill.staffId,
         openedAt: updatedTill.openedAt,
         openingBalance: updatedTill.openingBalance,
         closedAt: new Date(),
@@ -331,6 +341,8 @@ export default async function handler(req, res) {
         totalSales: totalSales,
         transactionCount: transactions.length,
         tenderBreakdown: new Map(Object.entries(tenderBreakdown)),
+        tenderActual: new Map(Object.entries(tenderActualMap)),
+        tenderVariances: new Map(Object.entries(tenderVariances)),
         closingNotes: closingNotes || "",
         status: Math.abs(totalVariance) < 0.01 ? "RECONCILED" : "VARIANCE_NOTED",
         date: new Date().setHours(0, 0, 0, 0),
@@ -384,7 +396,6 @@ export default async function handler(req, res) {
     return res.status(500).json({
       message: "Failed to close till",
       error: error.message,
-      stack: error.stack,
     });
   }
 }
