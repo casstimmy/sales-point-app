@@ -153,7 +153,7 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
               className={`w-4 h-4 ${isOnline ? 'text-green-300' : 'text-amber-300'}`}
             />
             {pendingSyncCount > 0 && (
-              <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-xs font-bold animate-pulse">
+              <span className="bg-primary-400 text-white px-2 py-0.5 rounded-full text-xs font-bold animate-pulse">
                 {pendingSyncCount}
               </span>
             )}

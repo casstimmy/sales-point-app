@@ -136,7 +136,7 @@ export default function PrintPreview() {
     }
 
     // Safety timeout (guarded by hasPrinted)
-    setTimeout(doPrint, 5000);
+    setTimeout(doPrint, 1500);
   };
 
   const handleCancel = () => {

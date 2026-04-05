@@ -26,6 +26,7 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
   const [activeTab, setActiveTab] = useState("transactions");
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [tenderMap, setTenderMap] = useState({});
+  const [locationMap, setLocationMap] = useState({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -49,6 +50,22 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
         }
       } catch (e) {}
       setTenderMap(map);
+
+      // Build location ID → name map from cached locations
+      const locMap = {};
+      try {
+        const cachedLocs = localStorage.getItem("cachedLocations");
+        if (cachedLocs) {
+          const locs = JSON.parse(cachedLocs);
+          if (Array.isArray(locs)) {
+            locs.forEach((loc) => {
+              if (loc._id) locMap[loc._id] = loc.name;
+              if (loc.id) locMap[loc.id] = loc.name;
+            });
+          }
+        }
+      } catch (e) {}
+      setLocationMap(locMap);
     } catch (e) {
       console.error("Failed to load pending data:", e);
     } finally {
@@ -105,7 +122,7 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
   const tabs = [
-    { key: "transactions", label: "Transactions", icon: faReceipt, count: data.transactions.length, color: "text-amber-400" },
+    { key: "transactions", label: "Transactions", icon: faReceipt, count: data.transactions.length, color: "text-primary-400" },
     { key: "tillOpens", label: "Till Opens", icon: faCashRegister, count: data.tillOpens.length, color: "text-blue-400" },
     { key: "tillCloses", label: "Till Closes", icon: faLock, count: data.tillCloses.length, color: "text-red-400" },
   ];
@@ -116,14 +133,14 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
       <div className="flex-1" onClick={onClose} />
 
       {/* Panel — right side, full height, matching keypad width */}
-      <div className="w-full max-w-md bg-gradient-to-b from-slate-900 to-slate-800 shadow-2xl flex flex-col overflow-hidden border-l border-cyan-700/40">
+      <div className="w-full max-w-md bg-gradient-to-b from-slate-900 to-slate-800 shadow-2xl flex flex-col overflow-hidden border-l border-primary-700/40">
         {/* Header */}
-        <div className="px-4 py-3 bg-gradient-to-r from-amber-600 to-amber-700 flex items-center justify-between">
+        <div className="px-4 py-3 bg-gradient-to-r from-primary-600 to-primary-700 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faExclamationTriangle} className="w-5 h-5 text-white" />
             <div>
               <h2 className="text-white font-bold text-sm">Unsynced Data</h2>
-              <p className="text-amber-100 text-[10px]">{totalPending} pending item{totalPending !== 1 ? "s" : ""}</p>
+              <p className="text-primary-100 text-[10px]">{totalPending} pending item{totalPending !== 1 ? "s" : ""}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -148,7 +165,7 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
           <button
             onClick={handleSyncNow}
             disabled={!isOnline || syncing || totalPending === 0}
-            className="w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed bg-cyan-600 hover:bg-cyan-500 text-white"
+            className="w-full py-2 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition disabled:opacity-40 disabled:cursor-not-allowed bg-primary-600 hover:bg-primary-500 text-white"
           >
             <FontAwesomeIcon icon={faSync} className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Syncing..." : !isOnline ? "Offline — Sync unavailable" : "Sync Now"}
@@ -163,14 +180,14 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
               onClick={() => setActiveTab(tab.key)}
               className={`flex-1 py-2.5 text-[11px] font-bold flex items-center justify-center gap-1.5 transition border-b-2 ${
                 activeTab === tab.key
-                  ? "border-cyan-400 text-white bg-slate-700/50"
+                  ? "border-primary-400 text-white bg-slate-700/50"
                   : "border-transparent text-slate-400 hover:text-slate-200"
               }`}
             >
               <FontAwesomeIcon icon={tab.icon} className={`w-3 h-3 ${tab.color}`} />
               {tab.label}
               {tab.count > 0 && (
-                <span className="ml-1 px-1.5 py-0.5 bg-amber-500/80 text-white text-[9px] rounded-full font-bold min-w-[18px] text-center">
+                <span className="ml-1 px-1.5 py-0.5 bg-primary-500/80 text-white text-[9px] rounded-full font-bold min-w-[18px] text-center">
                   {tab.count}
                 </span>
               )}
@@ -267,7 +284,7 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Location:</span>
-                          <span className="text-white font-medium">{t.locationName || t.locationId || "—"}</span>
+                          <span className="text-white font-medium">{t.locationName || locationMap[t.locationId] || t.locationId || "—"}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-slate-400">Opening Balance:</span>

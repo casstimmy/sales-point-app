@@ -35,9 +35,21 @@ export async function getReceiptSettings() {
   const cachedLogo = getStoreLogo();
   const cached = getCachedReceiptSettings();
 
-  // If offline, return cached settings immediately with local logo
+  // If we have cached settings, return immediately and refresh in background
+  if (cached) {
+    const result = { ...cached, companyLogo: cachedLogo };
+    // Background refresh if online (non-blocking)
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      fetch('/api/receipt-settings', { signal: AbortSignal.timeout(3000) })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data?.settings) cacheReceiptSettings(data.settings); })
+        .catch(() => {});
+    }
+    return result;
+  }
+
+  // No cache — must fetch (but only if online)
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    if (cached) return { ...cached, companyLogo: cachedLogo };
     return {
       companyDisplayName: "St's Michael Hub",
       companyLogo: cachedLogo,
@@ -52,7 +64,7 @@ export async function getReceiptSettings() {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
     const response = await fetch('/api/receipt-settings', { signal: controller.signal });
     clearTimeout(timeoutId);
     if (!response.ok) {
@@ -60,14 +72,10 @@ export async function getReceiptSettings() {
     }
     const data = await response.json();
     const settings = data.settings || {};
-    // Cache the full settings for offline use
     cacheReceiptSettings(settings);
-    // Override logo with cached local version to avoid re-fetching
     return { ...settings, companyLogo: cachedLogo || settings.companyLogo };
   } catch (error) {
     console.error('❌ Error fetching receipt settings:', error);
-    // Return cached or default settings with local logo
-    if (cached) return { ...cached, companyLogo: cachedLogo };
     return {
       companyDisplayName: "St's Michael Hub",
       companyLogo: cachedLogo,
@@ -289,15 +297,15 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
         waitForImages();
       }
       
-      // Safety timeout: ensure print happens within 3 seconds even if images fail
+      // Safety timeout: ensure print happens within 1.5 seconds even if images fail
       setTimeout(() => {
         doPrint();
-      }, 3000);
+      }, 1500);
       
       // Final safety cleanup (if nothing else triggered)
       setTimeout(() => {
         cleanupIframe();
-      }, 15000); // Max 15 seconds before cleanup
+      }, 8000); // Max 8 seconds before cleanup
     } catch (printError) {
       console.error('❌ Print error:', printError);
       try {
@@ -364,7 +372,7 @@ function silentPrintHTML(html) {
   } else {
     iframe.contentWindow.addEventListener('load', waitForImages, { once: true });
   }
-  setTimeout(doPrint, 5000);
+  setTimeout(doPrint, 1500);
 }
 
 /**

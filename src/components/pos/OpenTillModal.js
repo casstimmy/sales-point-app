@@ -177,6 +177,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
           staffName: staff.name,
           storeId: staff.storeId || "default-store",
           locationId: location._id,
+          locationName: location.name || location._id,
           openingBalance: parseFloat(effectiveOpeningBalance),
           openedAt: localTill.openedAt,
         });
@@ -211,6 +212,7 @@ export default function OpenTillModal({ isOpen, onClose, onTillOpened, staffData
             staffName: staff.name,
             storeId: staff.storeId || "default-store",
             locationId: location._id,
+            locationName: location.name || location._id,
             openingBalance: parseFloat(effectiveOpeningBalance),
             openedAt: localTill.openedAt,
           });
