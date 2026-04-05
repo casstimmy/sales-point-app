@@ -40,6 +40,8 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   const [error, setError] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false); // Prevent double-click
   const [isMobile, setIsMobile] = useState(false);
+  const [duplicateWarning, setDuplicateWarning] = useState(''); // Duplicate tender warning
+  const lastAddRef = React.useRef({ tenderId: null, amount: 0, time: 0 });
 
   // Use pre-fetched location tenders from hook
   useEffect(() => {
@@ -183,6 +185,20 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
   const handleAdd = () => {
     const amount = parseFloat(currentAmount) || 0;
     if (amount > 0) {
+      const now = Date.now();
+      const last = lastAddRef.current;
+
+      // Detect duplicate: same tender, same amount, within 10 seconds
+      if (last.tenderId === selectedTender && last.amount === amount && (now - last.time) < 10000) {
+        const tenderName = availableTenders.find(t => t.id === selectedTender)?.name || 'this tender';
+        setDuplicateWarning(`${formatNaira(amount)} was already added to ${tenderName}. Added again.`);
+        setTimeout(() => setDuplicateWarning(''), 4000);
+      } else {
+        setDuplicateWarning('');
+      }
+
+      lastAddRef.current = { tenderId: selectedTender, amount, time: now };
+
       setTenders(prev => ({
         ...prev,
         [selectedTender]: prev[selectedTender] + amount
@@ -469,6 +485,15 @@ export default function PaymentModal({ total, onConfirm, onCancel, inline = fals
                 ₦{Number(displayAmount || 0).toLocaleString('en-NG')}
               </p>
             </div>
+
+            {/* Duplicate Amount Warning */}
+            {duplicateWarning && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg px-3 py-2 flex items-center gap-2 animate-pulse">
+                <span className="text-amber-600 text-sm">⚠️</span>
+                <p className="text-amber-700 text-xs font-semibold flex-1">{duplicateWarning}</p>
+                <button onClick={() => setDuplicateWarning('')} className="text-amber-400 hover:text-amber-600 text-xs font-bold">✕</button>
+              </div>
+            )}
 
             {/* Quick Amount Buttons */}
             <div className="grid grid-cols-4 gap-1.5">

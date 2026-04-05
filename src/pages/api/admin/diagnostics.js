@@ -8,6 +8,11 @@ import Store from "@/src/models/Store";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {
+  // Block in production — this endpoint exposes database internals
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(404).json({ error: 'Not found' });
+  }
+
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
   }

@@ -14,8 +14,14 @@ const DB_NAME = 'SalesPOS';
 
 // Concurrency lock for syncPendingTransactions to prevent parallel runs
 let _isSyncing = false;
+let _syncStartedAt = null;
+const SYNC_LOCK_TIMEOUT = 60000; // Auto-release lock after 60s to prevent deadlock
 // Guard to prevent duplicate event listener registration
 let _offlineSyncInitialized = false;
+// Retry tracking: transactionId -> { attempts, nextRetryAt }
+const _retryMap = new Map();
+const MAX_RETRY_ATTEMPTS = 5;
+const BASE_RETRY_DELAY = 5000; // 5s base, exponential backoff
 
 const ensureStores = (db) => {
   // Products store (used by indexedDB.js)
@@ -306,12 +312,20 @@ export async function syncPendingTransactions() {
     return;
   }
 
-  // Concurrency lock — only one sync at a time
+  // Concurrency lock — only one sync at a time (with safety timeout)
   if (_isSyncing) {
-    console.log('ℹ️ Sync already in progress, skipping duplicate call');
-    return;
+    // Safety: auto-release if lock held too long (e.g. Promise never settled)
+    if (_syncStartedAt && (Date.now() - _syncStartedAt > SYNC_LOCK_TIMEOUT)) {
+      console.warn('⚠️ Sync lock held longer than 60s — force releasing');
+      _isSyncing = false;
+      _syncStartedAt = null;
+    } else {
+      console.log('ℹ️ Sync already in progress, skipping duplicate call');
+      return;
+    }
   }
   _isSyncing = true;
+  _syncStartedAt = Date.now();
 
   try {
     await ensureExternalIdsInTransactions();
@@ -349,6 +363,18 @@ export async function syncPendingTransactions() {
           let failed = 0;
 
           for (const tx of transactions) {
+            // Check retry backoff — skip if not yet time to retry
+            const retryInfo = _retryMap.get(tx.id);
+            if (retryInfo) {
+              if (retryInfo.attempts >= MAX_RETRY_ATTEMPTS) {
+                console.warn(`⛔ Transaction ${tx.id} exceeded max retries (${MAX_RETRY_ATTEMPTS}), skipping`);
+                failed++;
+                continue;
+              }
+              if (Date.now() < retryInfo.nextRetryAt) {
+                continue; // Not yet time to retry
+              }
+            }
             try {
               if (tx.tillId && String(tx.tillId).startsWith('offline-till-')) {
                 const resolved = await resolveTillId(tx.tillId, tx);
@@ -401,15 +427,22 @@ export async function syncPendingTransactions() {
                 // Mark as synced
                 await markTransactionSynced(tx.id);
                 synced++;
+                _retryMap.delete(tx.id); // Clear retry tracking on success
                 console.log(`✅ Transaction ${tx.id} synced`);
               } else {
                 failed++;
-                const errorData = await response.json();
-                console.warn(`⚠️ Failed to sync transaction ${tx.id}: ${response.status}`, errorData);
+                const attempts = (retryInfo?.attempts || 0) + 1;
+                const delay = BASE_RETRY_DELAY * Math.pow(2, Math.min(attempts - 1, 4));
+                _retryMap.set(tx.id, { attempts, nextRetryAt: Date.now() + delay });
+                const errorData = await response.json().catch(() => ({}));
+                console.warn(`⚠️ Failed to sync transaction ${tx.id} (attempt ${attempts}/${MAX_RETRY_ATTEMPTS}, next retry in ${delay/1000}s):`, errorData);
               }
             } catch (err) {
               failed++;
-              console.error(`❌ Error syncing transaction ${tx.id}:`, err);
+              const attempts = (retryInfo?.attempts || 0) + 1;
+              const delay = BASE_RETRY_DELAY * Math.pow(2, Math.min(attempts - 1, 4));
+              _retryMap.set(tx.id, { attempts, nextRetryAt: Date.now() + delay });
+              console.error(`❌ Error syncing transaction ${tx.id} (attempt ${attempts}/${MAX_RETRY_ATTEMPTS}):`, err);
             }
           }
 
@@ -424,6 +457,7 @@ export async function syncPendingTransactions() {
     throw err;
   } finally {
     _isSyncing = false;
+    _syncStartedAt = null;
   }
 }
 
