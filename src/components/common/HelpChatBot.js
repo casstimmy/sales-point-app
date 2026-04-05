@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faPaperPlane, faTimes, faEnvelope, faArrowLeft, faCheck } from "@fortawesome/free-solid-svg-icons";
+import { faPaperPlane, faTimes, faEnvelope, faArrowLeft, faCheck, faExclamationTriangle } from "@fortawesome/free-solid-svg-icons";
+import { getPendingTransactionsCount } from "@/src/lib/offlineSync";
 
 const BOT_NAME = "POS Assistant";
 
@@ -178,6 +179,7 @@ export default function HelpChatBot() {
   const buttonTimerRef = useRef(null);
   const messagesEndRef = useRef(null);
   const [emailSending, setEmailSending] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
 
   // Auto-hide idle timeout durations (ms)
   const CHAT_IDLE_MS = 15000;   // Close chat after 15s of no interaction
@@ -271,6 +273,12 @@ export default function HelpChatBot() {
     // Reset idle timer on interaction (won't auto-close since engaged)
     resetChatIdleTimer();
   }, [resetChatIdleTimer]);
+
+  // Load pending transaction count on mount / when chat opens
+  useEffect(() => {
+    if (!isOpen) return;
+    getPendingTransactionsCount().then(c => setPendingCount(c)).catch(() => {});
+  }, [isOpen]);
 
   // Auto-scroll chat to latest message
   useEffect(() => {
@@ -410,6 +418,17 @@ export default function HelpChatBot() {
           {BOT_NAME}
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('unsyncedData:open'));
+            }}
+            className={`text-[11px] px-2 py-1 rounded flex items-center gap-1 ${pendingCount > 0 ? 'bg-amber-500 hover:bg-amber-400' : 'bg-cyan-600 hover:bg-cyan-500'}`}
+            title="View unsynced data"
+          >
+            <FontAwesomeIcon icon={faExclamationTriangle} className="w-3 h-3" />
+            Unsynced{pendingCount > 0 ? ` (${pendingCount})` : ''}
+          </button>
           <button
             type="button"
             onClick={() => { setShowEmailForm(!showEmailForm); setEmailSent(false); }}

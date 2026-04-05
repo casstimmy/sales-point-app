@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import OpenTillModal from "../pos/OpenTillModal";
 import ClockInOutModal from "../common/ClockInOutModal";
+import UnsyncedDataModal from "../common/UnsyncedDataModal";
 import { syncCategories, syncProducts } from "../../lib/indexedDB";
 import { syncPendingTillOpens, syncPendingTillCloses, syncPendingTransactions } from "../../lib/offlineSync";
 import { getStoreLogo, setStoreLogo } from "../../lib/logoCache";
@@ -53,6 +54,7 @@ export default function StaffLogin() {
   const [syncingPendingCloses, setSyncingPendingCloses] = useState(false);
   const [loginAttempts, setLoginAttempts] = useState(0);
   const [showClockModal, setShowClockModal] = useState(false);
+  const [showUnsyncedModal, setShowUnsyncedModal] = useState(false);
   const [resumeTill, setResumeTill] = useState(null); // Till awaiting PIN to resume
   const [loginSettings, setLoginSettings] = useState(() => {
     const ui = getUiSettings();
@@ -296,9 +298,13 @@ export default function StaffLogin() {
     window.addEventListener("offline", handleOffline);
     setIsOnline(navigator.onLine);
 
+    const handleUnsyncedOpen = () => setShowUnsyncedModal(true);
+    window.addEventListener("unsyncedData:open", handleUnsyncedOpen);
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("unsyncedData:open", handleUnsyncedOpen);
     };
   }, []);
 
@@ -1424,6 +1430,12 @@ export default function StaffLogin() {
         staff={staff}
         locations={locations}
         selectedLocation={selectedLocation}
+      />
+
+      {/* Unsynced Data Modal */}
+      <UnsyncedDataModal
+        isOpen={showUnsyncedModal}
+        onClose={() => setShowUnsyncedModal(false)}
       />
     </div>
   );

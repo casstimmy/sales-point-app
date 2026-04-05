@@ -909,3 +909,41 @@ export function getCachedCompletedTransactions() {
   }
   return [];
 }
+
+/**
+ * Get ALL pending/unsynced data from all stores
+ * Works fully offline — reads from IndexedDB only
+ * @returns {Promise<{transactions: Array, tillOpens: Array, tillCloses: Array}>}
+ */
+export async function getAllPendingData() {
+  try {
+    const db = await openSalesPosDb();
+
+    const readAll = (storeName) => new Promise((resolve) => {
+      try {
+        const tx = db.transaction([storeName], 'readonly');
+        const store = tx.objectStore(storeName);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => resolve([]);
+      } catch (e) {
+        resolve([]);
+      }
+    });
+
+    const [allTxns, allOpens, allCloses] = await Promise.all([
+      readAll('transactions'),
+      readAll('till_opens'),
+      readAll('till_closes'),
+    ]);
+
+    return {
+      transactions: allTxns.filter(t => t && t.synced !== true),
+      tillOpens: allOpens.filter(t => t && t.synced !== true),
+      tillCloses: allCloses.filter(t => t && t.synced !== true),
+    };
+  } catch (err) {
+    console.error('❌ Error getting all pending data:', err);
+    return { transactions: [], tillOpens: [], tillCloses: [] };
+  }
+}
