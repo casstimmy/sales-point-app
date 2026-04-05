@@ -25,12 +25,30 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
   const [data, setData] = useState({ transactions: [], tillOpens: [], tillCloses: [] });
   const [activeTab, setActiveTab] = useState("transactions");
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
+  const [tenderMap, setTenderMap] = useState({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const pending = await getAllPendingData();
       setData(pending);
+
+      // Build tender ID → name map from localStorage cache
+      const map = {};
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith("tenders_")) {
+            const tenders = JSON.parse(localStorage.getItem(key));
+            if (Array.isArray(tenders)) {
+              tenders.forEach((t) => {
+                if (t.id || t._id) map[t.id || t._id] = t.name;
+              });
+            }
+          }
+        }
+      } catch (e) {}
+      setTenderMap(map);
     } catch (e) {
       console.error("Failed to load pending data:", e);
     } finally {
@@ -309,7 +327,7 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
                           <div className="space-y-0.5">
                             {Object.entries(t.tenderCounts).map(([key, val]) => (
                               <div key={key} className="flex justify-between text-[10px]">
-                                <span className="text-slate-300 capitalize">{key}:</span>
+                                <span className="text-slate-300 capitalize">{tenderMap[key] || key}:</span>
                                 <span className="text-white font-medium">{formatNaira(val)}</span>
                               </div>
                             ))}

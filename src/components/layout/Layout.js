@@ -10,16 +10,25 @@ import Image from "next/image";
 import StaffLogin from "./StaffLogin";
 import POSLayout from "./POSLayout";
 import HelpChatBot from "../common/HelpChatBot";
+import UnsyncedDataModal from "../common/UnsyncedDataModal";
 import { useStaff } from "../../context/StaffContext";
 import { getStoreLogo } from "../../lib/logoCache";
 
 const Layout = ({ children }) => {
   const { staff, location } = useStaff();
   const [isMounted, setIsMounted] = useState(false);
+  const [showUnsyncedModal, setShowUnsyncedModal] = useState(false);
 
   // Prevent hydration mismatch - ensure client-side rendering
   useEffect(() => {
     setIsMounted(true);
+  }, []);
+
+  // Listen for unsyncedData:open event from HelpChatBot
+  useEffect(() => {
+    const handleUnsyncedOpen = () => setShowUnsyncedModal(true);
+    window.addEventListener("unsyncedData:open", handleUnsyncedOpen);
+    return () => window.removeEventListener("unsyncedData:open", handleUnsyncedOpen);
   }, []);
 
   if (!isMounted) {
@@ -66,6 +75,7 @@ const Layout = ({ children }) => {
       <>
         <StaffLogin />
         <HelpChatBot />
+        <UnsyncedDataModal isOpen={showUnsyncedModal} onClose={() => setShowUnsyncedModal(false)} />
       </>
     );
   }
@@ -77,6 +87,7 @@ const Layout = ({ children }) => {
         {children}
       </POSLayout>
       <HelpChatBot />
+      <UnsyncedDataModal isOpen={showUnsyncedModal} onClose={() => setShowUnsyncedModal(false)} />
     </>
   );
 };

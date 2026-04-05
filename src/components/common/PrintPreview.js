@@ -37,10 +37,30 @@ export default function PrintPreview() {
   const [transaction, setTransaction] = useState(null);
   const [printing, setPrinting] = useState(false);
   const iframeRef = useRef(null);
+  const queueRef = useRef([]);
+
+  const showNext = () => {
+    if (queueRef.current.length > 0) {
+      const next = queueRef.current.shift();
+      setReceiptHTML(next.receiptHTML || '');
+      setCompanyName(next.companyName || '');
+      setTransaction(next.transaction || null);
+      setVisible(true);
+      setPrinting(false);
+    }
+  };
 
   useEffect(() => {
     const handleShow = (event) => {
       const { receiptHTML: html, companyName: name, transaction: tx } = event.detail || {};
+      const entry = { receiptHTML: html, companyName: name, transaction: tx };
+
+      if (visible || printing) {
+        // Already showing a receipt — queue this one
+        queueRef.current.push(entry);
+        return;
+      }
+
       setReceiptHTML(html || '');
       setCompanyName(name || '');
       setTransaction(tx || null);
@@ -50,7 +70,7 @@ export default function PrintPreview() {
 
     window.addEventListener('printPreview:show', handleShow);
     return () => window.removeEventListener('printPreview:show', handleShow);
-  }, []);
+  }, [visible, printing]);
 
   const handlePrint = () => {
     setPrinting(true);
@@ -89,6 +109,8 @@ export default function PrintPreview() {
         setPrinting(false);
         resolvePromise?.(true);
         resolvePromise = null;
+        // Show next queued receipt
+        showNext();
       }, 2000);
     };
 
@@ -121,6 +143,8 @@ export default function PrintPreview() {
     setVisible(false);
     resolvePromise?.(false);
     resolvePromise = null;
+    // Show next queued receipt
+    setTimeout(showNext, 150);
   };
 
   if (!visible) return null;
@@ -146,7 +170,14 @@ export default function PrintPreview() {
           </div>
           <div className="flex-1">
             <h2 className="font-bold text-lg">{companyName || 'Print Receipt'}</h2>
-            <p className="text-cyan-200 text-xs">Review and print your receipt</p>
+            <p className="text-cyan-200 text-xs">
+              Review and print your receipt
+              {queueRef.current.length > 0 && (
+                <span className="ml-2 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold">
+                  +{queueRef.current.length} more
+                </span>
+              )}
+            </p>
           </div>
           <button
             onClick={handleCancel}
