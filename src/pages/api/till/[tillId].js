@@ -50,11 +50,13 @@ export default async function handler(req, res) {
       console.log(`\n💰 ===== AGGREGATING TRANSACTIONS BY TENDER =====`);
       console.log(`   Processing ${till.transactions.length} transaction IDs`);
       
-      // Convert to ObjectIds if needed
+      // Convert to ObjectIds — handle populated documents, strings, and raw ObjectIds
       const transactionIds = till.transactions.map(t => {
-        if (typeof t === 'string') {
-          return new mongoose.Types.ObjectId(t);
-        }
+        // Populated document — extract _id
+        if (t && t._id) return t._id;
+        // String ID
+        if (typeof t === 'string') return new mongoose.Types.ObjectId(t);
+        // Already an ObjectId
         return t;
       });
       
