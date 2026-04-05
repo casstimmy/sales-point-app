@@ -68,6 +68,17 @@ const StaffSchema = new Schema(
       type: Boolean,
       default: true,
     },
+
+    // Clock in/out records
+    clockRecords: [
+      {
+        type: { type: String, enum: ['in', 'out'], required: true },
+        timestamp: { type: Date, default: Date.now },
+        locationId: { type: Schema.Types.ObjectId },
+        locationName: String,
+        notes: String,
+      },
+    ],
   },
   { timestamps: true }
 );

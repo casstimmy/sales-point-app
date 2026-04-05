@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Image from "next/image";
 import { useStaff } from "../../context/StaffContext";
 import OpenTillModal from "../pos/OpenTillModal";
+import ClockInOutModal from "../common/ClockInOutModal";
 import { syncCategories, syncProducts } from "../../lib/indexedDB";
 import { syncPendingTillOpens, syncPendingTillCloses, syncPendingTransactions } from "../../lib/offlineSync";
 import { getStoreLogo, setStoreLogo } from "../../lib/logoCache";
@@ -16,6 +17,7 @@ import {
   faSync,
 } from "@fortawesome/free-solid-svg-icons";
 import { normalizeStaffList, normalizeStaffMember } from "@/src/lib/posPermissions";
+import { getUiSettings } from "@/src/lib/uiSettings";
 
 /**
  * Professional POS Login Page
@@ -49,7 +51,13 @@ export default function StaffLogin() {
   const [activeTills, setActiveTills] = useState([]); // Track active open tills by location
   const [pendingTillCloseIds, setPendingTillCloseIds] = useState([]);
   const [syncingPendingCloses, setSyncingPendingCloses] = useState(false);
-    const [loginAttempts, setLoginAttempts] = useState(0);
+  const [loginAttempts, setLoginAttempts] = useState(0);
+  const [showClockModal, setShowClockModal] = useState(false);
+  const [resumeTill, setResumeTill] = useState(null); // Till awaiting PIN to resume
+  const [loginSettings, setLoginSettings] = useState(() => {
+    const ui = getUiSettings();
+    return ui.login || {};
+  });
 
   const isRestrictedStaffRole = useCallback((role) => {
     const normalized = String(role || "").trim().toLowerCase();
@@ -745,8 +753,18 @@ export default function StaffLogin() {
     }
   };
 
+  const handleResumeRequest = (till) => {
+    // Set the till to resume and pre-select the staff member so user can enter PIN
+    setResumeTill(till);
+    setSelectedStaff(till.staffId);
+    const loc = locations.find(l => l._id === till.locationId);
+    if (loc) setSelectedLocation(loc._id);
+    setPin("");
+    setError("");
+  };
+
   const handleQuickLogin = async (till) => {
-    // Automatically log into an existing till without PIN entry
+    // Resume an existing till after PIN verification
     try {
       setLoading(true);
       setError("");
@@ -788,7 +806,30 @@ export default function StaffLogin() {
       if (!staffMember || !location) {
         console.error("❌ Could not find staff or location even after refresh");
         setError("Could not find staff or location for this till. Please log in normally.");
+        setResumeTill(null);
         return;
+      }
+
+      // Verify PIN online before resuming
+      if (isOnline) {
+        const response = await fetch("/api/staff/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            store: selectedStore,
+            location: location._id,
+            staff: staffMember._id,
+            pin: pin,
+          }),
+        });
+
+        if (!response.ok) {
+          let data = {};
+          try { data = await response.json(); } catch (e) {}
+          setPin("");
+          setError(data?.message || "Incorrect passcode. Please try again.");
+          return;
+        }
       }
 
       console.log("✅ Found staff:", staffMember.name, "and location:", location.name);
@@ -800,10 +841,9 @@ export default function StaffLogin() {
         locationName: location?.name || till.locationName || staffMember?.locationName,
       });
 
-      // Authenticate with the staff's stored session (if available)
-      // In this case, we trust the till record and proceed
       login(sessionStaff, location);
       setCurrentTill(till);
+      setResumeTill(null);
       
       console.log("✅ Quick login successful! Proceeding to POS");
       router.push("/");
@@ -959,10 +999,16 @@ export default function StaffLogin() {
       {/* Top Header Bar */}
       <div className="bg-cyan-700 px-4 py-2 flex items-center justify-between border-b-4 border-cyan-800 flex-shrink-0">
         {/* Clock In/Out Button */}
-        <button className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2">
-          <FontAwesomeIcon icon={faClock} className="w-4 h-4" />
-          CLOCK IN / OUT
-        </button>
+        {loginSettings.showClockInOut !== false && (
+          <button
+            onClick={() => setShowClockModal(true)}
+            className="px-4 py-1.5 border-2 border-white text-white rounded-full font-semibold text-sm hover:bg-cyan-600 transition flex items-center gap-2"
+          >
+            <FontAwesomeIcon icon={faClock} className="w-4 h-4" />
+            CLOCK IN / OUT
+          </button>
+        )}
+        {loginSettings.showClockInOut === false && <div />}
 
         {/* Center Logo */}
         <div className="text-center flex flex-col items-center">
@@ -992,13 +1038,15 @@ export default function StaffLogin() {
             <FontAwesomeIcon icon={faQuestionCircle} className="w-4 h-4" />
             HELP
           </button>
-          <button
-            onClick={handleExitSystem}
-            className="px-4 py-1.5 bg-red-600 text-white rounded-full font-semibold text-sm hover:bg-red-700 transition flex items-center gap-2"
-          >
-            <FontAwesomeIcon icon={faPowerOff} className="w-4 h-4" />
-            EXIT
-          </button>
+          {loginSettings.showExitButton !== false && (
+            <button
+              onClick={handleExitSystem}
+              className="px-4 py-1.5 bg-red-600 text-white rounded-full font-semibold text-sm hover:bg-red-700 transition flex items-center gap-2"
+            >
+              <FontAwesomeIcon icon={faPowerOff} className="w-4 h-4" />
+              EXIT
+            </button>
+          )}
         </div>
       </div>
 
@@ -1023,11 +1071,15 @@ export default function StaffLogin() {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleQuickLogin(till)}
+                      onClick={() => handleResumeRequest(till)}
                       disabled={loading}
-                      className="ml-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white font-bold text-xs rounded whitespace-nowrap transition disabled:opacity-50"
+                      className={`ml-2 px-3 py-1.5 font-bold text-xs rounded whitespace-nowrap transition disabled:opacity-50 ${
+                        resumeTill?._id === till._id
+                          ? 'bg-yellow-600 text-white ring-2 ring-yellow-300'
+                          : 'bg-green-600 hover:bg-green-700 text-white'
+                      }`}
                     >
-                      {loading ? "..." : "RESUME"}
+                      {resumeTill?._id === till._id ? '⬅ ENTER PIN' : 'RESUME'}
                     </button>
                   </div>
                 ))}
@@ -1165,22 +1217,28 @@ export default function StaffLogin() {
                     </button>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-                    {locations.map((loc) => (
-                      <button
-                        key={loc._id}
-                        onClick={() => {
-                          setSelectedLocation(loc._id);
-                          setSelectedStaff("");
-                        }}
-                        className={`px-3 py-2.5 rounded-lg font-bold text-xs transition-all ${
-                          selectedLocation === loc._id
-                            ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-md"
-                            : "bg-cyan-700 text-white hover:bg-cyan-600 border border-cyan-600"
-                        }`}
-                      >
-                        {loc.name}
-                      </button>
-                    ))}
+                    {(() => {
+                      const visibleIds = loginSettings.visibleLocationIds || [];
+                      const filteredLocations = visibleIds.length > 0
+                        ? locations.filter((loc) => visibleIds.includes(loc._id))
+                        : locations;
+                      return filteredLocations.map((loc) => (
+                        <button
+                          key={loc._id}
+                          onClick={() => {
+                            setSelectedLocation(loc._id);
+                            setSelectedStaff("");
+                          }}
+                          className={`px-3 py-2.5 rounded-lg font-bold text-xs transition-all ${
+                            selectedLocation === loc._id
+                              ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-md"
+                              : "bg-cyan-700 text-white hover:bg-cyan-600 border border-cyan-600"
+                          }`}
+                        >
+                          {loc.name}
+                        </button>
+                      ));
+                    })()}
                   </div>
                   {locations.length === 0 && (
                     <p className="text-yellow-300 text-xs mt-2 text-center">
@@ -1343,6 +1401,15 @@ export default function StaffLogin() {
         onTillOpened={handleTillOpened}
         staffData={loginData?.staff}
         locationData={loginData?.location}
+      />
+
+      {/* Clock In/Out Modal */}
+      <ClockInOutModal
+        isOpen={showClockModal}
+        onClose={() => setShowClockModal(false)}
+        staff={staff}
+        locations={locations}
+        selectedLocation={selectedLocation}
       />
     </div>
   );

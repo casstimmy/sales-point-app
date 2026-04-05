@@ -173,6 +173,7 @@ export default function HelpChatBot() {
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
   const [emailSent, setEmailSent] = useState(false);
+  const [userEngaged, setUserEngaged] = useState(false);
   const idleTimerRef = useRef(null);
   const buttonTimerRef = useRef(null);
 
@@ -187,8 +188,11 @@ export default function HelpChatBot() {
   }, []);
 
   // Start/reset the chat idle timer (auto-close chat when idle)
+  // Only auto-close if user has NOT engaged (sent a message)
   const resetChatIdleTimer = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+    // If the user has engaged in conversation, don't auto-close
+    if (userEngaged) return;
     idleTimerRef.current = setTimeout(() => {
       setIsOpen(false);
       // After closing, show button briefly then hide
@@ -196,7 +200,7 @@ export default function HelpChatBot() {
         setShowButton(false);
       }, BUTTON_IDLE_MS);
     }, CHAT_IDLE_MS);
-  }, [CHAT_IDLE_MS, BUTTON_IDLE_MS]);
+  }, [CHAT_IDLE_MS, BUTTON_IDLE_MS, userEngaged]);
 
   // Start button idle timer (hide button if chat not opened)
   const startButtonIdleTimer = useCallback(() => {
@@ -260,7 +264,9 @@ export default function HelpChatBot() {
     const reply = getBotReply(text);
     setMessages((prev) => [...prev, { role: "user", text }, { role: "bot", text: reply.text }]);
     setInput("");
-    // Reset idle timer on interaction
+    // Mark user as engaged so chat won't auto-close
+    setUserEngaged(true);
+    // Reset idle timer on interaction (won't auto-close since engaged)
     resetChatIdleTimer();
   }, [resetChatIdleTimer]);
 
@@ -367,7 +373,7 @@ export default function HelpChatBot() {
           </button>
           <button
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={() => { setIsOpen(false); setUserEngaged(false); }}
             className="w-7 h-7 rounded hover:bg-white/20 flex items-center justify-center"
             aria-label="Close help"
           >

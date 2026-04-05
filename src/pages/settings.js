@@ -21,6 +21,9 @@ import {
   faRulerCombined,
   faSlidersH,
   faShoppingCart,
+  faMapMarkerAlt,
+  faSignOutAlt,
+  faUserClock,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   getUiSettings,
@@ -58,6 +61,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { staff } = useStaff();
   const [settings, setSettings] = useState(getUiSettings());
+  const [allLocations, setAllLocations] = useState([]);
   const [expanded, setExpanded] = useState({
     sidebar: true,
     till: true,
@@ -65,6 +69,7 @@ export default function SettingsPage() {
     layout: true,
     payment: true,
     system: true,
+    login: true,
     summary: true,
   });
   const [saving, setSaving] = useState(false);
@@ -95,6 +100,31 @@ export default function SettingsPage() {
 
     fetchServerSettings();
   }, [staff?.storeId]);
+
+  // Fetch all locations for the location selector
+  useEffect(() => {
+    const fetchLocations = async () => {
+      try {
+        // Try cached first
+        const cached = localStorage.getItem('cachedLocations');
+        if (cached) {
+          setAllLocations(JSON.parse(cached));
+        }
+        // Then try API
+        const res = await fetch('/api/store/init-locations');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.store?.locations) {
+            const active = data.store.locations.filter(loc => loc.isActive !== false);
+            setAllLocations(active);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch locations for settings:', err);
+      }
+    };
+    fetchLocations();
+  }, []);
 
   const toggleSection = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -158,6 +188,32 @@ export default function SettingsPage() {
         [key]: value,
       },
     }));
+  };
+
+  const updateLoginSetting = (key, value) => {
+    setSettings((prev) => ({
+      ...prev,
+      login: {
+        ...prev.login,
+        [key]: value,
+      },
+    }));
+  };
+
+  const toggleLocationVisibility = (locationId) => {
+    setSettings((prev) => {
+      const current = prev.login?.visibleLocationIds || [];
+      const next = current.includes(locationId)
+        ? current.filter((id) => id !== locationId)
+        : [...current, locationId];
+      return {
+        ...prev,
+        login: {
+          ...prev.login,
+          visibleLocationIds: next,
+        },
+      };
+    });
   };
 
   const adjustContentScale = (delta) => {
@@ -252,6 +308,11 @@ export default function SettingsPage() {
     ],
     system: [
       `Content scale: ${settings.system?.contentScale || defaultUiSettings.system?.contentScale || 100}%`,
+    ],
+    login: [
+      `Exit button: ${settings.login?.showExitButton !== false ? 'Shown' : 'Hidden'}`,
+      `Clock In/Out: ${settings.login?.showClockInOut !== false ? 'Shown' : 'Hidden'}`,
+      `Visible locations: ${(settings.login?.visibleLocationIds || []).length > 0 ? (settings.login.visibleLocationIds.length + ' selected') : 'All'}`,
     ],
   };
 
@@ -659,6 +720,104 @@ export default function SettingsPage() {
             )}
           </div>
 
+          {/* Login Page Settings */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleSection('login')}
+              className="w-full flex items-center gap-3 px-5 py-4 bg-gray-50 hover:bg-gray-100 text-left font-semibold text-gray-800"
+            >
+              <FontAwesomeIcon icon={faMapMarkerAlt} className="text-teal-600 w-5 h-5" />
+              Login Page Settings
+              <span className="ml-auto">
+                <FontAwesomeIcon icon={expanded.login ? faChevronDown : faChevronRight} />
+              </span>
+            </button>
+            {expanded.login && (
+              <div className="p-5 space-y-6 bg-white">
+                {/* Visible Locations */}
+                <div>
+                  <p className="text-sm font-semibold text-gray-900 mb-1">Visible Locations on Login</p>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Select which locations appear on the login page. If none are selected, all locations are shown.
+                  </p>
+                  {allLocations.length === 0 ? (
+                    <p className="text-sm text-gray-500 italic">No locations found. Connect to the server to load locations.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      {allLocations.map((loc) => {
+                        const isSelected = (settings.login?.visibleLocationIds || []).includes(loc._id);
+                        return (
+                          <label
+                            key={loc._id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
+                              isSelected
+                                ? 'border-teal-400 bg-teal-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleLocationVisibility(loc._id)}
+                              className="accent-teal-600"
+                            />
+                            <div>
+                              <span className="font-semibold text-gray-800">{loc.name}</span>
+                              {loc.address && (
+                                <span className="block text-xs text-gray-500">{loc.address}</span>
+                              )}
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {(settings.login?.visibleLocationIds || []).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => updateLoginSetting('visibleLocationIds', [])}
+                      className="mt-2 text-sm text-teal-600 hover:text-teal-700 underline"
+                    >
+                      Clear selection (show all)
+                    </button>
+                  )}
+                </div>
+
+                {/* Exit Button Toggle */}
+                <div className="border-t border-gray-100 pt-4">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={settings.login?.showExitButton !== false}
+                      onChange={(e) => updateLoginSetting('showExitButton', e.target.checked)}
+                    />
+                    <FontAwesomeIcon icon={faSignOutAlt} className="text-red-500 w-4 h-4" />
+                    <div>
+                      <span className="font-semibold text-gray-700">Show Exit Button</span>
+                      <span className="block text-xs text-gray-500">Show or hide the EXIT button on the login page</span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Clock In/Out Toggle */}
+                <div className="border-t border-gray-100 pt-4">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={settings.login?.showClockInOut !== false}
+                      onChange={(e) => updateLoginSetting('showClockInOut', e.target.checked)}
+                    />
+                    <FontAwesomeIcon icon={faUserClock} className="text-blue-500 w-4 h-4" />
+                    <div>
+                      <span className="font-semibold text-gray-700">Show Clock In/Out Button</span>
+                      <span className="block text-xs text-gray-500">Show or hide the Clock In/Out button on the login page</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Summary */}
           <div className="border border-gray-200 rounded-lg overflow-hidden">
             <button
@@ -694,6 +853,10 @@ export default function SettingsPage() {
                 <div>
                   <div className="font-semibold text-gray-900 mb-1">System</div>
                   <div>{summary.system.join(' | ')}</div>
+                </div>
+                <div>
+                  <div className="font-semibold text-gray-900 mb-1">Login Page</div>
+                  <div>{summary.login.join(' | ')}</div>
                 </div>
               </div>
             )}

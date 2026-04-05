@@ -7,6 +7,7 @@ import POSErrorBoundary from "@/src/components/common/POSErrorBoundary";
 import { getUiSettings } from "@/src/lib/uiSettings";
 import { ToastContainer } from "@/src/components/common/Toast";
 import { ConfirmDialogContainer } from "@/src/components/common/ConfirmDialog";
+import PrintPreview from "@/src/components/common/PrintPreview";
 
 export default function App({ Component, pageProps }) {
   // Register service worker for offline support
@@ -94,6 +95,7 @@ export default function App({ Component, pageProps }) {
       </POSErrorBoundary>
       <ToastContainer />
       <ConfirmDialogContainer />
+      <PrintPreview />
     </StaffProvider>
   );
 }

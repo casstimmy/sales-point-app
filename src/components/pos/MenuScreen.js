@@ -164,6 +164,7 @@ export default function MenuScreen() {
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
   const [showSearchKeyboard, setShowSearchKeyboard] = useState(false);
   const imageObserver = useRef(null);
+  const handleManualSyncRef = useRef(null);
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
 
@@ -226,6 +227,21 @@ export default function MenuScreen() {
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
     };
   }, [selectedCategory]);
+
+  // Listen for sidebar cloud sync to refresh products/categories/images
+  useEffect(() => {
+    const handleProductsRefresh = () => {
+      console.log('🔄 Products refresh triggered from sidebar sync');
+      // Clear failed images so they retry loading
+      setFailedImages(new Set());
+      setFailedCategoryImages(new Set());
+      // Trigger the manual sync which fetches all products and categories
+      handleManualSyncRef.current?.();
+    };
+
+    window.addEventListener('sync:products-refresh', handleProductsRefresh);
+    return () => window.removeEventListener('sync:products-refresh', handleProductsRefresh);
+  }, []);
 
   // Log when categories change
   useEffect(() => {
@@ -646,6 +662,9 @@ export default function MenuScreen() {
       setIsSyncing(false);
     }
   };
+
+  // Keep ref updated for event listener
+  handleManualSyncRef.current = handleManualSync;
 
   // Callback for image error handling
   const handleImageError = useCallback((productId) => {

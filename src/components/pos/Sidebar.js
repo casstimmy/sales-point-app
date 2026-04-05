@@ -147,6 +147,8 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
   };
   const [effectiveTill, setEffectiveTill] = useState(till || null);
 
+  const [builtInPrinterAvailable, setBuiltInPrinterAvailable] = useState(false);
+
   // Check printer availability on mount only (not periodically)
   useEffect(() => {
     const checkPrinter = async () => {
@@ -154,6 +156,10 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
         setCheckingPrinter(true);
         const available = await checkPrinterAvailable();
         setPrinterAvailable(available);
+
+        // Also check for built-in / system printer via browser capability
+        const hasBrowserPrint = typeof window !== 'undefined' && typeof window.print === 'function';
+        setBuiltInPrinterAvailable(hasBrowserPrint);
       } catch (error) {
         console.warn('Failed to check printer:', error);
         setPrinterAvailable(false);
@@ -218,6 +224,26 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     try {
       const result = await manualSync();
       console.log('Manual sync result:', result);
+
+      // After syncing transactions, also refresh store data (logo, products, categories)
+      if (isOnline) {
+        try {
+          // Refresh store logo
+          const storeRes = await fetch('/api/store/init-locations');
+          if (storeRes.ok) {
+            const { store } = await storeRes.json();
+            if (store?.logo) {
+              const { setStoreLogo } = await import('../../lib/logoCache');
+              setStoreLogo(store.logo);
+            }
+          }
+
+          // Notify MenuScreen to refresh products/categories
+          window.dispatchEvent(new CustomEvent('sync:products-refresh'));
+        } catch (refreshErr) {
+          console.warn('Post-sync refresh failed:', refreshErr);
+        }
+      }
     } catch (err) {
       console.error('Manual sync error:', err);
     } finally {
@@ -376,7 +402,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             className={`w-full flex items-center justify-center gap-2 ${scaleClasses.paddingLg} bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base ${scaleClasses.heading} font-bold shadow-md hover:shadow-lg`}
           >
             <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
-            {isSyncing ? 'Syncing...' : 'Sync Transactions'}
+            {isSyncing ? 'Syncing...' : 'Sync Products'}
           </button>
         )}
 
@@ -401,40 +427,53 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                 </button>
               )}
               {canAccessPrinterSettings && (
-                <button
-                  onClick={() => {
-                    onToggle();
-                    router.push('/printer-settings');
-                  }}
-                  title={
-                    checkingPrinter
-                      ? 'Checking printer...'
-                      : printerAvailable === null
-                      ? 'Printer status unknown'
-                      : printerAvailable
-                      ? 'Printer Connected — Click to open Printer Settings'
-                      : 'Printer Not Connected — Click to open Printer Settings'
-                  }
-                  className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-colors ${
-                    checkingPrinter
-                      ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
-                      : printerAvailable
-                      ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
-                      : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
-                  }`}
-                >
-                  <FontAwesomeIcon icon={faPrint} className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
-                    checkingPrinter
-                      ? 'bg-yellow-500 animate-pulse'
-                      : printerAvailable
-                      ? 'bg-green-500 animate-pulse'
-                      : 'bg-red-500'
-                  }`} />
-                  <span className="sr-only">
-                    {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : 'Inactive'}
-                  </span>
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      onToggle();
+                      router.push('/printer-settings');
+                    }}
+                    title={
+                      checkingPrinter
+                        ? 'Checking printer...'
+                        : printerAvailable === null
+                        ? 'Printer status unknown'
+                        : printerAvailable
+                        ? 'Thermal Printer Connected — Click to open Printer Settings'
+                        : 'Thermal Printer Not Connected — Click to open Printer Settings'
+                    }
+                    className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-colors ${
+                      checkingPrinter
+                        ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
+                        : printerAvailable
+                        ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                        : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
+                    }`}
+                  >
+                    <FontAwesomeIcon icon={faPrint} className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white ${
+                      checkingPrinter
+                        ? 'bg-yellow-500 animate-pulse'
+                        : printerAvailable
+                        ? 'bg-green-500 animate-pulse'
+                        : 'bg-red-500'
+                    }`} />
+                    <span className="sr-only">
+                      {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : 'Inactive'}
+                    </span>
+                  </button>
+                  {/* Built-in / System Printer indicator */}
+                  {builtInPrinterAvailable && !printerAvailable && (
+                    <div
+                      title="System/Built-in Printer available (browser print)"
+                      className="relative px-2 py-2.5 sm:px-2.5 sm:py-3 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200"
+                    >
+                      <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                      <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white bg-blue-500" />
+                      <span className="sr-only">System printer</span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}

@@ -115,9 +115,28 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
     // Show browser print dialog for 'browser' or 'both' (when direct failed) methods
     if (!shouldTryBrowser) return;
 
-    console.log('🖨️ Showing print dialog...');
+    console.log('🖨️ Showing branded print preview...');
     
     const receiptHTML = generateReceiptHTML(transaction, settings);
+    
+    // Try to show branded print preview overlay (if component is mounted)
+    try {
+      const printEvent = new CustomEvent('printPreview:show', {
+        detail: {
+          receiptHTML,
+          companyName: settings?.companyDisplayName || '',
+          transaction,
+        },
+      });
+      window.dispatchEvent(printEvent);
+      console.log('✅ Branded print preview dispatched');
+      return; // The PrintPreview component handles the actual printing
+    } catch (previewError) {
+      console.warn('⚠️ Branded preview failed, falling back to iframe print:', previewError);
+    }
+    
+    // Fallback: direct iframe print if branded preview isn't available
+    console.log('🖨️ Fallback: Showing print dialog...');
     
     // Create iframe for printing
     const iframe = document.createElement('iframe');

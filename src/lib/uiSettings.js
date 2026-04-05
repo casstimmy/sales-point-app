@@ -41,6 +41,11 @@ export const defaultUiSettings = {
   system: {
     contentScale: 100, // percentage (60 - 150) — scales content for screens where resolution can't be adjusted
   },
+  login: {
+    showExitButton: true, // show/hide EXIT button on login page
+    showClockInOut: true, // show/hide clock in/out button on login page
+    visibleLocationIds: [], // empty = show all locations; populated = show only selected
+  },
 };
 
 const isObject = (value) =>
