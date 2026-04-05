@@ -88,13 +88,13 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
     <div className="flex flex-col bg-gradient-to-r from-primary-600 to-primary-700 text-white text-sm sm:text-base">
       {/* Offline Banner */}
       {!isOnline && (
-        <div className="bg-red-600 px-4 py-2 flex items-center justify-between gap-2 text-sm font-medium">
+        <div className="bg-gradient-to-r from-amber-500 to-amber-600 px-4 py-2 flex items-center justify-between gap-2 text-sm font-medium text-white">
           <div className="flex items-center gap-2">
             <FontAwesomeIcon icon={faX} className="w-4 h-4" />
             <span>OFFLINE MODE - Changes will sync when online</span>
           </div>
           {pendingSyncCount > 0 && (
-            <div className="bg-white text-red-600 px-3 py-1 rounded-lg font-bold text-xs">
+            <div className="bg-white text-amber-700 px-3 py-1 rounded-lg font-bold text-xs">
               {pendingSyncCount} pending
             </div>
           )}
@@ -150,10 +150,10 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
           <div className="text-xs flex items-center gap-1.5">
             <FontAwesomeIcon 
               icon={isOnline ? faWifi : faX} 
-              className={`w-4 h-4 ${isOnline ? 'text-green-300' : 'text-red-300'}`}
+              className={`w-4 h-4 ${isOnline ? 'text-green-300' : 'text-amber-300'}`}
             />
             {pendingSyncCount > 0 && (
-              <span className="bg-red-500 text-white px-2 py-0.5 rounded-full text-xs font-bold">
+              <span className="bg-amber-500 text-white px-2 py-0.5 rounded-full text-xs font-bold animate-pulse">
                 {pendingSyncCount}
               </span>
             )}

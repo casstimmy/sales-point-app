@@ -78,7 +78,20 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
   const [saveLabel, setSaveLabel] = useState('Save Settings');
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const canAccessSettings = hasPosPermission(staff, 'settingsAccess');
+
+  // Track online/offline status
+  useEffect(() => {
+    const goOnline = () => setIsOnline(true);
+    const goOffline = () => setIsOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   useEffect(() => {
     setSettings(getUiSettings());
@@ -86,9 +99,12 @@ export default function SettingsPage() {
 
   useEffect(() => {
     const fetchServerSettings = async () => {
-      if (!staff?.storeId) return;
+      if (!staff?.storeId || !isOnline) return;
       try {
-        const res = await fetch(`/api/ui-settings?storeId=${staff.storeId}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch(`/api/ui-settings?storeId=${staff.storeId}`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (!res.ok) return;
         const data = await res.json();
         if (data?.settings) {
@@ -101,7 +117,7 @@ export default function SettingsPage() {
     };
 
     fetchServerSettings();
-  }, [staff?.storeId]);
+  }, [staff?.storeId, isOnline]);
 
   // Fetch all locations for the location selector
   useEffect(() => {
@@ -112,8 +128,12 @@ export default function SettingsPage() {
         if (cached) {
           setAllLocations(JSON.parse(cached));
         }
-        // Then try API
-        const res = await fetch('/api/store/init-locations');
+        // Then try API only if online
+        if (!isOnline) return;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const res = await fetch('/api/store/init-locations', { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
           if (data.store?.locations) {
@@ -126,7 +146,7 @@ export default function SettingsPage() {
       }
     };
     fetchLocations();
-  }, []);
+  }, [isOnline]);
 
   const toggleSection = (key) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -241,22 +261,31 @@ export default function SettingsPage() {
     setSaving(true);
     setError('');
     try {
-      if (staff?.storeId) {
-        const res = await fetch('/api/ui-settings', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ storeId: staff.storeId, settings }),
-        });
-        if (!res.ok) throw new Error('Failed to save settings');
-        const data = await res.json();
-        if (data?.settings) {
-          saveUiSettings(data.settings);
-          setSettings(data.settings);
-        } else {
-          saveUiSettings(settings);
+      // Always save locally first
+      saveUiSettings(settings);
+
+      if (staff?.storeId && isOnline) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const res = await fetch('/api/ui-settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ storeId: staff.storeId, settings }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.settings) {
+              saveUiSettings(data.settings);
+              setSettings(data.settings);
+            }
+          }
+        } catch (syncErr) {
+          // Server save failed (offline or timeout) — local save already done
+          console.warn('Settings saved locally only (server unreachable)');
         }
-      } else {
-        saveUiSettings(settings);
       }
       setSaveLabel('Saved');
       setSuccess('✅ Settings saved');
@@ -336,7 +365,14 @@ export default function SettingsPage() {
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-slate-700 to-slate-800 text-white p-6">
-          <h1 className="text-3xl font-bold">⚙️ System Settings</h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold">⚙️ System Settings</h1>
+            {!isOnline && (
+              <span className="bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                OFFLINE — Saved locally
+              </span>
+            )}
+          </div>
           <p className="text-slate-200 mt-2">
             Configure sidebar menus, till controls, layout spacing, and system scale
           </p>

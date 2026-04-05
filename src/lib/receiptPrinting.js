@@ -10,23 +10,67 @@ import { getPrinterSettings, sendDirectPrint } from './printerConfig';
 import { getStoreLogo } from './logoCache';
 
 /**
- * Get receipt settings from API
+ * Get receipt settings from API with local caching
+ * Uses localStorage cache first, then refreshes from API in background
  * @returns {Promise<Object>} Receipt settings including logo, company info, messages
  */
-export async function getReceiptSettings() {
+const RECEIPT_SETTINGS_CACHE_KEY = 'cachedReceiptSettings';
+
+function getCachedReceiptSettings() {
   try {
-    const response = await fetch('/api/receipt-settings');
+    const cached = localStorage.getItem(RECEIPT_SETTINGS_CACHE_KEY);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  return null;
+}
+
+function cacheReceiptSettings(settings) {
+  try {
+    localStorage.setItem(RECEIPT_SETTINGS_CACHE_KEY, JSON.stringify(settings));
+  } catch {}
+}
+
+export async function getReceiptSettings() {
+  // Always use cached logo from logoCache for the logo field
+  const cachedLogo = getStoreLogo();
+  const cached = getCachedReceiptSettings();
+
+  // If offline, return cached settings immediately with local logo
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (cached) return { ...cached, companyLogo: cachedLogo };
+    return {
+      companyDisplayName: "St's Michael Hub",
+      companyLogo: cachedLogo,
+      storePhone: '',
+      email: '',
+      website: '',
+      businessAddress: '',
+      refundDays: 0,
+      receiptMessage: 'Thank you for shopping with us!',
+    };
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const response = await fetch('/api/receipt-settings', { signal: controller.signal });
+    clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error('Failed to fetch receipt settings');
     }
     const data = await response.json();
-    return data.settings || {};
+    const settings = data.settings || {};
+    // Cache the full settings for offline use
+    cacheReceiptSettings(settings);
+    // Override logo with cached local version to avoid re-fetching
+    return { ...settings, companyLogo: cachedLogo || settings.companyLogo };
   } catch (error) {
     console.error('❌ Error fetching receipt settings:', error);
-    // Return default settings if fetch fails
+    // Return cached or default settings with local logo
+    if (cached) return { ...cached, companyLogo: cachedLogo };
     return {
       companyDisplayName: "St's Michael Hub",
-      companyLogo: getStoreLogo(),
+      companyLogo: cachedLogo,
       storePhone: '',
       email: '',
       website: '',

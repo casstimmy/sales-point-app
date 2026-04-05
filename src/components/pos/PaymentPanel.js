@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { useCart } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
 import { useErrorHandler } from "../../hooks/useErrorHandler";
@@ -21,6 +22,7 @@ import PaymentModal from "./PaymentModal";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import { getUiSettings } from "@/src/lib/uiSettings";
+import { getStoreLogo } from "@/src/lib/logoCache";
 import ThankYouNote from "./ThankYouNote";
 import OpenTillModal from "./OpenTillModal";
 
@@ -214,6 +216,31 @@ export default function PaymentPanel() {
           </div>
         )}
       </div>
+
+      {/* Processing Overlay — blocks all interaction while saving + printing */}
+      {isProcessingPayment && (
+        <div className="absolute inset-0 bg-black/60 flex items-center justify-center z-[60] rounded-2xl">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4">
+            <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-5 shadow-lg overflow-hidden">
+              <Image
+                src={getStoreLogo()}
+                alt="Store Logo"
+                width={72}
+                height={72}
+                className="object-contain"
+                onError={(e) => { e.target.onerror = null; e.target.src = '/images/placeholder.jpg'; }}
+                unoptimized
+              />
+            </div>
+            <div className="w-10 h-10 border-4 border-primary-200 border-t-primary-600 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-lg font-bold text-gray-800 mb-1">Processing Transaction</p>
+            <p className="text-sm text-gray-500">Saving &amp; printing receipt...</p>
+            <div className="mt-4 w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-primary-400 to-primary-600 rounded-full animate-pulse" style={{ width: '80%' }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Thank You Modal */}
       <ThankYouNote
