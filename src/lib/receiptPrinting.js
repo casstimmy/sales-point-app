@@ -118,7 +118,24 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
     console.log('🖨️ Showing branded print preview...');
     
     const receiptHTML = generateReceiptHTML(transaction, settings);
-    
+
+    // Check if user wants the print preview modal or silent print
+    let showPreview = true;
+    try {
+      const stored = localStorage.getItem('uiSettings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed?.system?.showPrintPreview === false) showPreview = false;
+      }
+    } catch (e) {}
+
+    if (!showPreview) {
+      // Silent print — skip modal, print directly via hidden iframe
+      console.log('🖨️ Silent print mode — skipping preview modal');
+      silentPrintHTML(receiptHTML);
+      return;
+    }
+
     // Try to show branded print preview overlay (if component is mounted)
     try {
       const printEvent = new CustomEvent('printPreview:show', {
@@ -249,6 +266,61 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
   } catch (error) {
     console.error('❌ Error printing receipt:', error);
   }
+}
+
+/**
+ * Silent print — sends receipt HTML to printer via a hidden iframe
+ * Uses a print-specific CSS approach that tries to bypass the OS dialog.
+ * Falls back to iframe.contentWindow.print() which may still show the dialog
+ * on some browsers, but avoids the branded preview modal.
+ */
+function silentPrintHTML(html) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'absolute';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
+
+  let hasPrinted = false;
+  const doPrint = () => {
+    if (hasPrinted) return;
+    hasPrinted = true;
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (e) {
+      console.error('Silent print error:', e);
+    }
+    setTimeout(() => {
+      try { if (iframe.parentNode) document.body.removeChild(iframe); } catch (e) {}
+    }, 3000);
+  };
+
+  const waitForImages = () => {
+    const images = iframe.contentDocument.querySelectorAll('img');
+    if (images.length === 0) { doPrint(); return; }
+    let loaded = 0;
+    const onReady = () => { loaded++; if (loaded >= images.length) doPrint(); };
+    images.forEach((img) => {
+      if (img.complete) onReady();
+      else {
+        img.addEventListener('load', onReady, { once: true });
+        img.addEventListener('error', onReady, { once: true });
+      }
+    });
+  };
+
+  if (iframe.contentDocument.readyState === 'complete') {
+    waitForImages();
+  } else {
+    iframe.contentWindow.addEventListener('load', waitForImages, { once: true });
+  }
+  setTimeout(doPrint, 5000);
 }
 
 /**

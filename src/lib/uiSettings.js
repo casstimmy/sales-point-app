@@ -40,6 +40,8 @@ export const defaultUiSettings = {
   },
   system: {
     contentScale: 100, // percentage (60 - 150) — scales content for screens where resolution can't be adjusted
+    showPrintPreview: true, // show/hide the branded print preview modal (false = print silently)
+    autoRefreshProducts: true, // auto-refresh product quantities after each sale when online
   },
   login: {
     showExitButton: true, // show/hide EXIT button on login page

@@ -207,7 +207,55 @@ export default function MenuScreen() {
   useEffect(() => {
     const handleTransactionCompleted = async () => {
       console.log('📲 Transaction completed event received, refreshing products...');
-      // Reload current category products from local DB
+
+      // Check if auto-refresh is enabled in UI settings
+      let autoRefresh = true;
+      try {
+        const stored = localStorage.getItem('uiSettings');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.system?.autoRefreshProducts === false) autoRefresh = false;
+        }
+      } catch (e) {}
+
+      // If online + auto-refresh enabled, fetch fresh quantities from API
+      if (autoRefresh && getOnlineStatus()) {
+        try {
+          // Quick network quality check — abort after 3s to avoid blocking slow connections
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 3000);
+
+          if (selectedCategory) {
+            const categoryId = selectedCategory._id || selectedCategory.id;
+            const response = await fetch(
+              `/api/products?category=${encodeURIComponent(categoryId)}`,
+              { signal: controller.signal }
+            );
+            clearTimeout(timeout);
+
+            if (response.ok) {
+              const data = await response.json();
+              const freshProducts = data.data || [];
+              if (freshProducts.length > 0) {
+                setProducts(freshProducts);
+                // Also update IndexedDB with fresh data
+                try { await syncProducts(freshProducts); } catch (e) {}
+                console.log(`✅ Auto-refreshed ${freshProducts.length} products from API`);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          // Network too slow or offline — fall through to local DB
+          if (err.name !== 'AbortError') {
+            console.warn('⚠️ Auto-refresh from API failed:', err.message);
+          } else {
+            console.log('⏱️ Auto-refresh skipped — network too slow');
+          }
+        }
+      }
+
+      // Fallback: reload from local DB (offline or auto-refresh disabled)
       if (selectedCategory) {
         const categoryName = selectedCategory.name;
         const categoryId = selectedCategory._id || selectedCategory.id;
@@ -221,10 +269,32 @@ export default function MenuScreen() {
       }
     };
 
+    // When coming back online, queue a product refresh if auto-refresh is enabled
+    const handleBackOnline = async () => {
+      let autoRefresh = true;
+      try {
+        const stored = localStorage.getItem('uiSettings');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed?.system?.autoRefreshProducts === false) autoRefresh = false;
+        }
+      } catch (e) {}
+
+      if (autoRefresh) {
+        console.log('🟢 Back online — auto-refreshing products...');
+        // Small delay to let network stabilize
+        setTimeout(() => {
+          handleManualSyncRef.current?.();
+        }, 2000);
+      }
+    };
+
     window.addEventListener('transactions:completed', handleTransactionCompleted);
+    window.addEventListener('online', handleBackOnline);
     
     return () => {
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
+      window.removeEventListener('online', handleBackOnline);
     };
   }, [selectedCategory]);
 

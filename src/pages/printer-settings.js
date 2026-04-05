@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faEye } from '@fortawesome/free-solid-svg-icons';
 import { useStaff } from '@/src/context/StaffContext';
 import { hasPosPermission } from '@/src/lib/posPermissions';
 import { showConfirm } from '@/src/components/common/ConfirmDialog';
@@ -21,11 +21,13 @@ import {
   testPrinterConnection,
   getPrinterStatus,
 } from '@/src/lib/printerConfig';
+import { getUiSettings, saveUiSettings } from '@/src/lib/uiSettings';
 
 export default function PrinterSettings() {
   const router = useRouter();
   const { staff } = useStaff();
   const [settings, setSettings] = useState(getDefaultPrinterSettings());
+  const [uiSettings, setUiSettings] = useState(() => getUiSettings());
   const [loading, setLoading] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState(null);
@@ -81,6 +83,9 @@ export default function PrinterSettings() {
       setSuccess('');
 
       const saved = setPrinterSettings(settings);
+      // Also persist the print preview toggle
+      saveUiSettings(uiSettings);
+
       if (saved) {
         setSuccess('✅ Printer settings saved successfully!');
         setTimeout(() => setSuccess(''), 3000);
@@ -92,6 +97,13 @@ export default function PrinterSettings() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUiSettingChange = (key, value) => {
+    setUiSettings(prev => ({
+      ...prev,
+      system: { ...prev.system, [key]: value },
+    }));
   };
 
   const handleTestConnection = async () => {
@@ -424,7 +436,38 @@ export default function PrinterSettings() {
                 />
                 <span className="ml-3 font-semibold text-gray-700">Auto Print without dialog</span>
               </label>
-              <span className="text-sm text-gray-500">(For thermal printer only)</span>
+              <span className="text-sm text-gray-500">(For thermal printer only — skips all dialogs when direct print succeeds)</span>
+            </div>
+
+            {/* Browser Print Behavior */}
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
+              <h3 className="font-bold text-gray-800">🖥️ Browser Print Behavior</h3>
+              <p className="text-sm text-gray-600">Controls how receipts print when using browser-based printing (no thermal printer or fallback mode).</p>
+
+              {/* Show Print Preview */}
+              <div className="flex items-center gap-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={uiSettings.system?.showPrintPreview !== false}
+                    onChange={(e) => handleUiSettingChange('showPrintPreview', e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300"
+                  />
+                  <span className="ml-3 font-semibold text-gray-700 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faEye} className="w-4 h-4 text-cyan-600" />
+                    Show Print Preview Modal
+                  </span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 ml-8">
+                {uiSettings.system?.showPrintPreview !== false
+                  ? '✅ Enabled — A branded preview modal is shown before printing. You can review the receipt and click Print.'
+                  : '⚡ Disabled — Receipts are sent directly to the printer. The OS print dialog will still appear (browsers require it for security).'}
+              </p>
+              <div className="ml-8 p-3 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
+                <p className="font-semibold">💡 Note about silent printing:</p>
+                <p className="mt-1">Browsers always show the OS print dialog for security reasons. To print completely silently (no dialog at all), use <strong>Direct</strong> print method with a thermal printer connected via USB or Network.</p>
+              </div>
             </div>
           </div>
 

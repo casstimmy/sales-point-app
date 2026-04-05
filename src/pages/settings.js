@@ -24,6 +24,8 @@ import {
   faMapMarkerAlt,
   faSignOutAlt,
   faUserClock,
+  faEye,
+  faSync,
 } from '@fortawesome/free-solid-svg-icons';
 import {
   getUiSettings,
@@ -328,13 +330,6 @@ export default function SettingsPage() {
         >
           <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4" />
           <span>Back</span>
-        </button>
-
-        <button
-          onClick={() => router.push('/printer-settings')}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition font-semibold"
-        >
-          Open Printer Settings
         </button>
       </div>
 
@@ -715,6 +710,71 @@ export default function SettingsPage() {
                 </div>
                 <div className="text-sm font-semibold text-gray-700">
                   Current scale: {Number(settings.system?.contentScale || 100)}%
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* System & Printing */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <button
+              onClick={() => toggleSection('systemPrint')}
+              className="w-full flex items-center gap-3 px-5 py-4 bg-gray-50 hover:bg-gray-100 text-left font-semibold text-gray-800"
+            >
+              <FontAwesomeIcon icon={faPrint} className="text-blue-600 w-5 h-5" />
+              System &amp; Printing
+              <span className="ml-auto">
+                <FontAwesomeIcon icon={expanded.systemPrint ? faChevronDown : faChevronRight} />
+              </span>
+            </button>
+            {expanded.systemPrint && (
+              <div className="p-5 space-y-6 bg-white">
+                {/* Print Preview Toggle */}
+                <div>
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={settings.system?.showPrintPreview !== false}
+                      onChange={(e) => updateSystemSetting('showPrintPreview', e.target.checked)}
+                    />
+                    <FontAwesomeIcon icon={faEye} className="text-cyan-600 w-4 h-4" />
+                    <div>
+                      <span className="font-semibold text-gray-700">Show Print Preview Modal</span>
+                      <span className="block text-xs text-gray-500">
+                        When enabled, a branded preview is shown before printing. When disabled, receipts print silently without any dialog.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Auto Refresh Products Toggle */}
+                <div className="border-t border-gray-100 pt-4">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={settings.system?.autoRefreshProducts !== false}
+                      onChange={(e) => updateSystemSetting('autoRefreshProducts', e.target.checked)}
+                    />
+                    <FontAwesomeIcon icon={faSync} className="text-green-600 w-4 h-4" />
+                    <div>
+                      <span className="font-semibold text-gray-700">Auto-Refresh Product Quantities</span>
+                      <span className="block text-xs text-gray-500">
+                        When online with good connection, product quantities refresh automatically after each sale. When offline, quantities update once connection returns.
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Open Printer Settings Link */}
+                <div className="border-t border-gray-100 pt-4">
+                  <button
+                    onClick={() => router.push('/printer-settings')}
+                    className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition flex items-center gap-2"
+                  >
+                    <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
+                    Open Printer Settings
+                  </button>
+                  <p className="text-xs text-gray-500 mt-1">Configure thermal printer connection, print method, paper size, and more.</p>
                 </div>
               </div>
             )}
