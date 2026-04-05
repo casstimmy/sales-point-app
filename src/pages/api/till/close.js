@@ -8,6 +8,57 @@ import Store from "@/src/models/Store";
 import mongoose from "mongoose";
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
+/**
+ * Bulletproof Mongoose Map → plain object extraction.
+ * Tries toJSON(), forEach(), then Object.entries() as fallbacks.
+ */
+function extractMapToObject(mapField, toObjectFallback) {
+  const result = {};
+  if (!mapField) return result;
+
+  // Strategy 1: toJSON (most reliable for Mongoose Maps)
+  if (typeof mapField.toJSON === 'function') {
+    try {
+      const json = mapField.toJSON();
+      if (json && typeof json === 'object' && !Array.isArray(json)) {
+        Object.assign(result, json);
+        if (Object.keys(result).length > 0) return result;
+      }
+    } catch (e) { /* continue */ }
+  }
+
+  // Strategy 2: forEach (works on native Map and Mongoose Map)
+  if (typeof mapField.forEach === 'function') {
+    try {
+      mapField.forEach((value, key) => { result[key] = value; });
+      if (Object.keys(result).length > 0) return result;
+    } catch (e) { /* continue */ }
+  }
+
+  // Strategy 3: use the toObject() version (already converted by Mongoose)
+  if (toObjectFallback && typeof toObjectFallback === 'object') {
+    Object.entries(toObjectFallback).forEach(([key, value]) => {
+      if (!key.startsWith('$') && !key.startsWith('_')) {
+        result[key] = value;
+      }
+    });
+    if (Object.keys(result).length > 0) return result;
+  }
+
+  // Strategy 4: direct Object.entries on the field itself
+  if (typeof mapField === 'object' && !Array.isArray(mapField)) {
+    try {
+      Object.entries(mapField).forEach(([key, value]) => {
+        if (!key.startsWith('$') && !key.startsWith('_')) {
+          result[key] = value;
+        }
+      });
+    } catch (e) { /* continue */ }
+  }
+
+  return result;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -54,24 +105,8 @@ export default async function handler(req, res) {
       const existingReport = await EndOfDayReport.findOne({ tillId: till._id });
 
       const tillResponse = till.toObject();
-      const tenderBreakdownObj = {};
-      if (till.tenderBreakdown instanceof Map) {
-        till.tenderBreakdown.forEach((value, key) => {
-          tenderBreakdownObj[key] = value;
-        });
-      } else if (till.tenderBreakdown) {
-        Object.assign(tenderBreakdownObj, till.tenderBreakdown);
-      }
-      const tenderVariancesObj = {};
-      if (till.tenderVariances instanceof Map) {
-        till.tenderVariances.forEach((value, key) => {
-          tenderVariancesObj[key] = value;
-        });
-      } else if (till.tenderVariances) {
-        Object.assign(tenderVariancesObj, till.tenderVariances);
-      }
-      tillResponse.tenderBreakdown = tenderBreakdownObj;
-      tillResponse.tenderVariances = tenderVariancesObj;
+      tillResponse.tenderBreakdown = extractMapToObject(till.tenderBreakdown, tillResponse.tenderBreakdown);
+      tillResponse.tenderVariances = extractMapToObject(till.tenderVariances, tillResponse.tenderVariances);
 
       return res.status(200).json({
         message: "Till already closed",
@@ -164,19 +199,13 @@ export default async function handler(req, res) {
     // If aggregation returned nothing, fall back to stored tenderBreakdown
     if (Object.keys(tenderBreakdown).length === 0 && till.tenderBreakdown) {
       console.log('🔄 Aggregation empty, using stored tenderBreakdown as fallback');
-      if (till.tenderBreakdown instanceof Map) {
-        till.tenderBreakdown.forEach((value, key) => {
+      const storedBreakdown = extractMapToObject(till.tenderBreakdown);
+      Object.entries(storedBreakdown).forEach(([key, value]) => {
+        if (typeof value === 'number') {
           tenderBreakdown[key] = value;
           totalSales += value;
-        });
-      } else if (typeof till.tenderBreakdown === 'object') {
-        Object.entries(till.tenderBreakdown).forEach(([key, value]) => {
-          if (typeof value === 'number') {
-            tenderBreakdown[key] = value;
-            totalSales += value;
-          }
-        });
-      }
+        }
+      });
     }
     // If still nothing but we have stored totalSales, use that
     if (totalSales === 0 && till.totalSales > 0) {
@@ -329,25 +358,8 @@ export default async function handler(req, res) {
     const sourceTill = updatedTill || till;
     const tillResponse = sourceTill.toObject();
     
-    // Convert tenderBreakdown Map to object
-    const tenderBreakdownObj = {};
-    if (sourceTill.tenderBreakdown instanceof Map) {
-      sourceTill.tenderBreakdown.forEach((value, key) => {
-        tenderBreakdownObj[key] = value;
-      });
-    } else if (sourceTill.tenderBreakdown) {
-      Object.assign(tenderBreakdownObj, sourceTill.tenderBreakdown);
-    }
-    
-    // Convert tenderVariances Map to object
-    const tenderVariancesObj = {};
-    if (sourceTill.tenderVariances instanceof Map) {
-      sourceTill.tenderVariances.forEach((value, key) => {
-        tenderVariancesObj[key] = value;
-      });
-    } else if (sourceTill.tenderVariances) {
-      Object.assign(tenderVariancesObj, sourceTill.tenderVariances);
-    }
+    const tenderBreakdownObj = extractMapToObject(sourceTill.tenderBreakdown, tillResponse.tenderBreakdown);
+    const tenderVariancesObj = extractMapToObject(sourceTill.tenderVariances, tillResponse.tenderVariances);
     
     tillResponse.tenderBreakdown = tenderBreakdownObj;
     tillResponse.tenderVariances = tenderVariancesObj;

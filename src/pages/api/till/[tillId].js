@@ -26,22 +26,56 @@ export default async function handler(req, res) {
     const tillResponse = till.toObject();
 
     // Ensure tenderBreakdown is a plain object (Mongoose Map → Object)
+    // Use multiple strategies because Mongoose Map may not always pass instanceof Map
     let tenderBreakdownObj = {};
-    if (till.tenderBreakdown) {
-      if (till.tenderBreakdown instanceof Map) {
-        till.tenderBreakdown.forEach((value, key) => {
-          tenderBreakdownObj[key] = value;
-        });
-      } else if (typeof till.tenderBreakdown === 'object') {
-        // Handle case where toObject() already converted Map to object with $__ internals
-        const raw = till.tenderBreakdown.toJSON
-          ? till.tenderBreakdown.toJSON()
-          : till.tenderBreakdown;
-        Object.entries(raw).forEach(([key, value]) => {
-          if (typeof value === 'number') {
-            tenderBreakdownObj[key] = value;
+    const rawBreakdown = till.tenderBreakdown;
+    
+    if (rawBreakdown) {
+      // Strategy 1: Use .toJSON() if available (most reliable for Mongoose Maps)
+      if (typeof rawBreakdown.toJSON === 'function') {
+        try {
+          const json = rawBreakdown.toJSON();
+          if (json && typeof json === 'object' && !Array.isArray(json)) {
+            Object.entries(json).forEach(([key, value]) => {
+              if (typeof value === 'number') {
+                tenderBreakdownObj[key] = value;
+              }
+            });
           }
-        });
+        } catch (e) {
+          console.warn('⚠️ toJSON() failed for tenderBreakdown:', e.message);
+        }
+      }
+      
+      // Strategy 2: If toJSON gave nothing, try forEach (native Map / Mongoose Map)
+      if (Object.keys(tenderBreakdownObj).length === 0 && typeof rawBreakdown.forEach === 'function') {
+        try {
+          rawBreakdown.forEach((value, key) => {
+            if (typeof value === 'number') {
+              tenderBreakdownObj[key] = value;
+            }
+          });
+        } catch (e) {
+          console.warn('⚠️ forEach failed for tenderBreakdown:', e.message);
+        }
+      }
+      
+      // Strategy 3: If still nothing, try Object.entries on toObject result
+      if (Object.keys(tenderBreakdownObj).length === 0 && tillResponse.tenderBreakdown) {
+        try {
+          const objVersion = tillResponse.tenderBreakdown;
+          if (objVersion && typeof objVersion === 'object' && !Array.isArray(objVersion)) {
+            Object.entries(objVersion).forEach(([key, value]) => {
+              // Skip Mongoose internal properties
+              if (key.startsWith('$') || key.startsWith('_')) return;
+              if (typeof value === 'number') {
+                tenderBreakdownObj[key] = value;
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('⚠️ Object.entries fallback failed:', e.message);
+        }
       }
     }
 

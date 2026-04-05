@@ -413,17 +413,31 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
               
               const res = await fetch(`/api/till/${contextTill._id}`);
               const data = await res.json();
-              if (data.till) {
-                setTill(data.till);
-              } else {
-                setTill(contextTill);
-              }
               
               setFetchingProgress(60);
               setFetchingStep("Loading offline data...");
               
+              // Always get offline data (reliable source of tenderBreakdown from IndexedDB)
               const offlineData = await getOfflineTillData(contextTill._id);
               setPendingLocalTransactions(offlineData.unsyncedCount || 0);
+              
+              if (data.till) {
+                // Check if server tenderBreakdown is empty
+                const serverBreakdown = data.till.tenderBreakdown || {};
+                const hasServerBreakdown = Object.keys(serverBreakdown).length > 0;
+                const offlineBreakdown = offlineData.tenderBreakdown || {};
+                const hasOfflineBreakdown = Object.keys(offlineBreakdown).length > 0;
+                
+                // Use server tenderBreakdown if available, otherwise fall back to offline
+                if (!hasServerBreakdown && hasOfflineBreakdown) {
+                  console.log('📊 Server tenderBreakdown empty, using offline data:', offlineBreakdown);
+                  data.till.tenderBreakdown = offlineBreakdown;
+                }
+                
+                setTill(data.till);
+              } else {
+                setTill(contextTill);
+              }
             } catch (err) {
               console.error("Error fetching till:", err);
               setFetchingProgress(70);
