@@ -176,6 +176,8 @@ export default function HelpChatBot() {
   const [userEngaged, setUserEngaged] = useState(false);
   const idleTimerRef = useRef(null);
   const buttonTimerRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const [emailSending, setEmailSending] = useState(false);
 
   // Auto-hide idle timeout durations (ms)
   const CHAT_IDLE_MS = 15000;   // Close chat after 15s of no interaction
@@ -270,6 +272,13 @@ export default function HelpChatBot() {
     resetChatIdleTimer();
   }, [resetChatIdleTimer]);
 
+  // Auto-scroll chat to latest message
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
   const quickPrompts = useMemo(() => isLoggedIn ? QUICK_PROMPTS_POS : QUICK_PROMPTS_LOGIN, [isLoggedIn]);
 
   // Get store and staff info for email subject
@@ -291,26 +300,72 @@ export default function HelpChatBot() {
     }
   }, []);
 
-  const handleSendEmail = useCallback(() => {
+  const handleSendEmail = useCallback(async () => {
     const msg = emailMessage.trim();
     if (!msg) return;
     const ctx = getEmailContext();
-    const subject = encodeURIComponent(`Support - ${ctx.storeName} | ${ctx.locationName} | ${ctx.staffName}`);
-    const body = encodeURIComponent(
-      `${msg}\n\n---\nSent from POS Support Chat\nStore: ${ctx.storeName}\nLocation: ${ctx.locationName}\nStaff: ${ctx.staffName}\nDate: ${new Date().toLocaleString()}`
-    );
-    window.open(`mailto:hello.ayoola@gmail.com?subject=${subject}&body=${body}`, "_blank");
-    setEmailSent(true);
-    setMessages((prev) => [
-      ...prev,
-      { role: "user", text: `[Email Support] ${msg}` },
-      { role: "bot", text: "Your email client has been opened with your support message. Please click Send in your email app to deliver it." },
-    ]);
-    setTimeout(() => {
-      setShowEmailForm(false);
-      setEmailMessage("");
-      setEmailSent(false);
-    }, 2000);
+
+    setEmailSending(true);
+    try {
+      const response = await fetch('/api/support/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: msg,
+          storeName: ctx.storeName,
+          locationName: ctx.locationName,
+          staffName: ctx.staffName,
+        }),
+      });
+
+      if (response.ok) {
+        setEmailSent(true);
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text: `[Email Support] ${msg}` },
+          { role: "bot", text: "Your support email has been sent successfully! We'll get back to you soon." },
+        ]);
+        setTimeout(() => {
+          setShowEmailForm(false);
+          setEmailMessage("");
+          setEmailSent(false);
+        }, 2000);
+      } else {
+        // Fallback to mailto if API fails
+        const subject = encodeURIComponent(`Support - ${ctx.storeName} | ${ctx.locationName} | ${ctx.staffName}`);
+        const body = encodeURIComponent(
+          `${msg}\n\n---\nSent from POS Support Chat\nStore: ${ctx.storeName}\nLocation: ${ctx.locationName}\nStaff: ${ctx.staffName}\nDate: ${new Date().toLocaleString()}`
+        );
+        window.open(`mailto:hello.ayoola@gmail.com?subject=${subject}&body=${body}`, "_blank");
+        setEmailSent(true);
+        setMessages((prev) => [
+          ...prev,
+          { role: "user", text: `[Email Support] ${msg}` },
+          { role: "bot", text: "Your email client has been opened with your support message. Please click Send in your email app to deliver it." },
+        ]);
+        setTimeout(() => {
+          setShowEmailForm(false);
+          setEmailMessage("");
+          setEmailSent(false);
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Email send error:', error);
+      // Fallback to mailto
+      const subject = encodeURIComponent(`Support - ${ctx.storeName} | ${ctx.locationName} | ${ctx.staffName}`);
+      const body = encodeURIComponent(
+        `${msg}\n\n---\nSent from POS Support Chat\nStore: ${ctx.storeName}\nLocation: ${ctx.locationName}\nStaff: ${ctx.staffName}\nDate: ${new Date().toLocaleString()}`
+      );
+      window.open(`mailto:hello.ayoola@gmail.com?subject=${subject}&body=${body}`, "_blank");
+      setEmailSent(true);
+      setTimeout(() => {
+        setShowEmailForm(false);
+        setEmailMessage("");
+        setEmailSent(false);
+      }, 2000);
+    } finally {
+      setEmailSending(false);
+    }
     resetChatIdleTimer();
   }, [emailMessage, getEmailContext, resetChatIdleTimer]);
 
@@ -409,6 +464,7 @@ export default function HelpChatBot() {
             <div className="whitespace-pre-line">{msg.text}</div>
           </div>
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       <div className="border-t border-slate-200 p-2 bg-white">
@@ -434,7 +490,7 @@ export default function HelpChatBot() {
             {emailSent ? (
               <div className="flex items-center justify-center gap-2 py-3 text-green-600">
                 <FontAwesomeIcon icon={faCheck} className="w-4 h-4" />
-                <span className="text-sm font-semibold">Email client opened!</span>
+                <span className="text-sm font-semibold">Email sent!</span>
               </div>
             ) : (
               <>
@@ -448,11 +504,11 @@ export default function HelpChatBot() {
                 <button
                   type="button"
                   onClick={handleSendEmail}
-                  disabled={!emailMessage.trim()}
+                  disabled={!emailMessage.trim() || emailSending}
                   className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
                 >
                   <FontAwesomeIcon icon={faPaperPlane} className="w-3.5 h-3.5" />
-                  Send Support Email
+                  {emailSending ? 'Sending...' : 'Send Support Email'}
                 </button>
               </>
             )}

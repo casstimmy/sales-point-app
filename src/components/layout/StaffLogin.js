@@ -857,9 +857,13 @@ export default function StaffLogin() {
 
   const handleKeyPress = useCallback((e) => {
     if (e.key === "Enter" && pin.length === 4 && selectedStore && selectedLocation && selectedStaff) {
-      handleLogin();
+      if (resumeTill) {
+        handleQuickLogin(resumeTill);
+      } else {
+        handleLogin();
+      }
     }
-  }, [pin, selectedStore, selectedLocation, selectedStaff, handleLogin]);
+  }, [pin, selectedStore, selectedLocation, selectedStaff, handleLogin, resumeTill, handleQuickLogin]);
 
   useEffect(() => {
     window.addEventListener("keypress", handleKeyPress);
@@ -1372,7 +1376,7 @@ export default function StaffLogin() {
 
           {/* Login Button - Same width as keypad */}
           <button
-            onClick={handleLogin}
+            onClick={resumeTill ? () => handleQuickLogin(resumeTill) : handleLogin}
             disabled={loading || pin.length !== 4 || !selectedStore || !selectedLocation || !selectedStaff}
             className={`w-full max-w-xs py-3 font-bold text-base border border-cyan-500/60 shadow-md backdrop-blur-sm rounded-lg transition ${
               pin.length === 4 && selectedStore && selectedLocation && selectedStaff && !loading
@@ -1380,8 +1384,18 @@ export default function StaffLogin() {
                 : "bg-gray-400 text-gray-600 cursor-not-allowed"
             }`}
           >
-            {loading ? "LOGGING IN..." : "LOGIN"}
+            {loading ? "LOGGING IN..." : resumeTill ? "RESUME TILL" : "LOGIN"}
           </button>
+
+          {/* Cancel Resume */}
+          {resumeTill && (
+            <button
+              onClick={() => { setResumeTill(null); setPin(""); setError(""); }}
+              className="w-full max-w-xs py-2 mt-2 text-xs text-white/70 hover:text-white underline transition"
+            >
+              Cancel &amp; go back
+            </button>
+          )}
 
           {/* Info Text */}
           <p className="text-white/60 text-xs mt-3 text-center">

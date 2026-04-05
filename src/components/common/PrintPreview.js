@@ -54,6 +54,8 @@ export default function PrintPreview() {
 
   const handlePrint = () => {
     setPrinting(true);
+    // Close the custom modal immediately so it doesn't overlap the OS print dialog
+    setVisible(false);
 
     // Create a hidden iframe to print
     const iframe = document.createElement('iframe');
@@ -67,7 +69,12 @@ export default function PrintPreview() {
     iframe.contentDocument.write(receiptHTML);
     iframe.contentDocument.close();
 
+    let hasPrinted = false;
+
     const doPrint = () => {
+      if (hasPrinted) return;
+      hasPrinted = true;
+
       try {
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
@@ -80,7 +87,6 @@ export default function PrintPreview() {
           if (iframe.parentNode) document.body.removeChild(iframe);
         } catch (e) {}
         setPrinting(false);
-        setVisible(false);
         resolvePromise?.(true);
         resolvePromise = null;
       }, 2000);
@@ -107,7 +113,7 @@ export default function PrintPreview() {
       iframe.contentWindow.addEventListener('load', waitForImages, { once: true });
     }
 
-    // Safety timeout
+    // Safety timeout (guarded by hasPrinted)
     setTimeout(doPrint, 5000);
   };
 
@@ -124,7 +130,7 @@ export default function PrintPreview() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-gray-200">
         {/* Branded Header */}
         <div className="bg-gradient-to-r from-cyan-700 to-cyan-800 text-white px-5 py-4 flex items-center gap-3">
           <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow overflow-hidden">
@@ -152,11 +158,11 @@ export default function PrintPreview() {
 
         {/* Receipt Preview */}
         <div className="p-4 bg-gray-50">
-          <div className="bg-white rounded-lg shadow-inner border border-gray-200 overflow-hidden max-h-[50vh] overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-inner border border-gray-200 overflow-hidden max-h-[70vh] overflow-y-auto">
             <iframe
               ref={iframeRef}
               srcDoc={receiptHTML}
-              className="w-full min-h-[300px] border-0"
+              className="w-full min-h-[500px] border-0"
               title="Receipt Preview"
               sandbox="allow-same-origin"
             />

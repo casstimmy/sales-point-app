@@ -440,6 +440,8 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                         ? 'Printer status unknown'
                         : printerAvailable
                         ? 'Thermal Printer Connected — Click to open Printer Settings'
+                        : builtInPrinterAvailable
+                        ? 'System Printer Available (browser print) — Click to open Printer Settings'
                         : 'Thermal Printer Not Connected — Click to open Printer Settings'
                     }
                     className={`relative px-2.5 py-2.5 sm:px-3 sm:py-3 rounded-lg text-sm sm:text-base font-bold shadow-sm transition-colors ${
@@ -447,6 +449,8 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                         ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
                         : printerAvailable
                         ? 'bg-green-100 text-green-800 border border-green-300 hover:bg-green-200'
+                        : builtInPrinterAvailable
+                        ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
                         : 'bg-red-100 text-red-800 border border-red-300 hover:bg-red-200'
                     }`}
                   >
@@ -456,23 +460,14 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
                         ? 'bg-yellow-500 animate-pulse'
                         : printerAvailable
                         ? 'bg-green-500 animate-pulse'
+                        : builtInPrinterAvailable
+                        ? 'bg-blue-500 animate-pulse'
                         : 'bg-red-500'
                     }`} />
                     <span className="sr-only">
-                      {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : 'Inactive'}
+                      {checkingPrinter ? 'Checking...' : printerAvailable ? 'Active' : builtInPrinterAvailable ? 'System' : 'Inactive'}
                     </span>
                   </button>
-                  {/* Built-in / System Printer indicator */}
-                  {builtInPrinterAvailable && !printerAvailable && (
-                    <div
-                      title="System/Built-in Printer available (browser print)"
-                      className="relative px-2 py-2.5 sm:px-2.5 sm:py-3 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200"
-                    >
-                      <FontAwesomeIcon icon={faPrint} className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                      <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white bg-blue-500" />
-                      <span className="sr-only">System printer</span>
-                    </div>
-                  )}
                 </div>
               )}
             </div>
