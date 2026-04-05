@@ -422,15 +422,13 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
               setPendingLocalTransactions(offlineData.unsyncedCount || 0);
               
               if (data.till) {
-                // Check if server tenderBreakdown is empty
-                const serverBreakdown = data.till.tenderBreakdown || {};
-                const hasServerBreakdown = Object.keys(serverBreakdown).length > 0;
+                // IndexedDB tenderBreakdown is always reliable (built from actual transactions).
+                // Server Mongoose Map serialization is fragile, so prefer offline when available.
                 const offlineBreakdown = offlineData.tenderBreakdown || {};
                 const hasOfflineBreakdown = Object.keys(offlineBreakdown).length > 0;
                 
-                // Use server tenderBreakdown if available, otherwise fall back to offline
-                if (!hasServerBreakdown && hasOfflineBreakdown) {
-                  console.log('📊 Server tenderBreakdown empty, using offline data:', offlineBreakdown);
+                if (hasOfflineBreakdown) {
+                  console.log('📊 Using IndexedDB tenderBreakdown (reliable):', offlineBreakdown);
                   data.till.tenderBreakdown = offlineBreakdown;
                 }
                 
