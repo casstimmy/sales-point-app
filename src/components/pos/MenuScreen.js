@@ -579,7 +579,7 @@ export default function MenuScreen() {
         if (isOnline && allProducts.length === 0) {
           console.log("📥 No local products found, fetching from API (first load)...");
           let url = `/api/products?category=${encodeURIComponent(categoryId)}`;
-          if (location?.name) url += `&location=${encodeURIComponent(location.name)}`;
+          if (location?._id) url += `&locationId=${encodeURIComponent(location._id)}`;
           
           try {
             const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -637,7 +637,7 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline, allProducts.length, location?.name]);
+  }, [selectedCategory, isOnline, allProducts.length, location?._id]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
@@ -671,7 +671,7 @@ export default function MenuScreen() {
           
           try {
             let prodUrl = `/api/products?category=${encodeURIComponent(categoryId)}`;
-            if (location?.name) prodUrl += `&location=${encodeURIComponent(location.name)}`;
+            if (location?._id) prodUrl += `&locationId=${encodeURIComponent(location._id)}`;
             const prodResponse = await fetch(prodUrl, { signal: AbortSignal.timeout(15000) });
             
             if (prodResponse.ok) {

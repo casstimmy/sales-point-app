@@ -9,6 +9,7 @@
 
 import { mongooseConnect } from "@/src/lib/mongoose";
 import Product from "@/src/models/Product";
+import Store from "@/src/models/Store";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -20,8 +21,8 @@ export default async function handler(req, res) {
     await mongooseConnect();
     console.log("✅ Products API: Connected to MongoDB");
 
-    const { category, search, location } = req.query;
-    console.log("🛍️ Products API: Query params - category:", category, "search:", search, "location:", location);
+    const { category, search, locationId } = req.query;
+    console.log("🛍️ Products API: Query params - category:", category, "search:", search, "locationId:", locationId);
     
     let query = {};
 
@@ -29,16 +30,37 @@ export default async function handler(req, res) {
     // Child product qty is tied to the mother product
     query.isChildProduct = { $ne: true };
 
-    // Filter by location if provided (location name string)
-    // Products store locations as an array of name strings
-    // Products with no locations assigned (empty array or missing) are available everywhere
-    if (location) {
-      query.$or = [
-        { locations: location },
-        { locations: { $exists: false } },
-        { locations: { $size: 0 } },
-      ];
-      console.log("🛍️ Products API: Filtering by location:", location);
+    // Filter by location if locationId provided
+    // Resolve the location name from the Store model, then match against product.locations[]
+    // Products with no locations assigned (empty/missing) are available at all locations
+    if (locationId) {
+      let locationName = null;
+      try {
+        const store = await Store.findOne().lean();
+        if (store?.locations && Array.isArray(store.locations)) {
+          for (const loc of store.locations) {
+            const locId = loc._id?.toString ? loc._id.toString() : String(loc._id);
+            if (locId === locationId) {
+              locationName = loc.name;
+              break;
+            }
+          }
+        }
+      } catch (storeErr) {
+        console.warn("⚠️ Could not look up store for location filter:", storeErr.message);
+      }
+
+      if (locationName) {
+        query.$or = [
+          { locations: locationName },
+          { locations: { $exists: false } },
+          { locations: { $size: 0 } },
+          { locations: null },
+        ];
+        console.log("🛍️ Products API: Filtering by location name:", locationName);
+      } else {
+        console.warn("⚠️ Location ID not found in store, skipping location filter");
+      }
     }
 
     // Filter by category if provided
