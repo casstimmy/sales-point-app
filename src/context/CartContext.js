@@ -537,13 +537,13 @@ export function CartProvider({ children }) {
           }
           console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (${appliedPromotion.discountValue}%): ₦${itemTotal}`);
         } else if (appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode !== 'TOTAL') {
-          // Fixed amount per item (default PER_ITEM mode)
+          // Fixed amount per item (default PER_ITEM mode) — multiply by quantity
           if (appliedPromotion.valueType === 'INCREMENT') {
-            itemTotal = itemTotal + appliedPromotion.discountValue;
+            itemTotal = itemTotal + appliedPromotion.discountValue * item.quantity;
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
-            itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);
+            itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue * item.quantity);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (₦${appliedPromotion.discountValue} per item): ₦${itemTotal}`);
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (₦${appliedPromotion.discountValue} × ${item.quantity} items): ₦${itemTotal}`);
         }
         // FIXED + TOTAL mode is applied after the items loop below
       }
