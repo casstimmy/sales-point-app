@@ -578,7 +578,8 @@ export default function MenuScreen() {
         // No local data at all - only fetch from API if online AND user hasn't synced before
         if (isOnline && allProducts.length === 0) {
           console.log("📥 No local products found, fetching from API (first load)...");
-          const url = `/api/products?category=${encodeURIComponent(categoryId)}`;
+          let url = `/api/products?category=${encodeURIComponent(categoryId)}`;
+          if (location?.name) url += `&location=${encodeURIComponent(location.name)}`;
           
           try {
             const response = await fetch(url, { signal: AbortSignal.timeout(10000) });
@@ -636,7 +637,7 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline, allProducts.length]);
+  }, [selectedCategory, isOnline, allProducts.length, location?.name]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
@@ -669,7 +670,8 @@ export default function MenuScreen() {
           console.log(`📦 Fetching products for category: ${category.name}...`);
           
           try {
-            const prodUrl = `/api/products?category=${encodeURIComponent(categoryId)}`;
+            let prodUrl = `/api/products?category=${encodeURIComponent(categoryId)}`;
+            if (location?.name) prodUrl += `&location=${encodeURIComponent(location.name)}`;
             const prodResponse = await fetch(prodUrl, { signal: AbortSignal.timeout(15000) });
             
             if (prodResponse.ok) {

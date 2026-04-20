@@ -20,14 +20,21 @@ export default async function handler(req, res) {
     await mongooseConnect();
     console.log("✅ Products API: Connected to MongoDB");
 
-    const { category, search } = req.query;
-    console.log("🛍️ Products API: Query params - category:", category, "search:", search);
+    const { category, search, location } = req.query;
+    console.log("🛍️ Products API: Query params - category:", category, "search:", search, "location:", location);
     
     let query = {};
 
     // Always exclude child products from POS listing
     // Child product qty is tied to the mother product
     query.isChildProduct = { $ne: true };
+
+    // Filter by location if provided (location name string)
+    // Products store locations as an array of name strings
+    if (location) {
+      query.locations = location;
+      console.log("🛍️ Products API: Filtering by location:", location);
+    }
 
     // Filter by category if provided
     // The category param is the ObjectId (MongoDB _id) of the category
@@ -46,7 +53,7 @@ export default async function handler(req, res) {
     console.log("🛍️ Products API: MongoDB query object:", JSON.stringify(query));
     
     const products = await Product.find(query)
-      .select("_id name category salePriceIncTax quantity images description")
+      .select("_id name category salePriceIncTax quantity images description locations")
       .limit(500)
       .lean();
 

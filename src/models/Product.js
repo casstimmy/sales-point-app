@@ -72,6 +72,11 @@ const ProductSchema = new Schema(
     ],
 
     /* =====================
+       LOCATION ASSIGNMENT
+    ===================== */
+    locations: [{ type: String }],
+
+    /* =====================
        PACK / CHILD PRODUCT
     ===================== */
     isChildProduct: { type: Boolean, default: false },
