@@ -3,8 +3,9 @@
  * 
  * Fetches all products from database with optional filtering
  * Query params:
- * - category: Filter by category name
+ * - category: Filter by category ObjectId
  * - search: Search by product name
+ * - locationId: Filter by store location ID (resolves name from Store)
  */
 
 import { mongooseConnect } from "@/src/lib/mongoose";
@@ -17,76 +18,60 @@ export default async function handler(req, res) {
   }
 
   try {
-    console.log("🛍️ Products API: Connecting to MongoDB...");
     await mongooseConnect();
-    console.log("✅ Products API: Connected to MongoDB");
 
     const { category, search, locationId } = req.query;
-    console.log("🛍️ Products API: Query params - category:", category, "search:", search, "locationId:", locationId);
     
     let query = {};
 
     // Always exclude child products from POS listing
-    // Child product qty is tied to the mother product
     query.isChildProduct = { $ne: true };
 
-    // Filter by location if locationId provided
-    // Resolve the location name from the Store model, then match against product.locations[]
-    // Products with no locations assigned (empty/missing) are available at all locations
-    if (locationId) {
+    // Filter by category if provided
+    if (category) {
+      query.category = category;
+    }
+
+    // Search by product name if provided
+    if (search) {
+      query.name = { $regex: search, $options: "i" };
+    }
+
+    let products = await Product.find(query)
+      .select("_id name category salePriceIncTax quantity images description locations")
+      .limit(500)
+      .lean();
+
+    // Filter by location in JavaScript (more reliable than $or with mixed data)
+    // Products with no locations assigned are available at all locations
+    if (locationId && products.length > 0) {
       let locationName = null;
       try {
         const store = await Store.findOne().lean();
         if (store?.locations && Array.isArray(store.locations)) {
-          for (const loc of store.locations) {
-            const locId = loc._id?.toString ? loc._id.toString() : String(loc._id);
-            if (locId === locationId) {
-              locationName = loc.name;
-              break;
-            }
-          }
+          const found = store.locations.find(
+            (loc) => (loc._id?.toString ? loc._id.toString() : String(loc._id)) === locationId
+          );
+          if (found) locationName = found.name;
         }
       } catch (storeErr) {
         console.warn("⚠️ Could not look up store for location filter:", storeErr.message);
       }
 
       if (locationName) {
-        query.$or = [
-          { locations: locationName },
-          { locations: { $exists: false } },
-          { locations: { $size: 0 } },
-          { locations: null },
-        ];
-        console.log("🛍️ Products API: Filtering by location name:", locationName);
-      } else {
-        console.warn("⚠️ Location ID not found in store, skipping location filter");
+        products = products.filter((p) => {
+          // No locations assigned = available everywhere
+          if (!p.locations || !Array.isArray(p.locations) || p.locations.length === 0) {
+            return true;
+          }
+          // Check if any entry in locations matches the name or ID
+          return p.locations.some(
+            (loc) => loc === locationName || loc === locationId || 
+                     String(loc).toLowerCase() === locationName.toLowerCase()
+          );
+        });
+        console.log(`📍 Location filter: "${locationName}" | ${products.length} products after filter`);
       }
-    }
-
-    // Filter by category if provided
-    // The category param is the ObjectId (MongoDB _id) of the category
-    if (category) {
-      // Products store category as an ObjectId string, so we match directly
-      query.category = category;
-      console.log("🛍️ Products API: Filtering by category (ID):", category);
-    }
-
-    // Search by product name if provided
-    if (search) {
-      query.name = { $regex: search, $options: "i" };
-      console.log("🛍️ Products API: Searching for:", search);
-    }
-
-    console.log("🛍️ Products API: MongoDB query object:", JSON.stringify(query));
-    
-    const products = await Product.find(query)
-      .select("_id name category salePriceIncTax quantity images description locations")
-      .limit(500)
-      .lean();
-
-    console.log(`✅ Products API: Found ${products.length} products`);
-    if (products.length > 0) {
-      console.log("✅ Products API: First product:", products[0]);
     }
 
     return res.status(200).json({
@@ -96,7 +81,6 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error("❌ Products API Error:", err);
-    console.error("❌ Stack:", err.stack);
     return res.status(500).json({
       success: false,
       message: "Failed to fetch products",
