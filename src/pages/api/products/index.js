@@ -24,9 +24,6 @@ export default async function handler(req, res) {
     
     let query = {};
 
-    // Always exclude child products from POS listing
-    query.isChildProduct = { $ne: true };
-
     // Filter by category if provided
     if (category) {
       query.category = category;
@@ -38,7 +35,7 @@ export default async function handler(req, res) {
     }
 
     let products = await Product.find(query)
-      .select("_id name category salePriceIncTax quantity images description locations")
+      .select("_id name category salePriceIncTax quantity images description locations isChildProduct parentProduct packType qtyPerPack childSalePrice")
       .limit(500)
       .lean();
 

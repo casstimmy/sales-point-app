@@ -9,6 +9,7 @@ import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
+import { syncParentChildQty } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
 const normalizeLocationName = (location) => {
@@ -193,7 +194,9 @@ export default async function handler(req, res) {
             { new: true }
           );
           if (productResult) {
-            console.log(`âœ… Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+            console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+            // Sync linked parent/child product qty
+            await syncParentChildQty(item.productId, item.qty);
           }
         }
         transaction.inventoryUpdated = true;

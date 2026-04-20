@@ -7,6 +7,7 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { default as Product } from '@/src/models/Product';
+import { syncParentChildQty } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
@@ -45,6 +46,8 @@ export default async function handler(req, res) {
           newQuantity: update.quantity,
         });
         console.log(`📦 Updated ${item.name}: sold ${item.qty}, remaining ${update.quantity}`);
+        // Sync linked parent/child product qty
+        await syncParentChildQty(item.productId, item.qty);
       } else {
         console.warn(`⚠️ Product not found: ${item.productId}`);
       }
