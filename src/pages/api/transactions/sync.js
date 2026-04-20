@@ -9,7 +9,7 @@ import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
-import { syncParentChildQty } from '@/src/lib/syncPackQty';
+import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
 const normalizeLocationName = (location) => {
@@ -185,25 +185,11 @@ export default async function handler(req, res) {
     // Update product quantities after successful transaction sync (idempotent)
     if (!transaction.inventoryUpdated && isCompletedTransaction) {
       try {
-        console.log('ðŸ“¦ Updating product quantities for synced items:', mappedItems);
-        for (const item of mappedItems) {
-          if (!item.productId || !item.qty) continue;
-          const productResult = await Product.findByIdAndUpdate(
-            item.productId,
-            { $inc: { quantity: -item.qty } },
-            { new: true }
-          );
-          if (productResult) {
-            console.log(`✅ Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
-            // Sync linked parent/child product qty
-            await syncParentChildQty(item.productId, item.qty);
-          }
-        }
+        await updateInventoryForSale(mappedItems);
         transaction.inventoryUpdated = true;
         await transaction.save();
       } catch (quantityErr) {
-        console.warn('âš ï¸ Warning: Failed to update product quantities from sync:', quantityErr.message);
-        // Don't fail the transaction if quantity update fails
+        console.warn('Warning: Failed to update product quantities from sync:', quantityErr.message);
       }
     }
     return res.status(200).json({

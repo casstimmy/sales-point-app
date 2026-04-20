@@ -7,7 +7,7 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { default as Product } from '@/src/models/Product';
-import { syncParentChildQty } from '@/src/lib/syncPackQty';
+import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
 export default async function handler(req, res) {
@@ -26,37 +26,11 @@ export default async function handler(req, res) {
 
     await mongooseConnect();
 
-    // Update each product's quantity
-    const updates = [];
-    
-    for (const item of items) {
-      if (!item.productId || !item.qty) continue;
-
-      const update = await Product.findByIdAndUpdate(
-        item.productId,
-        { $inc: { quantity: -item.qty } }, // Decrement by quantity sold
-        { new: true }
-      );
-
-      if (update) {
-        updates.push({
-          productId: item.productId,
-          productName: item.name,
-          quantitySold: item.qty,
-          newQuantity: update.quantity,
-        });
-        console.log(`📦 Updated ${item.name}: sold ${item.qty}, remaining ${update.quantity}`);
-        // Sync linked parent/child product qty
-        await syncParentChildQty(item.productId, item.qty);
-      } else {
-        console.warn(`⚠️ Product not found: ${item.productId}`);
-      }
-    }
+    await updateInventoryForSale(items);
 
     return res.status(200).json({
       success: true,
-      message: `Updated ${updates.length} products`,
-      updates: updates,
+      message: `Updated ${items.length} products`,
     });
   } catch (error) {
     console.error('❌ Error updating product quantities:', error);

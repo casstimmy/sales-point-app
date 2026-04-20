@@ -227,8 +227,12 @@ export default function MenuScreen() {
 
           if (selectedCategory) {
             const categoryId = selectedCategory._id || selectedCategory.id;
+            let refreshUrl = `/api/products?category=${encodeURIComponent(categoryId)}`;
+            if (location?._id) {
+              refreshUrl += `&locationId=${encodeURIComponent(location._id)}`;
+            }
             const response = await fetch(
-              `/api/products?category=${encodeURIComponent(categoryId)}`,
+              refreshUrl,
               { signal: controller.signal }
             );
             clearTimeout(timeout);
@@ -296,7 +300,7 @@ export default function MenuScreen() {
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
       window.removeEventListener('online', handleBackOnline);
     };
-  }, [selectedCategory]);
+  }, [selectedCategory, location]);
 
   // Listen for sidebar cloud sync to refresh products/categories/images
   useEffect(() => {
