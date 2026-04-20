@@ -11,6 +11,7 @@ import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
+import { deriveChildQty } from '@/src/lib/syncPackQty';
 import EndOfDayReport from '@/src/models/EndOfDayReport';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
@@ -157,6 +158,8 @@ export default async function handler(req, res) {
                 { $inc: { quantity: Number(item.qty) } },
                 { new: true }
               );
+              // Re-derive child qty after restock
+              await deriveChildQty(item.productId);
             }
 
             transaction.inventoryRestockedAt = new Date();

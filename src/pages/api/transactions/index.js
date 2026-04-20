@@ -9,6 +9,7 @@ import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
+import { syncParentChildQty, deriveChildQty } from '@/src/lib/syncPackQty';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
@@ -169,6 +170,7 @@ export default async function handler(req, res) {
           const delta = oldQty - newQty;
           if (!delta) continue;
           await Product.findByIdAndUpdate(productId, { $inc: { quantity: delta } }, { new: true });
+          await deriveChildQty(productId);
         }
       }
 
@@ -456,6 +458,7 @@ export default async function handler(req, res) {
           );
           if (productResult) {
             console.log(`âœ… Updated ${item.name}: sold ${item.qty}, remaining ${productResult.quantity}`);
+            await syncParentChildQty(item.productId, item.qty);
           }
         }
         savedTransaction.inventoryUpdated = true;

@@ -71,6 +71,25 @@ export default async function handler(req, res) {
       }
     }
 
+    // Derive child product quantities from their parent
+    // Child qty = parent.qty × qtyPerPack (always computed, never stored independently)
+    const childProducts = products.filter((p) => p.isChildProduct && p.parentProduct);
+    if (childProducts.length > 0) {
+      // Collect all parent IDs needed
+      const parentIds = [...new Set(childProducts.map((p) => String(p.parentProduct)))];
+      const parents = await Product.find({ _id: { $in: parentIds } })
+        .select("_id quantity qtyPerPack")
+        .lean();
+      const parentMap = new Map(parents.map((p) => [String(p._id), p]));
+
+      for (const child of childProducts) {
+        const parent = parentMap.get(String(child.parentProduct));
+        if (parent && parent.qtyPerPack > 0) {
+          child.quantity = parent.quantity * parent.qtyPerPack;
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       count: products.length,
