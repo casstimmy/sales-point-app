@@ -730,6 +730,52 @@ export default function StaffLogin() {
     }
   }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, login, setCurrentTill, router, attemptOfflineLogin, getLoginErrorMessage]);
 
+  // Quick login for staff role - no PIN required
+  const handleStaffQuickLogin = useCallback(async (member) => {
+    if (String(member.role || "").trim().toLowerCase() !== "staff") return;
+    try {
+      setLoading(true);
+      setError("");
+      const assignedLocationId = resolveStaffLocationId(member);
+      const response = await fetch("/api/staff/quick-login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          staffId: member._id,
+          location: assignedLocationId || selectedLocation || "",
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data?.staff && data?.location) {
+        const normalizedStaff = normalizeStaffMember(data.staff);
+        login(normalizedStaff, data.location);
+        // Try to find/create till for this staff
+        try {
+          const tillRes = await fetch("/api/till/active", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              staffId: data.staff._id,
+              locationId: data.location._id,
+            }),
+          });
+          if (tillRes.ok) {
+            const tillData = await tillRes.json();
+            if (tillData.till) setCurrentTill(tillData.till);
+          }
+        } catch (e) { /* till optional */ }
+        router.push("/");
+      } else {
+        setError(data?.message || "Quick login failed.");
+      }
+    } catch (err) {
+      console.error("Quick login error:", err);
+      setError("Quick login failed. Please enter PIN instead.");
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedLocation, login, setCurrentTill, router, resolveStaffLocationId, normalizeStaffMember]);
+
   const handlePinClick = (digit) => {
     if (pin.length < 4) {
       setPin(pin + digit);
@@ -1272,6 +1318,10 @@ export default function StaffLogin() {
                               if (assignedLocationId) {
                                 setSelectedLocation(assignedLocationId);
                               }
+                            }
+                            // Staff role: quick login without PIN
+                            if (String(member.role || "").trim().toLowerCase() === "staff") {
+                              handleStaffQuickLogin(member);
                             }
                           }}
                           className={`p-3 rounded-lg text-center font-semibold transition flex flex-col items-center gap-1 ${

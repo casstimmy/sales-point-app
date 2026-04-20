@@ -297,10 +297,25 @@ export function CartProvider({ children }) {
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             itemTotal = itemTotal * (1 - percentChange);
           }
+        } else if (appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode !== 'TOTAL') {
+          if (appliedPromotion.valueType === 'INCREMENT') {
+            itemTotal = itemTotal + appliedPromotion.discountValue;
+          } else if (appliedPromotion.valueType === 'DISCOUNT') {
+            itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);
+          }
         }
       }
       subtotal += itemTotal;
     });
+
+    // Apply FIXED + TOTAL mode promotion
+    if (appliedPromotion && appliedPromotion.active && appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode === 'TOTAL') {
+      if (appliedPromotion.valueType === 'INCREMENT') {
+        subtotal = subtotal + appliedPromotion.discountValue;
+      } else if (appliedPromotion.valueType === 'DISCOUNT') {
+        subtotal = Math.max(0, subtotal - appliedPromotion.discountValue);
+      }
+    }
 
     const newOrder = {
       ...state.activeCart,
@@ -521,19 +536,30 @@ export function CartProvider({ children }) {
             itemTotal = itemTotal * (1 - percentChange);
           }
           console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (${appliedPromotion.discountValue}%): ₦${itemTotal}`);
-        } else if (appliedPromotion.discountType === 'FIXED') {
-          // Fixed amount discount/INCREMENT
+        } else if (appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode !== 'TOTAL') {
+          // Fixed amount per item (default PER_ITEM mode)
           if (appliedPromotion.valueType === 'INCREMENT') {
             itemTotal = itemTotal + appliedPromotion.discountValue;
           } else if (appliedPromotion.valueType === 'DISCOUNT') {
             itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (₦${appliedPromotion.discountValue}): ₦${itemTotal}`);
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (₦${appliedPromotion.discountValue} per item): ₦${itemTotal}`);
         }
+        // FIXED + TOTAL mode is applied after the items loop below
       }
       
       subtotal += itemTotal;
     });
+
+    // Apply FIXED + TOTAL mode promotion to the subtotal (not per-item)
+    if (appliedPromotion && appliedPromotion.active && appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode === 'TOTAL') {
+      if (appliedPromotion.valueType === 'INCREMENT') {
+        subtotal = subtotal + appliedPromotion.discountValue;
+      } else if (appliedPromotion.valueType === 'DISCOUNT') {
+        subtotal = Math.max(0, subtotal - appliedPromotion.discountValue);
+      }
+      console.log(`💰 Fixed TOTAL mode: Applied ₦${appliedPromotion.discountValue} ${appliedPromotion.valueType} to cart total: ₦${subtotal}`);
+    }
 
     // Apply fixed discount if any
     const fixedDiscountAmount = fixedDiscount || 0;

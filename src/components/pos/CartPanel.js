@@ -233,9 +233,10 @@ export default function CartPanel() {
                     adjustedPrice = item.price * (1 - percentChange);
                   }
                 } else if (
-                  activeCart.appliedPromotion.discountType === "FIXED"
+                  activeCart.appliedPromotion.discountType === "FIXED" &&
+                  activeCart.appliedPromotion.fixedAmountApplyMode !== "TOTAL"
                 ) {
-                  // Fixed discount - apply to each item
+                  // Fixed discount per item (PER_ITEM mode)
                   if (activeCart.appliedPromotion.valueType === "INCREMENT") {
                     adjustedPrice =
                       item.price + activeCart.appliedPromotion.discountValue;
@@ -246,6 +247,7 @@ export default function CartPanel() {
                     );
                   }
                 }
+                // FIXED + TOTAL mode: no per-item adjustment shown
               }
               const itemTotal =
                 adjustedPrice * item.quantity - (item.discount || 0);
@@ -289,7 +291,7 @@ export default function CartPanel() {
                         {hasPromoAdjustment ? (
                           <div>
                             <div className="text-xs text-gray-400 line-through">
-                              ₦{item.price.toLocaleString()}
+                              ₦{Math.round(item.price).toLocaleString()}
                             </div>
                             <div
                               className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
@@ -299,7 +301,7 @@ export default function CartPanel() {
                           </div>
                         ) : (
                             <div className="text-sm sm:text-base text-neutral-600">
-                              ₦{item.price.toLocaleString()}
+                              ₦{Math.round(item.price).toLocaleString()}
                             </div>
                           )}
                       </div>
@@ -331,7 +333,7 @@ export default function CartPanel() {
                             {hasPromoAdjustment ? (
                               <div>
                                 <div className="text-xs line-through opacity-70">
-                                  ₦{item.price.toLocaleString()}
+                                  ₦{Math.round(item.price).toLocaleString()}
                                 </div>
                                 <div className="font-bold text-sm">
                                   ₦{Math.round(adjustedPrice).toLocaleString()}
@@ -339,7 +341,7 @@ export default function CartPanel() {
                               </div>
                             ) : (
                               <div className="font-bold text-sm">
-                                ₦{item.price.toLocaleString()}
+                                ₦{Math.round(item.price).toLocaleString()}
                               </div>
                             )}
                           </div>
@@ -522,7 +524,7 @@ export default function CartPanel() {
               <div className="flex justify-between">
                 <span className="text-neutral-700 font-semibold">SUBTOTAL</span>
                 <span className="text-neutral-700 font-bold text-base">
-                  ₦{totals.subtotal.toLocaleString()}
+                  ₦{Math.round(totals.subtotal).toLocaleString()}
                 </span>
               </div>
               {totals.discountAmount > 0 && (

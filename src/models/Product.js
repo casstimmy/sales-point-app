@@ -70,6 +70,15 @@ const ProductSchema = new Schema(
         soldAt: { type: Date, default: Date.now },
       },
     ],
+
+    /* =====================
+       PACK / CHILD PRODUCT
+    ===================== */
+    isChildProduct: { type: Boolean, default: false },
+    parentProduct: { type: Schema.Types.ObjectId, ref: "Product" },
+    childSalePrice: { type: Number },
+    packType: { type: String, enum: ["unit", "pack"], default: "unit" },
+    qtyPerPack: { type: Number, default: 1 },
   },
   { timestamps: true }
 );

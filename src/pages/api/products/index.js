@@ -25,6 +25,10 @@ export default async function handler(req, res) {
     
     let query = {};
 
+    // Always exclude child products from POS listing
+    // Child product qty is tied to the mother product
+    query.isChildProduct = { $ne: true };
+
     // Filter by category if provided
     // The category param is the ObjectId (MongoDB _id) of the category
     if (category) {

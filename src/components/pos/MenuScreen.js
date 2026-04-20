@@ -1018,7 +1018,7 @@ export default function MenuScreen() {
                       {/* Bottom Row: Price Full Width */}
                       <div className="bg-gradient-to-r from-green-500 to-green-600 px-2 py-1">
                         <div className="text-sm sm:text-base font-black text-white text-center">
-                          ₦{product.salePriceIncTax?.toLocaleString() || '0'}
+                          ₦{Math.round(product.salePriceIncTax || 0).toLocaleString()}
                         </div>
                       </div>
                     </button>
@@ -1126,7 +1126,7 @@ export default function MenuScreen() {
                     {/* Bottom Row: Price Full Width */}
                     <div className="bg-gradient-to-r from-cyan-500 to-cyan-600 px-2 py-1">
                       <div className="text-sm sm:text-base font-black text-white text-center">
-                        ₦{product.salePriceIncTax?.toLocaleString() || '0'}
+                        ₦{Math.round(product.salePriceIncTax || 0).toLocaleString()}
                       </div>
                     </div>
                   </button>
