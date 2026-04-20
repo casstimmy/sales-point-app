@@ -31,8 +31,13 @@ export default async function handler(req, res) {
 
     // Filter by location if provided (location name string)
     // Products store locations as an array of name strings
+    // Products with no locations assigned (empty array or missing) are available everywhere
     if (location) {
-      query.locations = location;
+      query.$or = [
+        { locations: location },
+        { locations: { $exists: false } },
+        { locations: { $size: 0 } },
+      ];
       console.log("🛍️ Products API: Filtering by location:", location);
     }
 
