@@ -272,6 +272,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           createdAt: tx.createdAt || new Date().toISOString(),
           customer: tx.customerName || 'Walk-in',
           staffMember: tx.staffName || 'Unknown',
+          heldByStaffName: tx.heldByStaffName || null,
           location: tx.location || 'Main Store',
           locationAddress: tx.locationAddress || '',
           tenderType: tenderDisplay,
@@ -568,9 +569,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.customer}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 text-sm">Staff</span>
+                <span className="text-gray-600 text-sm">Completed By</span>
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.staffMember}</span>
               </div>
+              {detailOrder.heldByStaffName && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600 text-sm">Held By</span>
+                  <span className="font-semibold text-gray-800 text-sm">{detailOrder.heldByStaffName}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-600 text-sm">Payment</span>
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.tenderType || 'N/A'}</span>
