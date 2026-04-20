@@ -1122,7 +1122,7 @@ export default function MenuScreen() {
                               product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
                               'bg-green-100 text-green-700'
                             }`}>
-                              {product.quantity <= 0 ? 'Out' : `${product.quantity}`}
+                              {product.quantity <= 0 ? 'Out' : `${parseFloat(product.quantity.toFixed(2))}`}
                             </span>
                           )}
                         </div>
