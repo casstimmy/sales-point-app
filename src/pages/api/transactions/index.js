@@ -8,8 +8,8 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
-import Product from '@/src/models/Product';
-import { updateInventoryForSale, deriveChildQty } from '@/src/lib/syncPackQty';
+import mongoose from 'mongoose';
+import { updateInventoryForSale, reverseInventoryForRefund } from '@/src/lib/syncPackQty';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 
@@ -101,6 +101,11 @@ export default async function handler(req, res) {
       externalId,
       editTransactionId,
       subStatus,
+      heldByStaffName,
+      heldByStaffId,
+      incrementAmount,
+      promotionValueType,
+      customerType,
     } = req.body;
     
     // Normalize staff name and location for legacy/offline payloads
@@ -144,7 +149,9 @@ export default async function handler(req, res) {
 
     // EDIT FLOW: update existing transaction (recall to cart) instead of creating a new one
     if (editTransactionId) {
-      const existingTransaction = await Transaction.findById(editTransactionId);
+      const existingTransaction = mongoose.Types.ObjectId.isValid(editTransactionId)
+        ? await Transaction.findById(editTransactionId)
+        : await Transaction.findOne({ externalId: String(editTransactionId) });
       if (!existingTransaction) {
         return res.status(404).json({
           success: false,
@@ -159,23 +166,13 @@ export default async function handler(req, res) {
         qty: item.quantity || item.qty || 0,
       }));
 
-      const oldItemQtyMap = toItemQtyMap(existingTransaction.items || []);
-      const newItemQtyMap = toItemQtyMap(mappedItems || []);
-      const allProductIds = new Set([...oldItemQtyMap.keys(), ...newItemQtyMap.keys()]);
-
-      if (existingTransaction.inventoryUpdated) {
-        for (const productId of allProductIds) {
-          const oldQty = Number(oldItemQtyMap.get(productId) || 0);
-          const newQty = Number(newItemQtyMap.get(productId) || 0);
-          const delta = oldQty - newQty;
-          if (!delta) continue;
-          await Product.findByIdAndUpdate(productId, { $inc: { quantity: delta } }, { new: true });
-          await deriveChildQty(productId);
-        }
-      }
-
       const oldWasCompleted = existingTransaction.status === 'completed';
       const newIsCompleted = normalizedStatus === 'completed';
+
+      if (existingTransaction.inventoryUpdated && oldWasCompleted) {
+        await reverseInventoryForRefund(existingTransaction.items || []);
+      }
+
       const oldTillId = existingTransaction.tillId ? String(existingTransaction.tillId) : null;
       const newTillId = tillId ? String(tillId) : oldTillId;
       const oldTotal = Number(existingTransaction.total || 0);
@@ -238,18 +235,31 @@ export default async function handler(req, res) {
       existingTransaction.customerName = customerName || existingTransaction.customerName;
       existingTransaction.status = normalizedStatus;
       existingTransaction.subStatus = subStatus || 'edited';
-      existingTransaction.tillId = newTillId ? new (require('mongoose')).Types.ObjectId(newTillId) : existingTransaction.tillId;
+      existingTransaction.tillId = newTillId ? new mongoose.Types.ObjectId(newTillId) : existingTransaction.tillId;
+      existingTransaction.incrementAmount = Number(incrementAmount || 0);
+      existingTransaction.promotionValueType = promotionValueType || null;
+      existingTransaction.customerType = customerType || null;
       existingTransaction.updatedAt = new Date();
+      // Preserve held-by info (keep original if not provided)
+      if (heldByStaffName) existingTransaction.heldByStaffName = heldByStaffName;
+      if (heldByStaffId) existingTransaction.heldByStaffId = heldByStaffId;
+      existingTransaction.inventoryUpdated = false;
 
       if (hasMultiplePayments) {
         existingTransaction.tenderPayments = tenderPayments;
-        existingTransaction.tenderType = undefined;
+        existingTransaction.tenderType = null;
       } else {
-        existingTransaction.tenderType = tenderType;
+        existingTransaction.tenderType = tenderType || null;
         existingTransaction.tenderPayments = [];
       }
 
       await existingTransaction.save();
+
+      if (newIsCompleted) {
+        await updateInventoryForSale(mappedItems);
+        existingTransaction.inventoryUpdated = true;
+        await existingTransaction.save();
+      }
 
       return res.status(200).json({
         success: true,
@@ -303,7 +313,18 @@ export default async function handler(req, res) {
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
-        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - externalId ${externalId}`);
+        console.log(`⚠️ Duplicate transaction detected - externalId ${externalId}`);
+        // Retry inventory update if it was missed on original save
+        if (!existingTransaction.inventoryUpdated && existingTransaction.status === 'completed') {
+          try {
+            await updateInventoryForSale(mappedItems);
+            existingTransaction.inventoryUpdated = true;
+            await existingTransaction.save();
+            console.log('✅ Retried inventory update on duplicate detection');
+          } catch (retryErr) {
+            console.warn('⚠️ Retry inventory update failed:', retryErr.message);
+          }
+        }
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -314,7 +335,18 @@ export default async function handler(req, res) {
     } else {
       const existingByKey = await Transaction.findOne({ dedupeKey });
       if (existingByKey) {
-        console.log(`âš ï¸ Duplicate transaction detected - dedupeKey ${dedupeKey}`);
+        console.log(`⚠️ Duplicate transaction detected - dedupeKey ${dedupeKey}`);
+        // Retry inventory update if it was missed on original save
+        if (!existingByKey.inventoryUpdated && existingByKey.status === 'completed') {
+          try {
+            await updateInventoryForSale(mappedItems);
+            existingByKey.inventoryUpdated = true;
+            await existingByKey.save();
+            console.log('✅ Retried inventory update on duplicate detection');
+          } catch (retryErr) {
+            console.warn('⚠️ Retry inventory update failed:', retryErr.message);
+          }
+        }
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -328,7 +360,7 @@ export default async function handler(req, res) {
       const existingTransaction = await Transaction.findOne({
         createdAt: new Date(createdAt),
         total: total,
-        tillId: new (require('mongoose')).Types.ObjectId(tillId),
+        tillId: new mongoose.Types.ObjectId(tillId),
         location: normalizedLocation
       });
       
@@ -376,7 +408,12 @@ export default async function handler(req, res) {
       items: mappedItems,
       transactionType: 'pos',
       createdAt: createdAt ? new Date(createdAt) : new Date(),
-      tillId: tillId ? new (require('mongoose')).Types.ObjectId(tillId) : null,
+      tillId: tillId ? new mongoose.Types.ObjectId(tillId) : null,
+      ...(heldByStaffName && { heldByStaffName }),
+      ...(heldByStaffId && { heldByStaffId }),
+      ...(incrementAmount && { incrementAmount }),
+      ...(promotionValueType && { promotionValueType }),
+      ...(customerType && { customerType }),
     });
 
     // Save to database
@@ -448,11 +485,13 @@ export default async function handler(req, res) {
     // Update product quantities after successful transaction save (idempotent)
     if (!savedTransaction.inventoryUpdated && isCompletedTransaction) {
       try {
+        console.log('📦 Updating inventory for items:', JSON.stringify(mappedItems.map(i => ({ productId: i.productId, qty: i.qty, name: i.name }))));
         await updateInventoryForSale(mappedItems);
         savedTransaction.inventoryUpdated = true;
         await savedTransaction.save();
+        console.log('✅ Inventory updated successfully');
       } catch (updateErr) {
-        console.warn('Warning: Failed to update product quantities:', updateErr.message);
+        console.error('❌ Failed to update product quantities:', updateErr.message, updateErr.stack);
       }
     }
     return res.status(201).json({

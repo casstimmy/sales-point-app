@@ -325,9 +325,13 @@ export default function CustomersScreen({ onNavigateToMenu }) {
                 <span className="ml-3 bg-white/20 px-2 py-1 rounded text-sm">
                   <FontAwesomeIcon icon={faPercent} className="w-3 h-3 mr-1" />
                   {activeCart.appliedPromotion.name}: 
-                  {activeCart.appliedPromotion.discountType === 'PERCENTAGE' 
-                    ? ` ${activeCart.appliedPromotion.discountValue}% off`
-                    : ` ₦${activeCart.appliedPromotion.discountValue} off`
+                  {activeCart.appliedPromotion.valueType === 'INCREMENT'
+                    ? activeCart.appliedPromotion.discountType === 'PERCENTAGE'
+                      ? ` ${activeCart.appliedPromotion.discountValue}% increase`
+                      : ` ₦${activeCart.appliedPromotion.discountValue} added`
+                    : activeCart.appliedPromotion.discountType === 'PERCENTAGE'
+                      ? ` ${activeCart.appliedPromotion.discountValue}% off`
+                      : ` ₦${activeCart.appliedPromotion.discountValue} off`
                   }
                 </span>
               )}

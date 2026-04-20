@@ -220,6 +220,7 @@ export async function saveTransactionOffline(transaction) {
         .objectStore('transactions');
         
       const txData = {
+        id: transaction.id || generatedId,
         ...transaction,
         externalId: transaction.externalId || generatedId,
         clientId: transaction.clientId || generatedId,

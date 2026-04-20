@@ -43,7 +43,7 @@ export async function updateInventoryForSale(items) {
   for (const item of validItems) {
     const product = productMap.get(String(item.productId));
 
-    if (product && product.isChildProduct && product.parentProduct) {
+    if (product && product.isChildProduct && product.parentProduct && product.packType !== "pack") {
       // CHILD sold -> DO NOT touch child qty. Redirect to parent.
       const parentId = String(product.parentProduct);
       const current = childToParent.get(parentId) || 0;
@@ -99,6 +99,7 @@ export async function updateInventoryForSale(items) {
     const child = await Product.findOne({
       parentProduct: parentId,
       isChildProduct: true,
+      packType: { $ne: "pack" },
     }).select("_id").lean();
 
     if (child) {
@@ -130,7 +131,7 @@ export async function reverseInventoryForRefund(items) {
 
   for (const item of validItems) {
     const product = productMap.get(String(item.productId));
-    if (product && product.isChildProduct && product.parentProduct) {
+    if (product && product.isChildProduct && product.parentProduct && product.packType !== "pack") {
       const parentId = String(product.parentProduct);
       const current = childToParent.get(parentId) || 0;
       childToParent.set(parentId, current + Number(item.qty));
@@ -177,7 +178,7 @@ export async function deriveChildQty(productId) {
       .lean();
     if (!product) return;
 
-    if (product.isChildProduct && product.parentProduct) {
+    if (product.isChildProduct && product.parentProduct && product.packType !== "pack") {
       const parent = await Product.findById(product.parentProduct)
         .select("quantity qtyPerPack")
         .lean();
@@ -189,6 +190,7 @@ export async function deriveChildQty(productId) {
       const child = await Product.findOne({
         parentProduct: productId,
         isChildProduct: true,
+        packType: { $ne: "pack" },
       }).select("_id").lean();
       if (child) {
         const newChildQty = product.quantity * product.qtyPerPack;

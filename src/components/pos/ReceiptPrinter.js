@@ -314,6 +314,9 @@ export default function ReceiptPrinter({
     subtotal = 0,
     tax = 0,
     discount = 0,
+    incrementAmount = 0,
+    promotionValueType = null,
+    customerType = null,
     change = 0,
     staffName = 'Unknown Staff',
     location = 'Default Location',
@@ -400,6 +403,12 @@ export default function ReceiptPrinter({
             <span>Staff: {staffName}</span>
             <span style={{ textAlign: 'right' }}>Till #1</span>
           </div>
+          
+          {customerType && (
+            <div className="detail-row">
+              <span>Customer Type: {customerType}</span>
+            </div>
+          )}
         </div>
 
         {/* Separator */}
@@ -451,10 +460,17 @@ export default function ReceiptPrinter({
             </div>
           )}
 
-          {discount > 0 && (
+          {discount > 0 && promotionValueType !== 'INCREMENT' && (
             <div className="total-row">
               <span>Discount:</span>
               <span style={{ textAlign: 'right' }}>-{formatNaira(discount)}</span>
+            </div>
+          )}
+
+          {(incrementAmount > 0 || promotionValueType === 'INCREMENT') && (
+            <div className="total-row">
+              <span>{customerType || 'Service Fee'}:</span>
+              <span style={{ textAlign: 'right' }}>{formatNaira(incrementAmount || discount)}</span>
             </div>
           )}
 

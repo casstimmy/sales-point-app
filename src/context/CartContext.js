@@ -280,6 +280,8 @@ export function CartProvider({ children }) {
       return;
     }
 
+    const holdReferenceId = state.activeCart.id || `order_${Date.now()}`;
+
     // Calculate total for the held order
     const items = state.activeCart.items;
     const appliedPromotion = state.activeCart.appliedPromotion;
@@ -319,9 +321,11 @@ export function CartProvider({ children }) {
 
     const newOrder = {
       ...state.activeCart,
-      id: `order_${Date.now()}`,
+      id: holdReferenceId,
+      recallSourceTransactionId:
+        state.activeCart.recallSourceTransactionId || holdReferenceId,
       status: 'HELD',
-      createdAt: new Date().toISOString(),
+      createdAt: state.activeCart.createdAt || new Date().toISOString(),
       // Store staff and location info when holding
       staffMember: staffInfo || state.activeCart.staffMember,
       location: locationInfo || state.activeCart.location,
@@ -352,14 +356,21 @@ export function CartProvider({ children }) {
       ? locationInfo 
       : (locationInfo?.name || locationInfo?.code || 'Default Location');
     
+    // If this cart was recalled from an existing held transaction, update it instead of creating a new one
+    const existingHeldId = state.activeCart.recallSourceTransactionId || null;
+
     const heldTransaction = {
+      id: holdReferenceId,
+      externalId: holdReferenceId,
+      clientId: holdReferenceId,
+      ...(existingHeldId ? { editTransactionId: existingHeldId } : {}),
       items: transactionItems,
       total: subtotal,
       subtotal: subtotal,
       tax: 0,
       discount: state.activeCart.discountAmount || 0,
       staffName: staffInfo?.name || staffInfo || 'POS Staff',
-      staffId: staffInfo?.id || null,
+      staffId: staffInfo?._id || staffInfo?.id || null,
       location: locationString,
       device: state.activeCart.device || 'POS',
       tableName: state.activeCart.tableName || null,
@@ -368,9 +379,11 @@ export function CartProvider({ children }) {
       tenderType: null, // No payment tender for held orders
       amountPaid: 0,
       change: 0,
-      createdAt: new Date().toISOString(),
+      createdAt: existingHeldId ? (state.activeCart.createdAt || new Date().toISOString()) : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       tillId: state.activeCart.tillId || null,
+      heldByStaffName: staffInfo?.name || staffInfo || 'POS Staff',
+      heldByStaffId: staffInfo?._id || staffInfo?.id || null,
     };
 
     // Save held transaction to database (online) or queue offline
@@ -573,14 +586,20 @@ export function CartProvider({ children }) {
       (sum, item) => sum + item.price * item.quantity - (item.discount || 0),
       0
     );
-    const discountAmount = rawSubtotal - subtotal + fixedDiscountAmount;
+    const priceDifference = rawSubtotal - subtotal + fixedDiscountAmount;
+    const isIncrement = appliedPromotion?.active && appliedPromotion?.valueType === 'INCREMENT';
+    // For increments, the "discount" is actually negative (price went up), so discountAmount should be 0
+    // For discounts, it's positive (price went down)
+    const discountAmount = isIncrement ? fixedDiscountAmount : Math.max(0, priceDifference);
+    const incrementAmount = isIncrement ? Math.abs(rawSubtotal - subtotal) : 0;
 
     // Debug: Log final totals
     if (appliedPromotion) {
       console.log('💰 TOTALS DEBUG:', {
         rawSubtotal,
         subtotalAfterPromotion: subtotal,
-        discountAmount: Math.abs(discountAmount),
+        discountAmount,
+        incrementAmount,
         fixedDiscountAmount,
         discountedSubtotal,
         total
@@ -589,7 +608,9 @@ export function CartProvider({ children }) {
 
     return {
       subtotal: rawSubtotal,
-      discountAmount: Math.abs(discountAmount),
+      discountAmount,
+      incrementAmount,
+      promotionValueType: appliedPromotion?.active ? appliedPromotion.valueType : null,
       discountedSubtotal,
       tax,
       total,

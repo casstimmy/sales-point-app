@@ -47,11 +47,18 @@ const TransactionSchema = new mongoose.Schema({
   change: Number,
   discount: Number,
   discountReason: String,
+  incrementAmount: Number, // Amount added by INCREMENT promotions (not a discount)
+  promotionValueType: String, // "DISCOUNT" or "INCREMENT" - tracks promotion type
+  customerType: String, // Customer type / promotion name for display
   
   // References
   staff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
   staffName: String, // Staff name for quick lookup (denormalized)
   location: String, // Store location as string (location name or 'online')
+  
+  // Held-by tracking (who originally held the transaction)
+  heldByStaffName: String,
+  heldByStaffId: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
   
   // Device & Table info
   device: String,
