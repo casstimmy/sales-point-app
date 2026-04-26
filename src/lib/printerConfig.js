@@ -52,17 +52,22 @@ export async function testPrinterConnection(settings) {
   }
 
   try {
-    const response = await fetch('/api/printer/test-connection', {
+    const response = await fetch('/api/printer/status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ip: settings.ip,
         port: settings.port,
+        connectionMode: settings.connectionMode || 'network',
       }),
     });
 
     const data = await response.json();
-    return data;
+    return {
+      success: data.available === true,
+      message: data.message || (data.available ? 'Printer reachable' : 'Printer unavailable'),
+      ...data,
+    };
   } catch (error) {
     return {
       success: false,

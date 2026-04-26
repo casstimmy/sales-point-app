@@ -5,7 +5,7 @@
  * Uses StaffLogin for auth and EpoNowLayout for POS interface.
  */
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import StaffLogin from "./StaffLogin";
 import POSLayout from "./POSLayout";
@@ -13,18 +13,11 @@ import HelpChatBot from "../common/HelpChatBot";
 import UnsyncedDataModal from "../common/UnsyncedDataModal";
 import { useStaff } from "../../context/StaffContext";
 import { getStoreLogo } from "../../lib/logoCache";
-import useInactivityLogout from "../../hooks/useInactivityLogout";
 
 const Layout = ({ children }) => {
-  const { staff, location, logout } = useStaff();
+  const { staff, location } = useStaff();
   const [isMounted, setIsMounted] = useState(false);
   const [showUnsyncedModal, setShowUnsyncedModal] = useState(false);
-
-  // Auto-logout after 5 hours of inactivity
-  const handleInactivityLogout = useCallback(() => {
-    if (staff && location) logout();
-  }, [staff, location, logout]);
-  useInactivityLogout(handleInactivityLogout);
 
   // Prevent hydration mismatch - ensure client-side rendering
   useEffect(() => {

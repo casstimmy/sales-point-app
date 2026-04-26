@@ -1,15 +1,26 @@
 /**
  * Thank You Note Modal
- * 
- * Displays a beautiful thank you message after payment completion
- * Shows company logo, thank you message, contact info, and welcoming design
+ *
+ * Displays a polished post-payment customer message that matches the
+ * upgraded receipt styling.
  */
 
 import React from 'react';
 import Image from 'next/image';
 import { getStoreLogo } from '../../lib/logoCache';
 
-export default function ThankYouNote({ 
+function ContactPill({ label, value }) {
+  if (!value) return null;
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white/85 px-4 py-3 text-left shadow-sm">
+      <div className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</div>
+      <div className="mt-1 break-words text-sm font-medium text-slate-800">{value}</div>
+    </div>
+  );
+}
+
+export default function ThankYouNote({
   isOpen = false,
   onClose = () => {},
   receiptSettings = {},
@@ -24,19 +35,20 @@ export default function ThankYouNote({
     qrUrl = '',
     qrDescription = 'Visit us online',
     receiptMessage = 'Thank you for shopping with us!',
+    refundDays = 0,
   } = receiptSettings;
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      {/* Main Container - Cyan/Teal color scheme consistent with login page */}
-      <div className="bg-gradient-to-br from-cyan-500 via-cyan-600 to-cyan-700 text-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center">
-        {/* Logo Container - Always displays with fallback */}
-        <div className="mb-8 flex justify-center">
-          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg overflow-hidden">
-            <Image 
-              src={logoSrc} 
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm">
+      <div className="relative w-full max-w-xl overflow-hidden rounded-[32px] border border-white/70 bg-[linear-gradient(180deg,#f9fafb_0%,#f3f4f6_55%,#eef6ff_100%)] shadow-[0_30px_80px_rgba(15,23,42,0.35)]">
+        <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-cyan-600 via-sky-500 to-emerald-500" />
+
+        <div className="relative px-6 pb-6 pt-8 sm:px-8 sm:pb-8">
+          <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full border border-white/70 bg-white shadow-lg overflow-hidden">
+            <Image
+              src={logoSrc}
               alt="Company Logo"
               width={80}
               height={80}
@@ -45,72 +57,74 @@ export default function ThankYouNote({
                 e.target.onerror = null;
                 e.target.src = '/images/placeholder.jpg';
               }}
+              unoptimized
             />
           </div>
-        </div>
 
-        {/* Thank You Title */}
-        <h1 className="text-5xl font-bold mb-4 text-white drop-shadow-lg">THANK YOU!</h1>
-
-        {/* Decorative Divider */}
-        <div className="w-20 h-1.5 bg-white opacity-90 mx-auto mb-8 rounded-full shadow-md"></div>
-
-        {/* Company Name */}
-        <div className="text-3xl font-bold mb-8 text-white drop-shadow-md">
-          {companyDisplayName}
-        </div>
-
-        {/* Custom Message */}
-        {receiptMessage && (
-          <p className="text-lg italic mb-8 leading-relaxed whitespace-pre-line opacity-95 font-medium">
-            {receiptMessage}
-          </p>
-        )}
-
-        {/* Contact Information - Clean layout */}
-        <div className="my-8 text-base leading-relaxed opacity-90 space-y-3">
-          {storePhone && (
-            <div className="flex items-center justify-center gap-2">
-              <span>📞</span>
-              <span>{storePhone}</span>
+          <div className="text-center">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.35em] text-cyan-700">
+              Receipt Complete
             </div>
-          )}
-          {email && (
-            <div className="flex items-center justify-center gap-2">
-              <span>📧</span>
-              <span>{email}</span>
-            </div>
-          )}
-          {website && (
-            <div className="flex items-center justify-center gap-2">
-              <span>🌐</span>
-              <span>{website}</span>
-            </div>
-          )}
-        </div>
-
-        {/* QR Code Section - if available */}
-        {qrUrl && (
-          <div className="mt-8 pt-8 border-t border-white border-opacity-40">
-            <p className="text-sm opacity-90 mb-4 font-semibold">{qrDescription}</p>
-            <div className="bg-white rounded-lg p-3 w-24 h-24 mx-auto flex items-center justify-center shadow-lg">
-              <Image src={qrUrl} alt="QR Code" width={96} height={96} className="object-contain" />
-            </div>
+            <h1
+              className="mt-3 text-4xl font-semibold tracking-tight text-slate-900 sm:text-5xl"
+              style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
+            >
+              Thank you
+            </h1>
+            <div className="mt-3 text-xl font-semibold text-slate-800 sm:text-2xl">{companyDisplayName}</div>
           </div>
-        )}
 
-        {/* Closing Message */}
-        <div className="mt-8 text-base opacity-90 font-medium">
-          <p>We look forward to seeing you again soon!</p>
+          {receiptMessage && (
+            <div className="mt-6 rounded-[28px] border border-white/70 bg-white/80 px-5 py-5 text-center shadow-sm">
+              <p className="text-base leading-7 text-slate-700 whitespace-pre-line">{receiptMessage}</p>
+            </div>
+          )}
+
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <ContactPill label="Phone" value={storePhone} />
+            <ContactPill label="Email" value={email} />
+            <ContactPill label="Website" value={website} />
+          </div>
+
+          {(refundDays > 0 || qrUrl) && (
+            <div className="mt-6 rounded-[28px] border border-slate-200 bg-white/80 p-5 shadow-sm">
+              {refundDays > 0 && (
+                <div className="text-center text-sm font-medium text-slate-600">
+                  Keep this receipt for returns within <span className="font-bold text-slate-900">{refundDays} days</span>.
+                </div>
+              )}
+
+              {qrUrl && (
+                <div className="mt-4 flex flex-col items-center">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.25em] text-slate-500">
+                    {qrDescription}
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                    <Image
+                      src={qrUrl}
+                      alt="QR Code"
+                      width={104}
+                      height={104}
+                      className="object-contain"
+                      unoptimized
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="mt-6 text-center text-sm text-slate-600">
+            We look forward to serving you again soon.
+          </div>
+
+          <button
+            onClick={onClose}
+            className="mt-7 w-full rounded-2xl bg-slate-900 px-6 py-4 text-base font-semibold text-white shadow-lg transition hover:bg-slate-800"
+          >
+            Continue
+          </button>
         </div>
-
-        {/* Continue Button - Welcoming style */}
-        <button
-          onClick={onClose}
-          className="mt-8 px-10 py-3 bg-white text-cyan-700 rounded-full font-bold hover:bg-cyan-50 transition-all duration-300 w-full text-lg shadow-lg hover:shadow-xl transform hover:scale-105"
-        >
-          CONTINUE
-        </button>
       </div>
     </div>
   );

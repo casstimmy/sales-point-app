@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     // Default settings (always return 200 with defaults if no store)
     const defaultSettings = {
       companyDisplayName: "St's Michael Hub",
-      companyLogo: "/images/logo.png",
+      companyLogo: "/images/placeholder.jpg",
       storePhone: "",
       email: "",
       website: "",
@@ -79,7 +79,7 @@ export default async function handler(req, res) {
       success: true,
       settings: {
         companyDisplayName: "St's Michael Hub",
-        companyLogo: "/images/logo.png",
+        companyLogo: "/images/placeholder.jpg",
         storePhone: "",
         email: "",
         website: "",
