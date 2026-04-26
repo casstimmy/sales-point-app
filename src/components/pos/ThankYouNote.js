@@ -46,7 +46,7 @@ export default function ThankYouNote({
         <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-r from-cyan-600 via-sky-500 to-emerald-500" />
 
         <div className="relative px-6 pb-6 pt-8 sm:px-8 sm:pb-8">
-          <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-full border border-white/70 bg-white shadow-lg overflow-hidden">
+          <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-white/70 bg-white shadow-lg">
             <Image
               src={logoSrc}
               alt="Company Logo"
@@ -76,7 +76,7 @@ export default function ThankYouNote({
 
           {receiptMessage && (
             <div className="mt-6 rounded-[28px] border border-white/70 bg-white/80 px-5 py-5 text-center shadow-sm">
-              <p className="text-base leading-7 text-slate-700 whitespace-pre-line">{receiptMessage}</p>
+              <p className="whitespace-pre-line text-base leading-7 text-slate-700">{receiptMessage}</p>
             </div>
           )}
 

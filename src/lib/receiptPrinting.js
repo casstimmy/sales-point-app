@@ -413,8 +413,8 @@ function generateReceiptHTML(transaction, settings) {
   const bodyFontSize = `${baseFontSize.toFixed(1)}pt`;
   const compactFontSize = `${Math.max(baseFontSize - 1.1, 7.1).toFixed(1)}pt`;
   const smallFontSize = `${Math.max(baseFontSize - 1.6, 6.7).toFixed(1)}pt`;
-  const titleFontSize = `${Math.min(baseFontSize + 2.0, 13.0).toFixed(1)}pt`;
-  const totalFontSize = `${Math.min(baseFontSize + 1.0, 11.5).toFixed(1)}pt`;
+  const titleFontSize = `${Math.min(baseFontSize + 1.8, 12.8).toFixed(1)}pt`;
+  const totalFontSize = `${Math.min(baseFontSize + 0.9, 11.3).toFixed(1)}pt`;
 
   const formatNaira = (amount) =>
     `\u20A6${Number(amount || 0).toLocaleString('en-NG', {
@@ -515,23 +515,14 @@ function generateReceiptHTML(transaction, settings) {
           .receipt {
             width: 100%;
             margin: 0;
-            padding: 2.6mm 2.3mm 3.2mm;
+            padding: 2.6mm 2.3mm 3mm;
             color: #111827;
-          }
-          .eyebrow {
-            margin-bottom: 1.2mm;
-            text-align: center;
-            font-size: ${smallFontSize};
-            font-weight: 700;
-            letter-spacing: 0.18em;
-            text-transform: uppercase;
-            color: #4b5563;
           }
           .header {
             text-align: center;
             border-bottom: 1px solid #111827;
-            padding-bottom: 2.4mm;
-            margin-bottom: 2.2mm;
+            padding-bottom: 2.3mm;
+            margin-bottom: 2.1mm;
           }
           .logo {
             max-width: 36mm;
@@ -552,11 +543,11 @@ function generateReceiptHTML(transaction, settings) {
           }
           .company-info {
             font-size: ${compactFontSize};
-            line-height: 1.4;
+            line-height: 1.42;
             color: #374151;
           }
           .receipt-title {
-            margin: 2mm 0 1.4mm;
+            margin: 0 0 1.5mm;
             text-align: center;
             font-size: ${compactFontSize};
             font-weight: 700;
@@ -750,7 +741,7 @@ function generateReceiptHTML(transaction, settings) {
             .receipt {
               width: 100%;
               margin: 0;
-              padding: 2.6mm 2.3mm 3.2mm;
+              padding: 2.6mm 2.3mm 3mm;
             }
             @page {
               size: 58mm auto;
@@ -763,7 +754,6 @@ function generateReceiptHTML(transaction, settings) {
       <body>
         <div class="receipt-page">
           <div class="receipt">
-            <div class="eyebrow">Official Receipt</div>
             <div class="header">
               ${safeCompanyLogo ? `<div style="text-align: center;"><img src="${escapeHtml(safeCompanyLogo)}" class="logo" alt="Logo" onerror="this.style.display='none'"></div>` : ''}
               <div class="company-name">${escapeHtml(companyDisplayName)}</div>
@@ -852,8 +842,7 @@ function generateReceiptHTML(transaction, settings) {
             ` : ''}
 
             <div class="footer">
-              <div>Please keep this receipt for support and returns.</div>
-              <div style="margin-top: 0.8mm;">Powered by ${escapeHtml(companyDisplayName)}</div>
+              <div>Powered by BizSuits</div>
             </div>
           </div>
         </div>

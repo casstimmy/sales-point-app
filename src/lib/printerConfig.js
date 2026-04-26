@@ -95,7 +95,7 @@ export async function sendDirectPrint(transaction, receiptSettings, printerSetti
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('❌ Error sending to printer:', error);
+    console.error('Error sending to printer:', error);
     return {
       success: false,
       message: error.message,
