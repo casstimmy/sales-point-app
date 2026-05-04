@@ -11,6 +11,8 @@ import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
 import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { ROOM_STATUSES } from '@/src/lib/roomReservations';
+import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -111,6 +113,7 @@ export default async function handler(req, res) {
     }
 
     const mappedItems = (items || []).map(item => ({
+      ...item,
       productId: item.productId || item.id,
       name: item.name,
       salePriceIncTax: item.price || item.salePriceIncTax || 0,
@@ -190,6 +193,12 @@ export default async function handler(req, res) {
         await transaction.save();
       } catch (quantityErr) {
         console.warn('Warning: Failed to update product quantities from sync:', quantityErr.message);
+      }
+
+      try {
+        await markRoomsFromTransaction(mappedItems, transaction, ROOM_STATUSES.OCCUPIED);
+      } catch (roomOccupancyErr) {
+        console.warn('Warning: Failed to update room occupancy from sync:', roomOccupancyErr.message);
       }
     }
     return res.status(200).json({

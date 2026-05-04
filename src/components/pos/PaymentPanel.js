@@ -25,6 +25,7 @@ import { getUiSettings } from "@/src/lib/uiSettings";
 import { getStoreLogo } from "@/src/lib/logoCache";
 import ThankYouNote from "./ThankYouNote";
 import OpenTillModal from "./OpenTillModal";
+import { getRoomReservationDetails, hasCompleteRoomReservation, isRoomProduct } from "../../lib/roomReservations";
 
 export default function PaymentPanel() {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -80,15 +81,24 @@ export default function PaymentPanel() {
         throw new Error("Till not open. Please open a till before payment.");
       }
 
+      const incompleteRoomItem = activeCart.items.find(
+        (item) => isRoomProduct(item) && !hasCompleteRoomReservation(item)
+      );
+      if (incompleteRoomItem) {
+        throw new Error(`Booking details are incomplete for ${incompleteRoomItem.name}.`);
+      }
+
       const clientId = `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const editTransactionId = activeCart.recallSourceTransactionId || null;
 
       const transaction = {
         items: activeCart.items.map((item) => ({
+          ...item,
           productId: item.id,
           name: item.name,
-          quantity: item.quantity,
+          quantity: isRoomProduct(item) ? 1 : item.quantity,
           price: item.price,
+          reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : undefined,
         })),
         ...(editTransactionId ? {} : { externalId: clientId, clientId }),
         ...(editTransactionId ? { editTransactionId, subStatus: "edited" } : {}),

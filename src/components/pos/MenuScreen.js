@@ -35,6 +35,15 @@ import { getLocalCategories, getLocalProductsByCategory, syncCategories, syncPro
 import { initOfflineSync, getOnlineStatus, getImageUrl, shouldShowPlaceholder, syncPendingTransactions, syncPendingTillCloses } from '../../lib/offlineSync';
 import { cleanupOldTransactions } from '../../lib/indexedDBCleanup';
 import AlphaKeyboardModal from '../common/AlphaKeyboardModal';
+import RoomReservationModal from './RoomReservationModal';
+import {
+  getRoomReservationDetails,
+  getRoomStatusLabel,
+  isRoomProduct,
+  isRoomUnavailable,
+  ROOM_PRODUCT_TYPE,
+  ROOM_STATUSES,
+} from '../../lib/roomReservations';
 
 // Color mapping for categories
 const CATEGORY_COLORS = {
@@ -163,10 +172,88 @@ export default function MenuScreen() {
   const [isOnline, setIsOnline] = useState(true); // Track online status
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
   const [showSearchKeyboard, setShowSearchKeyboard] = useState(false);
+  const [reservationProduct, setReservationProduct] = useState(null);
   const imageObserver = useRef(null);
   const handleManualSyncRef = useRef(null);
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
+
+  const updateRoomAvailabilityLocally = useCallback((items = [], nextStatus = ROOM_STATUSES.OCCUPIED) => {
+    const roomIds = new Set(
+      (Array.isArray(items) ? items : [])
+        .filter((item) => isRoomProduct(item))
+        .map((item) => String(item.productId || item.id || ''))
+        .filter(Boolean)
+    );
+
+    if (roomIds.size === 0) return;
+
+    const applyStatus = (productList = []) => productList.map((product) => {
+      const productId = String(product?._id || product?.id || '');
+      if (!roomIds.has(productId)) return product;
+      return {
+        ...product,
+        productType: ROOM_PRODUCT_TYPE,
+        roomStatus: nextStatus,
+      };
+    });
+
+    setProducts((prev) => applyStatus(prev));
+    setAllProducts((prev) => applyStatus(prev));
+
+    try {
+      const cachedProducts = JSON.parse(localStorage.getItem('cachedProducts') || '[]');
+      const updatedCachedProducts = applyStatus(Array.isArray(cachedProducts) ? cachedProducts : []);
+      localStorage.setItem('cachedProducts', JSON.stringify(updatedCachedProducts));
+      syncProducts(updatedCachedProducts).catch(() => {});
+    } catch (error) {
+      console.warn('⚠️ Could not update cached room availability:', error?.message || error);
+    }
+  }, []);
+
+  const handleProductSelect = useCallback((product) => {
+    if (isRoomProduct(product)) {
+      if (isRoomUnavailable(product)) {
+        return;
+      }
+
+      const roomId = String(product._id || product.id || '');
+      const existingRoomItem = activeCart.items.find((item) => String(item.id) === roomId);
+
+      setReservationProduct({
+        ...product,
+        existingReservation: existingRoomItem ? getRoomReservationDetails(existingRoomItem) : null,
+      });
+      return;
+    }
+
+    addItem({
+      id: product._id || product.id,
+      name: product.name,
+      price: product.salePriceIncTax,
+      category: product.category,
+      quantity: 1,
+      productType: product.productType || 'standard',
+    });
+  }, [activeCart.items, addItem]);
+
+  const handleReservationConfirm = useCallback((reservationDetails) => {
+    if (!reservationProduct) return;
+
+    addItem({
+      id: reservationProduct._id || reservationProduct.id,
+      name: reservationProduct.name,
+      price: reservationProduct.salePriceIncTax,
+      category: reservationProduct.category,
+      quantity: 1,
+      productType: reservationProduct.productType || ROOM_PRODUCT_TYPE,
+      roomStatus: reservationProduct.roomStatus || ROOM_STATUSES.AVAILABLE,
+      reservationDetails,
+      notes: reservationDetails.notes || '',
+    });
+
+    setReservationProduct(null);
+  }, [addItem, reservationProduct]);
 
   // Initialize offline sync on mount ONLY (empty deps — runs once)
   useEffect(() => {
@@ -205,7 +292,8 @@ export default function MenuScreen() {
   // Listen for transaction completion to refresh products (separate effect so it
   // re-binds when selectedCategory changes, but doesn't re-run initOfflineSync)
   useEffect(() => {
-    const handleTransactionCompleted = async () => {
+    const handleTransactionCompleted = async (event) => {
+      updateRoomAvailabilityLocally(event?.detail?.transaction?.items || [], ROOM_STATUSES.OCCUPIED);
       console.log('📲 Transaction completed event received, refreshing products...');
 
       // Check if auto-refresh is enabled in UI settings
@@ -300,7 +388,7 @@ export default function MenuScreen() {
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
       window.removeEventListener('online', handleBackOnline);
     };
-  }, [selectedCategory, location]);
+  }, [selectedCategory, location, updateRoomAvailabilityLocally]);
 
   // Listen for sidebar cloud sync to refresh products/categories/images
   useEffect(() => {
@@ -956,14 +1044,13 @@ export default function MenuScreen() {
                   {searchResults.map(product => (
                     <button
                       key={product._id || product.id}
-                      onClick={() => addItem({
-                        id: product._id || product.id,
-                        name: product.name,
-                        price: product.salePriceIncTax,
-                        category: product.category,
-                        quantity: 1,
-                      })}
-                      className="relative bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
+                      onClick={() => handleProductSelect(product)}
+                      disabled={isRoomUnavailable(product)}
+                      className={`relative bg-white rounded-lg border-2 transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] ${
+                        isRoomUnavailable(product)
+                          ? 'border-red-200 opacity-60 cursor-not-allowed'
+                          : 'border-green-200 hover:border-green-400 hover:shadow-lg'
+                      }`}
                     >
                       {/* Top Row: Image + Details Side by Side */}
                       <div className="flex h-14 sm:h-16">
@@ -1007,8 +1094,15 @@ export default function MenuScreen() {
                             {product.name}
                           </div>
                           <div className="flex items-center justify-between mt-1">
-                            {/* Stock Badge */}
-                            {product.quantity !== undefined && (
+                            {isRoomProduct(product) ? (
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
+                                isRoomUnavailable(product)
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-emerald-100 text-emerald-700'
+                              }`}>
+                                {getRoomStatusLabel(product.roomStatus)}
+                              </span>
+                            ) : product.quantity !== undefined && (
                               <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
                                 product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                                 product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
@@ -1069,14 +1163,13 @@ export default function MenuScreen() {
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
-                    onClick={() => addItem({
-                      id: product._id || product.id,
-                      name: product.name,
-                      price: product.salePriceIncTax,
-                      category: product.category,
-                      quantity: 1,
-                    })}
-                    className="relative bg-white rounded border border-gray-200 hover:border-cyan-400 hover:shadow-md transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] w-full"
+                    onClick={() => handleProductSelect(product)}
+                    disabled={isRoomUnavailable(product)}
+                    className={`relative bg-white rounded border transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] w-full ${
+                      isRoomUnavailable(product)
+                        ? 'border-red-200 opacity-60 cursor-not-allowed'
+                        : 'border-gray-200 hover:border-cyan-400 hover:shadow-md'
+                    }`}
                   >
                     {/* Top Row: Image + Details Side by Side */}
                     <div className="flex h-14 sm:h-16">
@@ -1115,8 +1208,15 @@ export default function MenuScreen() {
                           {product.name}
                         </div>
                         <div className="flex items-center justify-end mt-0.5">
-                          {/* Stock Badge - Right Aligned */}
-                          {product.quantity !== undefined && (
+                          {isRoomProduct(product) ? (
+                            <span className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
+                              isRoomUnavailable(product)
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-emerald-100 text-emerald-700'
+                            }`}>
+                              {getRoomStatusLabel(product.roomStatus)}
+                            </span>
+                          ) : product.quantity !== undefined && (
                             <span className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
                               product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                               product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
@@ -1172,6 +1272,13 @@ export default function MenuScreen() {
         }}
         onClose={() => setShowSearchKeyboard(false)}
         onSubmit={handleSearchClick}
+      />
+
+      <RoomReservationModal
+        product={reservationProduct}
+        initialReservation={reservationProduct?.existingReservation || null}
+        onClose={() => setReservationProduct(null)}
+        onConfirm={handleReservationConfirm}
       />
     </div>
   );

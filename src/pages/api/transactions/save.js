@@ -13,6 +13,8 @@ import Product from '@/src/models/Product';
 import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { ROOM_STATUSES } from '@/src/lib/roomReservations';
+import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -182,6 +184,7 @@ export default async function handler(req, res) {
 
     // Map items to schema format
     const mappedItems = items.map(item => ({
+      ...item,
       productId: item.productId || item.id,
       name: item.name,
       salePriceIncTax: item.price || item.salePriceIncTax,
@@ -289,6 +292,12 @@ export default async function handler(req, res) {
         await savedTransaction.save();
       } catch (quantityErr) {
         console.warn('Warning: Failed to update product quantities:', quantityErr.message);
+      }
+
+      try {
+        await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.OCCUPIED);
+      } catch (roomOccupancyErr) {
+        console.warn('Warning: Failed to update room occupancy:', roomOccupancyErr.message);
       }
     }
     return res.status(200).json({

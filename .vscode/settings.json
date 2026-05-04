@@ -35,6 +35,42 @@
         "/^npx next lint --file src/components/layout/StaffLogin\\.js --file src/pages/settings\\.js$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\sales-point-app\"; npx next lint --file src/models/Product\\.js --file src/pages/api/products/index\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx next lint --file src/models/Product\\.js --file src/models/HotelBooking\\.js --file src/lib/roomProducts\\.js --file src/lib/roomReservations\\.js --file src/lib/syncPackQty\\.js --file src/context/CartContext\\.js --file src/components/pos/MenuScreen\\.js --file src/components/pos/RoomReservationModal\\.js --file src/components/pos/CartPanel\\.js --file src/components/pos/PaymentPanel\\.js --file src/pages/api/products/index\\.js --file src/pages/api/transactions/index\\.js --file src/pages/api/transactions/refund\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\inventory-admin-app\"; npx eslint models/Product\\.js components/ProductForm\\.js pages/api/products/index\\.js pages/api/hotel/reservations/\\[id\\]\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx eslint models/Product\\.js components/ProductForm\\.js pages/api/products/index\\.js pages/api/hotel/reservations/\\[id\\]\\.js; if \\(\\$LASTEXITCODE -eq 0\\) \\{ Write-Output 'OK' \\}$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\sales-point-app\"; npx next lint --file src/components/pos/PaymentPanel\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\inventory-admin-app\"; npx eslint models/Product\\.js pages/api/products/index\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx eslint models/Product\\.js components/ProductForm\\.js pages/api/products/index\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\sales-point-app\"; npx next lint --file src/lib/roomReservations\\.js --file src/context/CartContext\\.js --file src/components/pos/MenuScreen\\.js --file src/components/pos/RoomReservationModal\\.js --file src/components/pos/CartPanel\\.js --file src/components/pos/PaymentPanel\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx next lint --file src/lib/roomAvailability\\.js --file src/lib/roomReservations\\.js --file src/pages/api/transactions/index\\.js --file src/pages/api/transactions/save\\.js --file src/pages/api/transactions/sync\\.js --file src/pages/api/transactions/refund\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

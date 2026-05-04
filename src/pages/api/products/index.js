@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     }
 
     let products = await Product.find(query)
-      .select("_id name category salePriceIncTax quantity images description locations isChildProduct parentProduct packType qtyPerPack childSalePrice")
+      .select("_id name category salePriceIncTax quantity images description locations isChildProduct parentProduct packType qtyPerPack childSalePrice productType roomStatus currentBooking")
       .limit(500)
       .lean();
 

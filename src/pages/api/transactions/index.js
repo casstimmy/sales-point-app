@@ -12,6 +12,8 @@ import mongoose from 'mongoose';
 import { updateInventoryForSale, reverseInventoryForRefund } from '@/src/lib/syncPackQty';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { ROOM_STATUSES } from '@/src/lib/roomReservations';
+import { markRoomsFromTransaction, releaseRoomsFromTransaction } from '@/src/lib/roomAvailability';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -160,6 +162,7 @@ export default async function handler(req, res) {
       }
 
       const mappedItems = items.map(item => ({
+        ...item,
         productId: item.productId || item.id,
         name: item.name,
         salePriceIncTax: item.price || item.salePriceIncTax || 0,
@@ -168,6 +171,7 @@ export default async function handler(req, res) {
 
       const oldWasCompleted = existingTransaction.status === 'completed';
       const newIsCompleted = normalizedStatus === 'completed';
+      const previousRoomItems = existingTransaction.items || [];
 
       if (existingTransaction.inventoryUpdated && oldWasCompleted) {
         await reverseInventoryForRefund(existingTransaction.items || []);
@@ -255,10 +259,24 @@ export default async function handler(req, res) {
 
       await existingTransaction.save();
 
+      if (oldWasCompleted) {
+        try {
+          await releaseRoomsFromTransaction(previousRoomItems, existingTransaction);
+        } catch (roomReleaseErr) {
+          console.warn('⚠️ Failed to release existing room booking state:', roomReleaseErr.message);
+        }
+      }
+
       if (newIsCompleted) {
         await updateInventoryForSale(mappedItems);
         existingTransaction.inventoryUpdated = true;
         await existingTransaction.save();
+
+        try {
+          await markRoomsFromTransaction(mappedItems, existingTransaction, ROOM_STATUSES.OCCUPIED);
+        } catch (roomOccupancyErr) {
+          console.warn('⚠️ Failed to update room occupancy for edited transaction:', roomOccupancyErr.message);
+        }
       }
 
       return res.status(200).json({
@@ -377,6 +395,7 @@ export default async function handler(req, res) {
 
     // Map items to schema format (qty, salePriceIncTax)
     const mappedItems = items.map(item => ({
+      ...item,
       productId: item.productId || item.id,
       name: item.name,
       salePriceIncTax: item.price || item.salePriceIncTax || 0,
@@ -492,6 +511,12 @@ export default async function handler(req, res) {
         console.log('✅ Inventory updated successfully');
       } catch (updateErr) {
         console.error('❌ Failed to update product quantities:', updateErr.message, updateErr.stack);
+      }
+
+      try {
+        await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.OCCUPIED);
+      } catch (roomOccupancyErr) {
+        console.warn('⚠️ Failed to update room occupancy:', roomOccupancyErr.message);
       }
     }
     return res.status(201).json({
