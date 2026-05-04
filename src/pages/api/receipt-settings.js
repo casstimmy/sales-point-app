@@ -31,9 +31,10 @@ export default async function handler(req, res) {
       refundDays: 0,
       receiptMessage: "Thank you for shopping with us!",
       qrUrl: "",
+      qrDataUrl: "",
       qrDescription: "Please scan and leave us a review",
       paymentStatus: "paid",
-      fontSize: "10.0",
+      fontSize: "8.0",
     };
 
     if (!store) {
@@ -59,6 +60,7 @@ export default async function handler(req, res) {
       refundDays: store.refundDays || defaultSettings.refundDays,
       receiptMessage: store.receiptMessage || defaultSettings.receiptMessage,
       qrUrl: store.qrUrl || defaultSettings.qrUrl,
+      qrDataUrl: store.qrDataUrl || defaultSettings.qrDataUrl,
       qrDescription: store.qrDescription || defaultSettings.qrDescription,
       paymentStatus: store.paymentStatus || defaultSettings.paymentStatus,
       fontSize: store.fontSize || defaultSettings.fontSize,
@@ -88,9 +90,10 @@ export default async function handler(req, res) {
         refundDays: 0,
         receiptMessage: "Thank you for shopping with us!",
         qrUrl: "",
+        qrDataUrl: "",
         qrDescription: "Please scan and leave us a review",
         paymentStatus: "paid",
-        fontSize: "10.0",
+        fontSize: "8.0",
       },
       error: error.message,
     });

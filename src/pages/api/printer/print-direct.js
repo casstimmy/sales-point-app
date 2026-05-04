@@ -16,6 +16,8 @@
 
 import ESCPOSPrinter from '@/src/lib/escpos';
 
+const RECEIPT_WIDTH = 32;
+
 // Format Nigerian Naira
 function formatNaira(amount) {
   return `₦${(amount || 0).toLocaleString('en-NG', {
@@ -33,9 +35,80 @@ function formatDateTime(dateString) {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
     hour12: false,
   });
+}
+
+function sanitizeText(value = '') {
+  return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function truncateText(value, width) {
+  const normalized = sanitizeText(value);
+  if (normalized.length <= width) return normalized;
+  if (width <= 1) return normalized.slice(0, width);
+  return `${normalized.slice(0, width - 1)}...`;
+}
+
+function wrapText(value, width = RECEIPT_WIDTH) {
+  const normalized = sanitizeText(value);
+  if (!normalized) return [];
+
+  const words = normalized.split(' ');
+  const lines = [];
+  let current = '';
+
+  for (const word of words) {
+    if (word.length > width) {
+      if (current) {
+        lines.push(current);
+        current = '';
+      }
+
+      let remaining = word;
+      while (remaining.length > width) {
+        lines.push(`${remaining.slice(0, width - 1)}-`);
+        remaining = remaining.slice(width - 1);
+      }
+      current = remaining;
+      continue;
+    }
+
+    const next = current ? `${current} ${word}` : word;
+    if (next.length <= width) {
+      current = next;
+    } else {
+      lines.push(current);
+      current = word;
+    }
+  }
+
+  if (current) {
+    lines.push(current);
+  }
+
+  return lines;
+}
+
+function alignLine(left, right, width = RECEIPT_WIDTH) {
+  const safeRight = truncateText(right, Math.min(width - 1, sanitizeText(right).length || width - 1));
+  const maxLeft = Math.max(0, width - safeRight.length - 1);
+  const safeLeft = truncateText(left, maxLeft);
+  const spaces = Math.max(1, width - safeLeft.length - safeRight.length);
+  return `${safeLeft}${' '.repeat(spaces)}${safeRight}`;
+}
+
+function printWrapped(printer, text, alignment = 0, bold = false) {
+  printer.setAlignment(alignment).setBold(bold);
+  const lines = wrapText(text, RECEIPT_WIDTH);
+
+  if (lines.length === 0) {
+    printer.text('');
+  } else {
+    lines.forEach((line) => printer.text(line));
+  }
+
+  printer.setBold(false);
 }
 
 // Generate receipt ESC/POS commands
@@ -49,13 +122,18 @@ function generateReceiptCommands(transaction, settings) {
     subtotal = 0,
     tax = 0,
     discount = 0,
+    incrementAmount = 0,
+    promotionValueType = null,
+    customerType = '',
     change = 0,
     staffName = 'Unknown Staff',
     location = 'Default Location',
+    locationName,
     locationAddress = '',
     createdAt = new Date().toISOString(),
     tenderPayments = [],
     _id = '',
+    status = 'paid',
   } = transaction;
 
   const {
@@ -66,121 +144,123 @@ function generateReceiptCommands(transaction, settings) {
     businessAddress = '',
     taxNumber = '',
     refundDays = 0,
+    receiptMessage = '',
     qrUrl = '',
     qrDescription = 'Scan and leave feedback',
     paymentStatus = 'paid',
   } = settings;
 
+  const displayLocation = locationName || location || companyDisplayName;
+  const displayAddress = locationAddress || businessAddress;
+  const contactLine = [storePhone ? `Tel: ${storePhone}` : '', website, email].filter(Boolean).join(' | ');
+  const shortReceiptId = String(_id || '').substring(0, 8).toUpperCase() || 'RECEIPT';
+  const totalItems = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+  const incrementLabel = incrementAmount > 0 || promotionValueType === 'INCREMENT'
+    ? (customerType || 'Service Fee')
+    : '';
+  const incrementValue = incrementAmount || (promotionValueType === 'INCREMENT' ? discount : 0);
+  const receiptStatus = String(status || paymentStatus || 'paid').trim().toUpperCase() || 'PAID';
+
   // Header
-  printer.setSize(1, 2).setAlignment(1).setBold(true);
-  printer.text(companyDisplayName);
+  printer.setAlignment(1).setSize(1, 1).setBold(true);
+  wrapText(companyDisplayName.toUpperCase(), RECEIPT_WIDTH).forEach((line) => printer.text(line));
+  printer.setBold(false);
+  if (displayLocation) printWrapped(printer, displayLocation, 1);
+  if (displayAddress) printWrapped(printer, displayAddress, 1);
+  if (contactLine) printWrapped(printer, contactLine, 1);
+  if (taxNumber) printWrapped(printer, `Tax ID: ${taxNumber}`, 1);
 
-  // Store Info
-  printer.setAlignment(1);
-  printer.text(location);
-  if (locationAddress || businessAddress) printer.text(locationAddress || businessAddress);
-  if (storePhone) printer.text(`Tel: ${storePhone}`);
-  if (email) printer.text(email);
-  if (website) printer.text(website);
-  if (taxNumber) printer.text(`Tax ID: ${taxNumber}`);
-
-  // Separator
-  printer.setAlignment(0);
+  printer.setAlignment(0).separator('-', RECEIPT_WIDTH);
 
   // Receipt Details
-  printer.setAlignment(0).setBold(false);
-  printer.text('Receipt of Purchase (Inc Tax)');
-  printer.text(`${formatDateTime(createdAt)} ${_id.substring(0, 8)}`);
-  printer.text(`Staff: ${staffName}                 Till #1`);
-
-  // Items Header
   printer.setBold(true);
-  printer.text('PRODUCT              QTY    PRICE');
+  printer.text(tax > 0 ? 'SALES RECEIPT (INC TAX)' : 'SALES RECEIPT');
   printer.setBold(false);
+  printer.text(alignLine(formatDateTime(createdAt), shortReceiptId));
+  printer.text(truncateText(`STAFF: ${staffName}`, RECEIPT_WIDTH));
+  if (customerType) {
+    printer.text(truncateText(`CUSTOMER: ${customerType}`, RECEIPT_WIDTH));
+  }
+
+  printer.separator('-', RECEIPT_WIDTH);
 
   // Items
+  printer.setBold(true);
+  printer.text(alignLine('ITEM xQTY', 'AMT'));
+  printer.setBold(false);
   items.forEach((item) => {
-    const itemName = item.name.substring(0, 20).padEnd(20);
-    const qty = String(item.quantity).padStart(3);
-    const price = formatNaira(item.price * item.quantity).padStart(8);
-    printer.text(`${itemName}${qty}${price}`);
+    const quantity = Number(item.quantity || 0);
+    const lineTotal = formatNaira(Number(item.price || 0) * quantity);
+    const descriptor = `${sanitizeText(item.name || 'Item')} x${quantity}`;
+    printer.text(alignLine(descriptor, lineTotal));
   });
+  printer.text(alignLine('Total Qty', String(totalItems)));
 
-  // Total items
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  printer.text(`Total Items: ${totalItems}`.padStart(32));
+  printer.separator('-', RECEIPT_WIDTH);
 
   // Totals
-  printer.text(`Subtotal:${formatNaira(subtotal).padStart(24)}`);
+  printer.text(alignLine('Subtotal', formatNaira(subtotal)));
   if (tax > 0) {
-    printer.text(`Tax:${formatNaira(tax).padStart(28)}`);
+    printer.text(alignLine('Tax', formatNaira(tax)));
   }
-  if (discount > 0) {
-    printer.text(`Discount:${formatNaira(discount).padStart(23)}`);
+  if (discount > 0 && promotionValueType !== 'INCREMENT') {
+    printer.text(alignLine('Discount', `-${formatNaira(discount)}`));
+  }
+  if (incrementLabel) {
+    printer.text(alignLine(incrementLabel, formatNaira(incrementValue)));
   }
 
   printer.setBold(true);
-  printer.text(`TOTAL:${formatNaira(total).padStart(26)}`);
+  printer.text(alignLine('TOTAL', formatNaira(total)));
+  if (change > 0) {
+    printer.text(alignLine('CHANGE', formatNaira(change)));
+  }
   printer.setBold(false);
+
+  printer.separator('-', RECEIPT_WIDTH);
 
   // Payment
   printer.setBold(true);
-  printer.text('PAYMENT BY TENDER');
+  printer.text('PAYMENT');
   printer.setBold(false);
 
   if (tenderPayments && tenderPayments.length > 0) {
     tenderPayments.forEach((payment) => {
-      const name = (payment.tenderName || 'Unknown').padEnd(20);
-      const amount = formatNaira(payment.amount).padStart(12);
-      printer.text(`${name}${amount}`);
+      printer.text(alignLine(payment.tenderName || 'Unknown', formatNaira(payment.amount)));
     });
   } else {
-    const name = 'CASH'.padEnd(20);
-    const amount = formatNaira(total).padStart(12);
-    printer.text(`${name}${amount}`);
+    printer.text(alignLine('Cash', formatNaira(total)));
   }
 
-  // Change
-  if (change > 0) {
-
-    const name = 'CHANGE'.padEnd(20);
-    const amount = formatNaira(change).padStart(12);
-    printer.setBold(true);
-    printer.text(`${name}${amount}`);
-    printer.setBold(false);
+  if (refundDays > 0 || receiptMessage) {
+    printer.separator('-', RECEIPT_WIDTH);
   }
 
-
-
-  // Thank you
-  printer.setAlignment(1).setBold(true);
-  printer.text('THANK YOU!');
-  printer.setBold(false);
-
-  // Refund policy
   if (refundDays > 0) {
-    printer.setAlignment(1);
-    printer.text(`Refund within ${refundDays} days with receipt`);
+    printWrapped(printer, `Refund within ${refundDays} days with receipt`, 1);
   }
 
-  // Status
-  printer.setAlignment(1).setBold(true);
-  printer.text(`   ${paymentStatus.toUpperCase()}   `);
-  printer.setBold(false);
+  if (receiptMessage) {
+    String(receiptMessage).split(/\r?\n/).forEach((line) => {
+      printWrapped(printer, line, 1);
+    });
+  }
 
-  // QR Code
   if (qrUrl) {
-    printer.setAlignment(1);
     printer.newLine();
-    printer.text(qrDescription);
+    if (qrDescription) {
+      printWrapped(printer, qrDescription, 1);
+    }
+    printer.setAlignment(1);
     printer.qrcode(qrUrl, 3);
   }
 
   // Footer
-  printer.setAlignment(1);
-  printer.newLine();
-  printer.text('Thank you for shopping with us!');
- ;
+  printer.setAlignment(1).newLine();
+  printer.setBold(true);
+  printer.text('THANK YOU');
+  printer.text(receiptStatus);
+  printer.setBold(false);
 
   // Cut paper
   printer.partialCut();

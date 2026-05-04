@@ -15,6 +15,18 @@
         "/^npx next dev 2>&1$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\sales-point-app\"; npx next lint --file src/lib/receiptPrinting\\.js --file src/pages/api/printer/print-direct\\.js --file src/pages/api/receipt-settings\\.js --file src/models/Store\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^Set-Location \"c:\\\\Users\\\\hp\\\\Desktop\\\\Projects\\\\Inventory-sales\\\\Inventory\\\\inventory-admin-app\"; npx eslint pages/setup/receipts\\.js pages/api/setup/setup\\.js models/Store\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx eslint pages/setup/receipts\\.js pages/api/setup/setup\\.js models/Store\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
