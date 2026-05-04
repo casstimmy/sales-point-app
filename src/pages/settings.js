@@ -58,6 +58,7 @@ const PAYMENT_SCALE_OPTIONS = [
 
 const CONTENT_SCALE_MIN = 60;
 const CONTENT_SCALE_MAX = 150;
+const normalizeLocationId = (value) => String(value?._id || value || '').trim();
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -80,6 +81,9 @@ export default function SettingsPage() {
   const [saveLabel, setSaveLabel] = useState('Save Settings');
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const canAccessSettings = hasPosPermission(staff, 'settingsAccess');
+  const selectedVisibleLocationIds = (settings.login?.visibleLocationIds || [])
+    .map((id) => normalizeLocationId(id))
+    .filter(Boolean);
 
   // Track online/offline status
   useEffect(() => {
@@ -224,10 +228,13 @@ export default function SettingsPage() {
 
   const toggleLocationVisibility = (locationId) => {
     setSettings((prev) => {
-      const current = prev.login?.visibleLocationIds || [];
-      const next = current.includes(locationId)
-        ? current.filter((id) => id !== locationId)
-        : [...current, locationId];
+      const normalizedLocationId = normalizeLocationId(locationId);
+      const current = (prev.login?.visibleLocationIds || [])
+        .map((id) => normalizeLocationId(id))
+        .filter(Boolean);
+      const next = current.includes(normalizedLocationId)
+        ? current.filter((id) => id !== normalizedLocationId)
+        : [...current, normalizedLocationId];
       return {
         ...prev,
         login: {
@@ -841,10 +848,11 @@ export default function SettingsPage() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {allLocations.map((loc) => {
-                        const isSelected = (settings.login?.visibleLocationIds || []).includes(loc._id);
+                        const locationId = normalizeLocationId(loc._id);
+                        const isSelected = selectedVisibleLocationIds.includes(locationId);
                         return (
                           <label
-                            key={loc._id}
+                            key={locationId}
                             className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
                               isSelected
                                 ? 'border-teal-400 bg-teal-50'
@@ -854,7 +862,7 @@ export default function SettingsPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => toggleLocationVisibility(loc._id)}
+                              onChange={() => toggleLocationVisibility(locationId)}
                               className="accent-teal-600"
                             />
                             <div>

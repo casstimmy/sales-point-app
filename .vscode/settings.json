@@ -27,6 +27,14 @@
         "/^npx eslint pages/setup/receipts\\.js pages/api/setup/setup\\.js models/Store\\.js$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^npx next lint --file src/components/layout/StaffLogin\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
+        },
+        "/^npx next lint --file src/components/layout/StaffLogin\\.js --file src/pages/settings\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }

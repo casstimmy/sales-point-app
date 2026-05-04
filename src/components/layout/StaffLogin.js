@@ -17,7 +17,15 @@ import {
   faSync,
 } from "@fortawesome/free-solid-svg-icons";
 import { normalizeStaffList, normalizeStaffMember } from "@/src/lib/posPermissions";
-import { getUiSettings } from "@/src/lib/uiSettings";
+import { getUiSettings, saveUiSettings } from "@/src/lib/uiSettings";
+
+const normalizeId = (value) => String(value?._id || value || "").trim();
+
+const idsMatch = (left, right) => {
+  const normalizedLeft = normalizeId(left);
+  const normalizedRight = normalizeId(right);
+  return Boolean(normalizedLeft && normalizedRight && normalizedLeft === normalizedRight);
+};
 
 /**
  * Professional POS Login Page
@@ -58,6 +66,16 @@ export default function StaffLogin() {
     const ui = getUiSettings();
     return ui.login || {};
   });
+  const configuredVisibleLocationIds = (loginSettings.visibleLocationIds || [])
+    .map((id) => normalizeId(id))
+    .filter(Boolean);
+  const filteredVisibleLocations = configuredVisibleLocationIds.length > 0
+    ? locations.filter((loc) => configuredVisibleLocationIds.includes(normalizeId(loc?._id)))
+    : locations;
+  const hasInvalidVisibleLocationFilter = configuredVisibleLocationIds.length > 0
+    && locations.length > 0
+    && filteredVisibleLocations.length === 0;
+  const visibleLocations = hasInvalidVisibleLocationFilter ? locations : filteredVisibleLocations;
 
   const isRestrictedStaffRole = useCallback((role) => {
     const normalized = String(role || "").trim().toLowerCase();
@@ -71,25 +89,36 @@ export default function StaffLogin() {
 
   const resolveStaffLocationId = useCallback((member) => {
     if (!member) return "";
-    const directId = member.locationId?.toString?.() || member.locationId || "";
-    if (directId && locations.some((loc) => String(loc._id) === String(directId))) {
-      return String(directId);
+    const directId = normalizeId(member.locationId);
+    if (directId && locations.some((loc) => idsMatch(loc?._id, directId))) {
+      return directId;
     }
 
     if (member.locationName) {
       const matched = locations.find((loc) => loc.name === member.locationName);
-      if (matched?._id) return String(matched._id);
+      if (matched?._id) return normalizeId(matched._id);
     }
 
     if (member.location) {
       const matched = locations.find(
-        (loc) => String(loc._id) === String(member.location) || loc.name === member.location
+        (loc) => idsMatch(loc?._id, member.location) || loc.name === member.location
       );
-      if (matched?._id) return String(matched._id);
+      if (matched?._id) return normalizeId(matched._id);
     }
 
     return "";
   }, [locations]);
+
+  const visibleStaffMembers = selectedLocation
+    ? staff.filter((member) => {
+        if (!isNonAdminRole(member.role)) {
+          return true;
+        }
+
+        const assignedLocationId = resolveStaffLocationId(member);
+        return !assignedLocationId || idsMatch(assignedLocationId, selectedLocation);
+      })
+    : staff;
 
   const runWithTimeout = async (promise, ms = 8000) => {
     let timeoutId;
@@ -139,6 +168,20 @@ export default function StaffLogin() {
     return payload?.message || "Unable to log in. Please check your details and try again.";
   }, []);
 
+  const handleResetLocationVisibility = useCallback(() => {
+    const currentSettings = getUiSettings();
+    const nextSettings = {
+      ...currentSettings,
+      login: {
+        ...(currentSettings.login || {}),
+        visibleLocationIds: [],
+      },
+    };
+
+    saveUiSettings(nextSettings);
+    setLoginSettings(nextSettings.login || {});
+  }, []);
+
   /* Load cached staff and locations from localStorage */
   const loadCachedData = useCallback(() => {
     try {
@@ -171,7 +214,7 @@ export default function StaffLogin() {
         const locationsArray = JSON.parse(cachedLocations);
         setLocations(locationsArray);
         if (locationsArray.length > 0) {
-          setSelectedLocation(locationsArray[0]._id);
+          setSelectedLocation(normalizeId(locationsArray[0]._id));
         }
         console.log(`✅ Loaded ${locationsArray.length} locations from cache`);
         console.log(`📍 Locations available offline: ${locationsArray.map(l => l.name).join(', ')}`);
@@ -302,6 +345,41 @@ export default function StaffLogin() {
     };
   }, []);
 
+  useEffect(() => {
+    const handleSettingsUpdate = () => {
+      const latest = getUiSettings();
+      setLoginSettings(latest.login || {});
+    };
+
+    window.addEventListener("uiSettings:updated", handleSettingsUpdate);
+    return () => window.removeEventListener("uiSettings:updated", handleSettingsUpdate);
+  }, []);
+
+  useEffect(() => {
+    if (visibleLocations.length === 0) {
+      if (selectedLocation) {
+        setSelectedLocation("");
+        setSelectedStaff("");
+      }
+      return;
+    }
+
+    const locationStillVisible = visibleLocations.some((loc) => idsMatch(loc?._id, selectedLocation));
+    if (!locationStillVisible) {
+      setSelectedLocation(normalizeId(visibleLocations[0]._id));
+      setSelectedStaff("");
+    }
+  }, [visibleLocations, selectedLocation]);
+
+  useEffect(() => {
+    if (!selectedStaff) return;
+
+    const selectedStaffStillVisible = visibleStaffMembers.some((member) => idsMatch(member._id, selectedStaff));
+    if (!selectedStaffStillVisible) {
+      setSelectedStaff("");
+    }
+  }, [visibleStaffMembers, selectedStaff]);
+
   /* Fetch stores/locations and staff */
   useEffect(() => {
     const fetchData = async () => {
@@ -418,7 +496,7 @@ export default function StaffLogin() {
               preloadTendersForLocations(activeLocations);
               // Auto-select first location
               if (activeLocations.length > 0) {
-                setSelectedLocation(activeLocations[0]._id);
+                setSelectedLocation(normalizeId(activeLocations[0]._id));
               }
             }
           }
@@ -579,8 +657,8 @@ export default function StaffLogin() {
     console.log(`   Available locations from cache: ${locations.map(l => l.name).join(', ')}`);
     console.log(`   Available staff from cache: ${staff.map(s => s.name).join(', ')}`);
 
-    const selectedStaffData = normalizeStaffMember(staff.find(s => s._id === selectedStaff));
-    const selectedLocationData = locations.find(loc => loc._id === selectedLocation);
+    const selectedStaffData = normalizeStaffMember(staff.find((s) => idsMatch(s._id, selectedStaff)));
+    const selectedLocationData = locations.find((loc) => idsMatch(loc._id, selectedLocation));
 
     if (!selectedStaffData || !selectedLocationData) {
       const missingItem = !selectedStaffData ? 'Staff' : 'Location';
@@ -604,7 +682,7 @@ export default function StaffLogin() {
         // Till was closed offline, remove it and open a new one
         console.log("📴 Saved till was closed offline (pending sync), opening new till");
         localStorage.removeItem("till");
-      } else if (till && till._id && till.locationId === selectedLocationData._id) {
+      } else if (till && till._id && idsMatch(till.locationId, selectedLocationData._id)) {
         // Till is still open and matches selected location - resume it
         console.log("✅ Resuming existing open till offline:", till._id);
         login(selectedStaffData, selectedLocationData);
@@ -638,9 +716,9 @@ export default function StaffLogin() {
       setError("");
 
       const loginPayload = {
-        store: selectedStore,
-        location: selectedLocation,
-        staff: selectedStaff,
+        store: normalizeId(selectedStore),
+        location: normalizeId(selectedLocation),
+        staff: normalizeId(selectedStaff),
         pin: pin,
       };
 
@@ -774,7 +852,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  }, [selectedLocation, login, setCurrentTill, router, resolveStaffLocationId, normalizeStaffMember]);
+  }, [selectedLocation, login, setCurrentTill, router, resolveStaffLocationId]);
 
   const handlePinClick = (digit) => {
     if (pin.length < 4) {
@@ -802,9 +880,9 @@ export default function StaffLogin() {
   const handleResumeRequest = (till) => {
     // Set the till to resume and pre-select the staff member so user can enter PIN
     setResumeTill(till);
-    setSelectedStaff(till.staffId);
-    const loc = locations.find(l => l._id === till.locationId);
-    if (loc) setSelectedLocation(loc._id);
+    setSelectedStaff(normalizeId(till.staffId));
+    const loc = locations.find((l) => idsMatch(l._id, till.locationId));
+    if (loc) setSelectedLocation(normalizeId(loc._id));
     setPin("");
     setError("");
   };
@@ -820,8 +898,8 @@ export default function StaffLogin() {
       console.log("   Looking for location ID:", till.locationId);
 
       // Find the staff and location data from the till
-      let staffMember = staff.find(s => s._id === till.staffId);
-      let location = locations.find(loc => loc._id === till.locationId);
+      let staffMember = staff.find((s) => idsMatch(s._id, till.staffId));
+      let location = locations.find((loc) => idsMatch(loc._id, till.locationId));
 
       // If not found in local data, refresh and try again
       if (!staffMember || !location) {
@@ -834,7 +912,7 @@ export default function StaffLogin() {
           const staffList = staffData.data || staffData || [];
           const refreshedStaff = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
           setStaff(refreshedStaff);
-          staffMember = refreshedStaff.find(s => s._id === till.staffId);
+          staffMember = refreshedStaff.find((s) => idsMatch(s._id, till.staffId));
         }
 
         // Refresh locations data
@@ -844,7 +922,7 @@ export default function StaffLogin() {
           if (locData.store && Array.isArray(locData.store.locations)) {
             const refreshedLocations = locData.store.locations.filter(loc => loc.isActive !== false);
             setLocations(refreshedLocations);
-            location = refreshedLocations.find(loc => loc._id === till.locationId);
+            location = refreshedLocations.find((loc) => idsMatch(loc._id, till.locationId));
           }
         }
       }
@@ -899,7 +977,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router, normalizeStaffMember, normalizeStaffList]);
+  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router]);
 
   const handleKeyPress = useCallback((e) => {
     if (e.key === "Enter" && pin.length === 4 && selectedStore && selectedLocation && selectedStaff) {
@@ -915,17 +993,6 @@ export default function StaffLogin() {
     window.addEventListener("keypress", handleKeyPress);
     return () => window.removeEventListener("keypress", handleKeyPress);
   }, [handleKeyPress]);
-
-  useEffect(() => {
-    if (!selectedStaff) return;
-    const member = staff.find((item) => String(item._id) === String(selectedStaff));
-    if (!member || !isNonAdminRole(member.role)) return;
-
-    const assignedLocationId = resolveStaffLocationId(member);
-    if (assignedLocationId && assignedLocationId !== selectedLocation) {
-      setSelectedLocation(assignedLocationId);
-    }
-  }, [selectedStaff, staff, selectedLocation, isNonAdminRole, resolveStaffLocationId]);
 
   // Handle refresh of store/location data
   const handleRefreshData = async () => {
@@ -947,7 +1014,7 @@ export default function StaffLogin() {
             const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
             setLocations(activeLocations);
             if (activeLocations.length > 0) {
-              setSelectedLocation(activeLocations[0]._id);
+              setSelectedLocation(normalizeId(activeLocations[0]._id));
             }
             // Cache locations for offline use
             localStorage.setItem("cachedLocations", JSON.stringify(activeLocations));
@@ -1256,31 +1323,38 @@ export default function StaffLogin() {
                     <label className="text-white font-bold text-xs flex items-center gap-2">
                       📍 SELECT LOCATION {!isOnline && <span className="text-yellow-300 font-normal">(Cached)</span>}
                     </label>
-                    <button
-                      onClick={handleRefreshData}
-                      disabled={loadingData}
-                      className="px-2.5 py-1.5 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg transition border border-cyan-600 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5"
-                      title="Refresh locations from cloud/local"
-                    >
-                      <FontAwesomeIcon icon={faRedo} className={`w-3 h-3 ${loadingData ? 'animate-spin' : ''}`} />
-                      Refresh
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {configuredVisibleLocationIds.length > 0 && (
+                        <button
+                          onClick={handleResetLocationVisibility}
+                          className="px-2.5 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 rounded-lg transition border border-yellow-300 text-xs font-semibold"
+                          title="Clear saved location visibility filter"
+                        >
+                          Show All
+                        </button>
+                      )}
+                      <button
+                        onClick={handleRefreshData}
+                        disabled={loadingData}
+                        className="px-2.5 py-1.5 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg transition border border-cyan-600 disabled:opacity-50 text-xs font-semibold flex items-center gap-1.5"
+                        title="Refresh locations from cloud/local"
+                      >
+                        <FontAwesomeIcon icon={faRedo} className={`w-3 h-3 ${loadingData ? 'animate-spin' : ''}`} />
+                        Refresh
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {(() => {
-                      const visibleIds = loginSettings.visibleLocationIds || [];
-                      const filteredLocations = visibleIds.length > 0
-                        ? locations.filter((loc) => visibleIds.includes(loc._id))
-                        : locations;
-                      return filteredLocations.map((loc) => (
+                      return visibleLocations.map((loc) => (
                         <button
-                          key={loc._id}
+                          key={normalizeId(loc._id)}
                           onClick={() => {
-                            setSelectedLocation(loc._id);
+                            setSelectedLocation(normalizeId(loc._id));
                             setSelectedStaff("");
                           }}
                           className={`px-3 py-2.5 rounded-lg font-bold text-xs transition-all ${
-                            selectedLocation === loc._id
+                            idsMatch(selectedLocation, loc._id)
                               ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-md"
                               : "bg-cyan-700 text-white hover:bg-cyan-600 border border-cyan-600"
                           }`}
@@ -1290,6 +1364,11 @@ export default function StaffLogin() {
                       ));
                     })()}
                   </div>
+                  {hasInvalidVisibleLocationFilter && (
+                    <p className="text-yellow-200 text-xs mt-2 text-center">
+                      Saved login location filter no longer matches current locations. Showing all available locations.
+                    </p>
+                  )}
                   {locations.length === 0 && (
                     <p className="text-yellow-300 text-xs mt-2 text-center">
                       ⚠️ No locations cached. Please sync when online.
@@ -1303,22 +1382,16 @@ export default function StaffLogin() {
                 <div>
                   <p className="text-white font-semibold text-xs mb-2">SELECT STAFF</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[60vh] overflow-y-auto">
-                    {staff.length === 0 ? (
+                    {visibleStaffMembers.length === 0 ? (
                       <div className="text-white text-center py-4 bg-cyan-800 rounded-lg text-sm col-span-full">
-                        No staff available
+                        No staff available for the selected location
                       </div>
                     ) : (
-                      staff.map((member) => (
+                      visibleStaffMembers.map((member) => (
                         <button
                           key={member._id}
                           onClick={() => {
                             setSelectedStaff(member._id);
-                            if (isNonAdminRole(member.role)) {
-                              const assignedLocationId = resolveStaffLocationId(member);
-                              if (assignedLocationId) {
-                                setSelectedLocation(assignedLocationId);
-                              }
-                            }
                             // Staff role: quick login without PIN
                             if (String(member.role || "").trim().toLowerCase() === "staff") {
                               handleStaffQuickLogin(member);
