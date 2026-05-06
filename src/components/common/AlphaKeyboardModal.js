@@ -18,6 +18,8 @@ export default function AlphaKeyboardModal({
   value = "",
   title = "Search",
   placeholder = "Type here...",
+  valueLabel = "Search Text",
+  submitLabel = "SEARCH",
   onChange = () => {},
   onClose = () => {},
   onSubmit = () => {},
@@ -49,7 +51,7 @@ export default function AlphaKeyboardModal({
 
         <div className="p-3 sm:p-4 space-y-3">
           <div className="bg-white/10 border border-cyan-300/30 rounded-xl p-3 min-h-[74px]">
-            <div className="text-[11px] uppercase tracking-wide text-cyan-200 mb-1">Search Text</div>
+            <div className="text-[11px] uppercase tracking-wide text-cyan-200 mb-1">{valueLabel}</div>
             <div className="text-lg sm:text-2xl font-bold break-words min-h-[32px]">
               {value || <span className="text-cyan-200/70">{placeholder}</span>}
             </div>
@@ -99,7 +101,7 @@ export default function AlphaKeyboardModal({
               className="col-span-12 sm:col-span-2 bg-green-500 hover:bg-green-600 rounded-lg py-3 font-bold text-sm transition active:scale-95 flex items-center justify-center gap-2"
             >
               <FontAwesomeIcon icon={faSearch} className="w-4 h-4" />
-              <span>SEARCH</span>
+              <span>{submitLabel}</span>
             </button>
           </div>
         </div>

@@ -1,7 +1,8 @@
 /**
  * PrintPreview - Branded print preview overlay
- *
+ * 
  * Shows a styled preview of the receipt before printing.
+ * Replaces the raw browser print dialog trigger with a branded UI.
  */
 
 import { useState, useEffect, useRef } from 'react';
@@ -12,6 +13,12 @@ import { getStoreLogo } from '@/src/lib/logoCache';
 
 let resolvePromise = null;
 
+/**
+ * Show the branded print preview overlay.
+ * @param {string} receiptHTML - The receipt HTML to preview and print
+ * @param {Object} options - { companyName, transaction }
+ * @returns {Promise<boolean>} true if user clicked Print, false if cancelled
+ */
 export function showPrintPreview(receiptHTML, options = {}) {
   return new Promise((resolve) => {
     resolvePromise = resolve;
@@ -49,6 +56,7 @@ export default function PrintPreview() {
       const entry = { receiptHTML: html, companyName: name, transaction: tx };
 
       if (visible || printing) {
+        // Already showing a receipt — queue this one
         queueRef.current.push(entry);
         return;
       }
@@ -66,8 +74,10 @@ export default function PrintPreview() {
 
   const handlePrint = () => {
     setPrinting(true);
+    // Close the custom modal immediately so it doesn't overlap the OS print dialog
     setVisible(false);
 
+    // Create a hidden iframe to print
     const iframe = document.createElement('iframe');
     iframe.style.position = 'absolute';
     iframe.style.width = '0';
@@ -88,34 +98,28 @@ export default function PrintPreview() {
       try {
         iframe.contentWindow.focus();
         iframe.contentWindow.print();
-      } catch (error) {
-        console.error('Print error:', error);
+      } catch (e) {
+        console.error('Print error:', e);
       }
 
       setTimeout(() => {
         try {
           if (iframe.parentNode) document.body.removeChild(iframe);
-        } catch {}
+        } catch (e) {}
         setPrinting(false);
         resolvePromise?.(true);
         resolvePromise = null;
+        // Show next queued receipt
         showNext();
       }, 2000);
     };
 
+    // Wait for images to load
     const waitForImages = () => {
       const images = iframe.contentDocument.querySelectorAll('img');
-      if (images.length === 0) {
-        doPrint();
-        return;
-      }
-
+      if (images.length === 0) { doPrint(); return; }
       let loaded = 0;
-      const onReady = () => {
-        loaded += 1;
-        if (loaded >= images.length) doPrint();
-      };
-
+      const onReady = () => { loaded++; if (loaded >= images.length) doPrint(); };
       images.forEach((img) => {
         if (img.complete) onReady();
         else {
@@ -131,6 +135,7 @@ export default function PrintPreview() {
       iframe.contentWindow.addEventListener('load', waitForImages, { once: true });
     }
 
+    // Safety timeout (guarded by hasPrinted)
     setTimeout(doPrint, 1500);
   };
 
@@ -138,142 +143,99 @@ export default function PrintPreview() {
     setVisible(false);
     resolvePromise?.(false);
     resolvePromise = null;
+    // Show next queued receipt
     setTimeout(showNext, 150);
   };
 
   if (!visible) return null;
 
   const formatNaira = (amount) =>
-    `\u20A6${Number(amount || 0).toLocaleString('en-NG', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+    `₦${(amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-md">
-      <div className="w-full max-w-4xl overflow-hidden rounded-[28px] border border-white/70 bg-slate-50 shadow-[0_28px_80px_rgba(15,23,42,0.4)]">
-        <div className="bg-[linear-gradient(135deg,#0f172a_0%,#155e75_55%,#0f766e_100%)] px-6 py-5 text-white">
-          <div className="flex items-center gap-4">
-            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-full bg-white shadow">
-              <Image
-                src={getStoreLogo()}
-                alt="Logo"
-                width={32}
-                height={32}
-                className="object-contain"
-                unoptimized
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                }}
-              />
-            </div>
-
-            <div className="flex-1">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.28em] text-cyan-100">
-                Print Preview
-              </div>
-              <h2
-                className="mt-1 text-2xl font-semibold tracking-tight"
-                style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-              >
-                {companyName || 'Receipt Preview'}
-              </h2>
-              <p className="mt-1 text-sm text-cyan-100/90">
-                Review the receipt layout before sending it to the printer.
-              </p>
-            </div>
-
-            <button
-              onClick={handleCancel}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 transition hover:bg-white/20"
-            >
-              <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
-            </button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-gray-200">
+        {/* Branded Header */}
+        <div className="bg-gradient-to-r from-cyan-700 to-cyan-800 text-white px-5 py-4 flex items-center gap-3">
+          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow overflow-hidden">
+            <Image
+              src={getStoreLogo()}
+              alt="Logo"
+              width={32}
+              height={32}
+              className="object-contain"
+              unoptimized
+              onError={(e) => { e.target.style.display = 'none'; }}
+            />
           </div>
-
-          {queueRef.current.length > 0 && (
-            <div className="mt-4 inline-flex rounded-full bg-white/12 px-3 py-1 text-xs font-semibold tracking-wide text-cyan-50">
-              {queueRef.current.length} more receipt{queueRef.current.length === 1 ? '' : 's'} queued
-            </div>
-          )}
+          <div className="flex-1">
+            <h2 className="font-bold text-lg">{companyName || 'Print Receipt'}</h2>
+            <p className="text-cyan-200 text-xs">
+              Review and print your receipt
+              {queueRef.current.length > 0 && (
+                <span className="ml-2 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold">
+                  +{queueRef.current.length} more
+                </span>
+              )}
+            </p>
+          </div>
+          <button
+            onClick={handleCancel}
+            className="w-8 h-8 rounded-full hover:bg-white/20 flex items-center justify-center transition"
+          >
+            <FontAwesomeIcon icon={faTimes} className="w-4 h-4" />
+          </button>
         </div>
 
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_280px]">
-          <div className="border-b border-slate-200 bg-[#f1eee7] p-5 lg:border-b-0 lg:border-r">
-            <div className="rounded-[24px] border border-stone-300/80 bg-[linear-gradient(180deg,#f8f5ee_0%,#efe7d8_100%)] p-4 shadow-inner">
-              <div className="mb-3 flex items-center justify-between rounded-2xl border border-stone-300/80 bg-white/70 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-stone-600">
-                <span>Thermal Paper</span>
-                <span>58mm</span>
-              </div>
+        {/* Receipt Preview */}
+        <div className="p-4 bg-gray-50">
+          <div className="bg-white rounded-lg shadow-inner border border-gray-200 overflow-hidden max-h-[70vh] overflow-y-auto">
+            <iframe
+              ref={iframeRef}
+              srcDoc={receiptHTML}
+              className="w-full min-h-[500px] border-0"
+              title="Receipt Preview"
+              sandbox="allow-same-origin"
+            />
+          </div>
+        </div>
 
-              <div className="mx-auto max-w-[360px] overflow-hidden rounded-[22px] border border-stone-300 bg-white shadow-[0_18px_40px_rgba(71,85,105,0.18)]">
-                <iframe
-                  ref={iframeRef}
-                  srcDoc={receiptHTML}
-                  className="h-[620px] w-full border-0 bg-white"
-                  title="Receipt Preview"
-                  sandbox="allow-same-origin"
-                />
-              </div>
+        {/* Transaction Summary */}
+        {transaction && (
+          <div className="px-5 py-3 bg-gray-50 border-t border-gray-200">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Items: {transaction.items?.length || 0}</span>
+              <span className="font-bold text-gray-900">{formatNaira(transaction.total)}</span>
             </div>
           </div>
+        )}
 
-          <div className="flex flex-col bg-white">
-            <div className="border-b border-slate-200 px-6 py-5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
-                Print Summary
-              </div>
-              <div className="mt-3 space-y-3 text-sm text-slate-700">
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Items</span>
-                  <span className="font-semibold text-slate-900">{transaction?.items?.length || 0}</span>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Total</span>
-                  <span className="font-semibold text-slate-900">{formatNaira(transaction?.total)}</span>
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <span className="text-slate-500">Status</span>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-slate-700">
-                    {transaction?.status || 'paid'}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 px-6 py-5 text-sm leading-6 text-slate-600">
-              The preview uses the same HTML that will be printed, so spacing, type size, and section order should match the final receipt.
-            </div>
-
-            <div className="border-t border-slate-200 px-6 py-5">
-              <div className="flex gap-3">
-                <button
-                  onClick={handleCancel}
-                  disabled={printing}
-                  className="flex-1 rounded-2xl bg-slate-100 px-4 py-3 font-semibold text-slate-700 transition hover:bg-slate-200 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handlePrint}
-                  disabled={printing}
-                  className="flex flex-[1.25] items-center justify-center gap-2 rounded-2xl bg-[linear-gradient(135deg,#0f172a_0%,#155e75_70%,#0f766e_100%)] px-4 py-3 font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-70"
-                >
-                  {printing ? (
-                    <>
-                      <FontAwesomeIcon icon={faCheck} className="w-4 h-4 animate-pulse" />
-                      Printing...
-                    </>
-                  ) : (
-                    <>
-                      <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
-                      Print Receipt
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Action Buttons */}
+        <div className="px-5 py-4 bg-white border-t border-gray-200 flex gap-3">
+          <button
+            onClick={handleCancel}
+            disabled={printing}
+            className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handlePrint}
+            disabled={printing}
+            className="flex-[2] px-4 py-3 bg-gradient-to-r from-cyan-600 to-cyan-700 hover:from-cyan-700 hover:to-cyan-800 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 disabled:opacity-70 shadow-lg"
+          >
+            {printing ? (
+              <>
+                <FontAwesomeIcon icon={faCheck} className="w-4 h-4 animate-pulse" />
+                Printing...
+              </>
+            ) : (
+              <>
+                <FontAwesomeIcon icon={faPrint} className="w-4 h-4" />
+                Print Receipt
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

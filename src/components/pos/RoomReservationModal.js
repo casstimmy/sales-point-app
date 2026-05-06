@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
+import AlphaKeyboardModal from "../common/AlphaKeyboardModal";
+import NumKeypad from "../common/NumKeypad";
 
 function toDateInputValue(value) {
   if (!value) return "";
@@ -28,8 +30,27 @@ export default function RoomReservationModal({ product, initialReservation, onCl
   const [checkOutDate, setCheckOutDate] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState("");
+  const [activeTextField, setActiveTextField] = useState(null);
+  const [showPhoneKeypad, setShowPhoneKeypad] = useState(false);
 
   const defaults = useMemo(() => createDefaultReservation(), []);
+
+  const TEXT_FIELD_CONFIG = {
+    guestName: {
+      label: "Guest Name",
+      placeholder: "Guest full name",
+      value: guestName,
+      setValue: setGuestName,
+    },
+    notes: {
+      label: "Booking Notes",
+      placeholder: "Arrival time, special requests, or booking notes",
+      value: notes,
+      setValue: setNotes,
+    },
+  };
+
+  const activeTextConfig = activeTextField ? TEXT_FIELD_CONFIG[activeTextField] : null;
 
   useEffect(() => {
     if (!product) return;
@@ -40,9 +61,27 @@ export default function RoomReservationModal({ product, initialReservation, onCl
     setCheckOutDate(toDateInputValue(initialReservation?.checkOutAt) || defaults.checkOutDate);
     setNotes(initialReservation?.notes || defaults.notes);
     setError("");
+    setActiveTextField(null);
+    setShowPhoneKeypad(false);
   }, [defaults, initialReservation, product]);
 
   if (!product) return null;
+
+  const openTextKeyboard = (fieldName) => {
+    setActiveTextField(fieldName);
+    setError("");
+  };
+
+  const updateTextField = (value) => {
+    if (!activeTextConfig) return;
+    activeTextConfig.setValue(value);
+    if (error) setError("");
+  };
+
+  const handlePhoneChange = (value) => {
+    setGuestPhone(String(value || "").replace(/[^0-9]/g, ""));
+    if (error) setError("");
+  };
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -92,8 +131,10 @@ export default function RoomReservationModal({ product, initialReservation, onCl
               <span className="block text-sm font-semibold text-neutral-700 mb-1">Guest Name</span>
               <input
                 type="text"
+                readOnly
                 value={guestName}
-                onChange={(event) => setGuestName(event.target.value)}
+                onClick={() => openTextKeyboard("guestName")}
+                onFocus={() => openTextKeyboard("guestName")}
                 className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                 placeholder="Guest full name"
               />
@@ -103,8 +144,16 @@ export default function RoomReservationModal({ product, initialReservation, onCl
               <span className="block text-sm font-semibold text-neutral-700 mb-1">Phone</span>
               <input
                 type="text"
+                readOnly
                 value={guestPhone}
-                onChange={(event) => setGuestPhone(event.target.value)}
+                onClick={() => {
+                  setShowPhoneKeypad(true);
+                  setError("");
+                }}
+                onFocus={() => {
+                  setShowPhoneKeypad(true);
+                  setError("");
+                }}
                 className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
                 placeholder="Guest phone number"
               />
@@ -134,8 +183,10 @@ export default function RoomReservationModal({ product, initialReservation, onCl
           <label className="block">
             <span className="block text-sm font-semibold text-neutral-700 mb-1">Booking Notes</span>
             <textarea
+              readOnly
               value={notes}
-              onChange={(event) => setNotes(event.target.value)}
+              onClick={() => openTextKeyboard("notes")}
+              onFocus={() => openTextKeyboard("notes")}
               className="min-h-[100px] w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100"
               placeholder="Arrival time, special requests, or booking notes"
             />
@@ -168,6 +219,54 @@ export default function RoomReservationModal({ product, initialReservation, onCl
           </div>
         </form>
       </div>
+
+      <AlphaKeyboardModal
+        isOpen={Boolean(activeTextConfig)}
+        value={activeTextConfig?.value || ""}
+        title={activeTextConfig ? `Enter ${activeTextConfig.label}` : "Enter Text"}
+        placeholder={activeTextConfig?.placeholder || "Type here..."}
+        valueLabel={activeTextConfig?.label || "Input Text"}
+        submitLabel="APPLY"
+        onChange={updateTextField}
+        onClose={() => setActiveTextField(null)}
+        onSubmit={() => setActiveTextField(null)}
+      />
+
+      {showPhoneKeypad && (
+        <div className="fixed inset-0 z-[85] bg-black/60 flex items-end sm:items-center justify-center p-2 sm:p-4">
+          <div className="w-full max-w-md rounded-2xl border border-cyan-300/40 bg-white shadow-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-neutral-200 bg-gradient-to-r from-cyan-700 to-cyan-800 text-white">
+              <div className="font-bold text-sm sm:text-base">Enter Phone Number</div>
+              <div className="text-[11px] sm:text-xs text-cyan-100">Use the keypad to enter the guest phone number</div>
+            </div>
+
+            <div className="p-4 space-y-4">
+              <NumKeypad
+                value={guestPhone}
+                onChange={handlePhoneChange}
+                placeholder="Phone Number"
+              />
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPhoneKeypad(false)}
+                  className="rounded-lg bg-neutral-200 hover:bg-neutral-300 text-neutral-800 font-bold py-3 transition"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPhoneKeypad(false)}
+                  className="rounded-lg bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 transition"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

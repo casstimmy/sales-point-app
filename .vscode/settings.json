@@ -71,6 +71,10 @@
         "/^npx next lint --file src/lib/roomAvailability\\.js --file src/lib/roomReservations\\.js --file src/pages/api/transactions/index\\.js --file src/pages/api/transactions/save\\.js --file src/pages/api/transactions/sync\\.js --file src/pages/api/transactions/refund\\.js$/": {
             "approve": true,
             "matchCommandLine": true
+        },
+        "/^npx next lint --file src/components/common/AlphaKeyboardModal\\.js --file src/components/pos/RoomReservationModal\\.js$/": {
+            "approve": true,
+            "matchCommandLine": true
         }
     }
 }
