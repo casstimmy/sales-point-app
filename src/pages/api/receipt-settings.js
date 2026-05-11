@@ -71,7 +71,13 @@ export default async function handler(req, res) {
       settings,
       store: {
         name: store.storeName,
-        locations: store.locations,
+        locations: (store.locations || []).map((loc) => ({
+          _id: loc._id,
+          name: loc.name,
+          qrUrl: loc.qrUrl || "",
+          qrDescription: loc.qrDescription || "",
+          qrDataUrl: loc.qrDataUrl || "",
+        })),
       },
     });
   } catch (error) {

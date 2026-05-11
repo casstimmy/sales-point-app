@@ -5,6 +5,12 @@ import Layout from "@/src/components/layout/Layout";
 import { StaffProvider } from "@/src/context/StaffContext";
 import POSErrorBoundary from "@/src/components/common/POSErrorBoundary";
 import { getUiSettings } from "@/src/lib/uiSettings";
+import {
+  applySystemThemeToDOM,
+  DEFAULT_SYSTEM_THEME,
+  persistSystemTheme,
+  readCachedSystemTheme,
+} from "@/src/lib/systemTheme";
 import { ToastContainer } from "@/src/components/common/Toast";
 import { ConfirmDialogContainer } from "@/src/components/common/ConfirmDialog";
 import PrintPreview from "@/src/components/common/PrintPreview";
@@ -22,6 +28,34 @@ export default function App({ Component, pageProps }) {
           console.error('❌ Service Worker registration failed:', error);
         });
     }
+  }, []);
+
+  useEffect(() => {
+    applySystemThemeToDOM(DEFAULT_SYSTEM_THEME);
+
+    const cachedTheme = readCachedSystemTheme();
+    if (cachedTheme) {
+      applySystemThemeToDOM(cachedTheme);
+    }
+
+    let active = true;
+
+    fetch("/api/system-theme")
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!active) return;
+        const nextTheme = payload?.theme || DEFAULT_SYSTEM_THEME;
+        applySystemThemeToDOM(nextTheme);
+        persistSystemTheme(nextTheme);
+      })
+      .catch(() => {
+        if (!active) return;
+        applySystemThemeToDOM(cachedTheme || DEFAULT_SYSTEM_THEME);
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

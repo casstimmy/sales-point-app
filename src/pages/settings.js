@@ -790,6 +790,24 @@ export default function SettingsPage() {
                   </label>
                 </div>
 
+                {/* QR Code Toggle */}
+                <div className="border-t border-gray-100 pt-4">
+                  <label className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={settings.system?.showQrCode !== false}
+                      onChange={(e) => updateSystemSetting('showQrCode', e.target.checked)}
+                    />
+                    <span className="text-xl">🔲</span>
+                    <div>
+                      <span className="font-semibold text-gray-700">Show QR Code on Receipts</span>
+                      <span className="block text-xs text-gray-500">
+                        When enabled, the QR code configured for the transaction location appears on receipts. Configure QR codes per location in Receipt Settings (admin).
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
                 {/* Auto Refresh Products Toggle */}
                 <div className="border-t border-gray-100 pt-4">
                   <label className="flex items-center gap-3">

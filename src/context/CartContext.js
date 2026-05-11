@@ -396,10 +396,20 @@ export function CartProvider({ children }) {
     }));
 
     // Create transaction object with "held" status
-    // Handle location - it might be a string or an object with a name property
-    const locationString = typeof locationInfo === 'string' 
-      ? locationInfo 
-      : (locationInfo?.name || locationInfo?.code || 'Default Location');
+    // Handle location consistently for both object- and string-based contexts.
+    const resolvedLocation = locationInfo || state.activeCart.location || null;
+    const locationString = typeof resolvedLocation === 'string'
+      ? resolvedLocation
+      : (resolvedLocation?.name || resolvedLocation?.code || state.activeCart.locationName || 'Default Location');
+    const locationId = typeof resolvedLocation === 'object'
+      ? (resolvedLocation?._id || resolvedLocation?.id || state.activeCart.locationId || null)
+      : (state.activeCart.locationId || null);
+    const locationName = typeof resolvedLocation === 'string'
+      ? resolvedLocation
+      : (resolvedLocation?.name || resolvedLocation?.code || state.activeCart.locationName || locationString);
+    const locationAddress = typeof resolvedLocation === 'object'
+      ? (resolvedLocation?.address || state.activeCart.locationAddress || '')
+      : (state.activeCart.locationAddress || '');
     
     // If this cart was recalled from an existing held transaction, update it instead of creating a new one
     const existingHeldId = state.activeCart.recallSourceTransactionId || null;
@@ -417,6 +427,9 @@ export function CartProvider({ children }) {
       staffName: staffInfo?.name || staffInfo || 'POS Staff',
       staffId: staffInfo?._id || staffInfo?.id || null,
       location: locationString,
+      locationId,
+      locationName,
+      locationAddress,
       device: state.activeCart.device || 'POS',
       tableName: state.activeCart.tableName || null,
       customerName: state.activeCart.customer?.name || null,

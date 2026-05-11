@@ -42,7 +42,12 @@ export async function getReceiptSettings() {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       fetch('/api/receipt-settings', { signal: AbortSignal.timeout(3000) })
         .then(r => r.ok ? r.json() : null)
-        .then(data => { if (data?.settings) cacheReceiptSettings(data.settings); })
+        .then(data => {
+          if (data?.settings) cacheReceiptSettings(data.settings);
+          if (data?.store?.locations) {
+            try { localStorage.setItem('cachedLocationQrData', JSON.stringify(data.store.locations)); } catch {}
+          }
+        })
         .catch(() => {});
     }
     return result;
@@ -79,6 +84,9 @@ export async function getReceiptSettings() {
     const data = await response.json();
     const settings = data.settings || {};
     cacheReceiptSettings(settings);
+    if (data?.store?.locations) {
+      try { localStorage.setItem('cachedLocationQrData', JSON.stringify(data.store.locations)); } catch {}
+    }
     return { ...settings, companyLogo: cachedLogo || settings.companyLogo };
   } catch (error) {
     console.error('❌ Error fetching receipt settings:', error);
@@ -443,12 +451,54 @@ function generateReceiptHTML(transaction, settings) {
     taxNumber = '',
     refundDays = 0,
     receiptMessage = '',
-    qrUrl = '',
-    qrDataUrl = '',
-    qrDescription = '',
+    qrUrl: storeQrUrl = '',
+    qrDataUrl: storeQrDataUrl = '',
+    qrDescription: storeQrDescription = '',
     paymentStatus = 'paid',
     fontSize = '8.0',
   } = settings;
+
+  // Determine QR code: prefer location-specific, fall back to store-wide
+  let qrUrl = storeQrUrl;
+  let qrDataUrl = storeQrDataUrl;
+  let qrDescription = storeQrDescription;
+
+  // Check if user wants QR code shown at all (showQrCode uiSetting)
+  let showQrCode = true;
+  try {
+    const stored = localStorage.getItem('uiSettings');
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (parsed?.system?.showQrCode === false) showQrCode = false;
+    }
+  } catch (e) {}
+
+  if (showQrCode) {
+    // Look up location-specific QR
+    try {
+      const locationQrRaw = localStorage.getItem('cachedLocationQrData');
+      if (locationQrRaw) {
+        const locationQrList = JSON.parse(locationQrRaw);
+        const transactionLocation = transaction?.locationName || transaction?.location;
+        const matchedLocQr = locationQrList.find(
+          (l) => l.name === transactionLocation || String(l._id) === transactionLocation
+        );
+        if (matchedLocQr?.qrDataUrl) {
+          qrUrl = matchedLocQr.qrUrl || '';
+          qrDataUrl = matchedLocQr.qrDataUrl;
+          qrDescription = matchedLocQr.qrDescription || storeQrDescription;
+        } else if (matchedLocQr?.qrUrl) {
+          qrUrl = matchedLocQr.qrUrl;
+          qrDataUrl = '';
+          qrDescription = matchedLocQr.qrDescription || storeQrDescription;
+        }
+      }
+    } catch (e) {}
+  } else {
+    qrUrl = '';
+    qrDataUrl = '';
+    qrDescription = '';
+  }
 
   // Ensure logo URL is absolute for print context (iframe/new window)
   const fallbackLogo = getStoreLogo();

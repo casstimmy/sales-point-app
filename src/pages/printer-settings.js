@@ -439,6 +439,29 @@ export default function PrinterSettings() {
               <span className="text-sm text-gray-500">(For thermal printer only — skips all dialogs when direct print succeeds)</span>
             </div>
 
+            {/* QR Code on Receipt */}
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
+              <h3 className="font-bold text-gray-800">🔲 Receipt QR Code</h3>
+              <p className="text-sm text-gray-600">Controls whether the QR code (configured per location in Receipt Settings) is printed on receipts.</p>
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={uiSettings.system?.showQrCode !== false}
+                    onChange={(e) => handleUiSettingChange('showQrCode', e.target.checked)}
+                    className="w-5 h-5 rounded border-gray-300"
+                  />
+                  <span className="ml-3 font-semibold text-gray-700">Show QR Code on Receipts</span>
+                </label>
+              </div>
+              <p className="text-xs text-gray-500 ml-8">
+                {uiSettings.system?.showQrCode !== false
+                  ? '✅ Enabled — The QR code for the transaction location will appear on printed receipts.'
+                  : '⛔ Disabled — QR codes will be hidden from all receipts at this terminal.'}
+              </p>
+            </div>
+
             {/* Browser Print Behavior */}
             <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg space-y-4">
               <h3 className="font-bold text-gray-800">🖥️ Browser Print Behavior</h3>
