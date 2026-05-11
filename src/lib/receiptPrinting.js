@@ -35,19 +35,23 @@ export async function getReceiptSettings() {
   const cachedLogo = getStoreLogo();
   const cached = getCachedReceiptSettings();
 
-  // If we have cached settings, return immediately and refresh in background
-  if (cached) {
-    const result = { ...cached, companyLogo: cachedLogo };
+  // If cached settings don't include locations, treat as stale — force a fresh fetch
+  // (ensures per-location QR codes work after the feature was deployed)
+  if (cached && !Array.isArray(cached.locations)) {
+    // Invalidate the stale cache
+    try { localStorage.removeItem(RECEIPT_SETTINGS_CACHE_KEY); } catch {}
+  }
+
+  const freshCached = getCachedReceiptSettings();
+
+  // If we have cached settings (with locations), return immediately and refresh in background
+  if (freshCached) {
+    const result = { ...freshCached, companyLogo: cachedLogo };
     // Background refresh if online (non-blocking)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       fetch('/api/receipt-settings', { signal: AbortSignal.timeout(3000) })
         .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data?.settings) cacheReceiptSettings(data.settings);
-          if (data?.store?.locations) {
-            try { localStorage.setItem('cachedLocationQrData', JSON.stringify(data.store.locations)); } catch {}
-          }
-        })
+        .then(data => { if (data?.settings) cacheReceiptSettings(data.settings); })
         .catch(() => {});
     }
     return result;
@@ -84,9 +88,6 @@ export async function getReceiptSettings() {
     const data = await response.json();
     const settings = data.settings || {};
     cacheReceiptSettings(settings);
-    if (data?.store?.locations) {
-      try { localStorage.setItem('cachedLocationQrData', JSON.stringify(data.store.locations)); } catch {}
-    }
     return { ...settings, companyLogo: cachedLogo || settings.companyLogo };
   } catch (error) {
     console.error('❌ Error fetching receipt settings:', error);
@@ -474,26 +475,23 @@ function generateReceiptHTML(transaction, settings) {
   } catch (e) {}
 
   if (showQrCode) {
-    // Look up location-specific QR
-    try {
-      const locationQrRaw = localStorage.getItem('cachedLocationQrData');
-      if (locationQrRaw) {
-        const locationQrList = JSON.parse(locationQrRaw);
-        const transactionLocation = transaction?.locationName || transaction?.location;
-        const matchedLocQr = locationQrList.find(
-          (l) => l.name === transactionLocation || String(l._id) === transactionLocation
-        );
-        if (matchedLocQr?.qrDataUrl) {
-          qrUrl = matchedLocQr.qrUrl || '';
-          qrDataUrl = matchedLocQr.qrDataUrl;
-          qrDescription = matchedLocQr.qrDescription || storeQrDescription;
-        } else if (matchedLocQr?.qrUrl) {
-          qrUrl = matchedLocQr.qrUrl;
-          qrDataUrl = '';
-          qrDescription = matchedLocQr.qrDescription || storeQrDescription;
-        }
+    // Look up location-specific QR from settings.locations (passed through from getReceiptSettings)
+    const locationsList = Array.isArray(settings?.locations) ? settings.locations : [];
+    if (locationsList.length > 0) {
+      const transactionLocation = transaction?.locationName || transaction?.location;
+      const matchedLocQr = locationsList.find(
+        (l) => l.name === transactionLocation || String(l._id) === transactionLocation
+      );
+      if (matchedLocQr?.qrDataUrl) {
+        qrUrl = matchedLocQr.qrUrl || '';
+        qrDataUrl = matchedLocQr.qrDataUrl;
+        qrDescription = matchedLocQr.qrDescription || storeQrDescription;
+      } else if (matchedLocQr?.qrUrl) {
+        qrUrl = matchedLocQr.qrUrl;
+        qrDataUrl = '';
+        qrDescription = matchedLocQr.qrDescription || storeQrDescription;
       }
-    } catch (e) {}
+    }
   } else {
     qrUrl = '';
     qrDataUrl = '';
