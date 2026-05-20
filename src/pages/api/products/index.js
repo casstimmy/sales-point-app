@@ -12,6 +12,8 @@ import { mongooseConnect } from "@/src/lib/mongoose";
 import Product from "@/src/models/Product";
 import Store from "@/src/models/Store";
 
+const normalizeLocationToken = (value) => String(value || "").trim().toLowerCase();
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
       .lean();
 
     // Filter by location in JavaScript (more reliable than $or with mixed data)
-    // Products with no locations assigned are available at all locations
+    // POS should only show products explicitly assigned to the active location.
     if (locationId && products.length > 0) {
       let locationName = null;
       try {
@@ -55,20 +57,30 @@ export default async function handler(req, res) {
         console.warn("⚠️ Could not look up store for location filter:", storeErr.message);
       }
 
-      if (locationName) {
-        products = products.filter((p) => {
-          // No locations assigned = available everywhere
-          if (!p.locations || !Array.isArray(p.locations) || p.locations.length === 0) {
-            return true;
+      const locationTokens = new Set([
+        normalizeLocationToken(locationId),
+        normalizeLocationToken(locationName),
+      ].filter(Boolean));
+
+      products = products.filter((product) => {
+        if (!Array.isArray(product.locations) || product.locations.length === 0) {
+          return false;
+        }
+
+        return product.locations.some((locationEntry) => {
+          if (locationEntry && typeof locationEntry === "object") {
+            return [locationEntry._id, locationEntry.id, locationEntry.name, locationEntry.code].some((candidate) => {
+              const token = normalizeLocationToken(candidate);
+              return token && locationTokens.has(token);
+            });
           }
-          // Check if any entry in locations matches the name or ID
-          return p.locations.some(
-            (loc) => loc === locationName || loc === locationId || 
-                     String(loc).toLowerCase() === locationName.toLowerCase()
-          );
+
+          const token = normalizeLocationToken(locationEntry);
+          return token && locationTokens.has(token);
         });
-        console.log(`📍 Location filter: "${locationName}" | ${products.length} products after filter`);
-      }
+      });
+
+      console.log(`📍 Location filter: "${locationName || locationId}" | ${products.length} products after filter`);
     }
 
     // Derive child product quantities from their parent

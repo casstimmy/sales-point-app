@@ -154,6 +154,81 @@ const DEFAULT_CATEGORIES = [
   { _id: '5', name: 'Wine' },
 ];
 
+const normalizeLocationToken = (value) => {
+  if (!value) return '';
+  if (typeof value === 'object') {
+    return String(value._id || value.id || value.name || value.code || '')
+      .trim()
+      .toLowerCase();
+  }
+  return String(value).trim().toLowerCase();
+};
+
+const getLocationAssignmentTokens = (locationData) => {
+  const tokens = new Set();
+  if (!locationData || typeof locationData !== 'object') return tokens;
+
+  [locationData._id, locationData.id, locationData.name, locationData.code].forEach((candidate) => {
+    const token = normalizeLocationToken(candidate);
+    if (token) tokens.add(token);
+  });
+
+  return tokens;
+};
+
+const productAssignedToLocation = (product, locationData) => {
+  const locationTokens = getLocationAssignmentTokens(locationData);
+  if (locationTokens.size === 0) return false;
+
+  const assignments = Array.isArray(product?.locations) ? product.locations : [];
+  if (assignments.length === 0) return false;
+
+  return assignments.some((assignment) => {
+    if (assignment && typeof assignment === 'object') {
+      return [assignment._id, assignment.id, assignment.name, assignment.code].some((candidate) => {
+        const token = normalizeLocationToken(candidate);
+        return token && locationTokens.has(token);
+      });
+    }
+
+    const token = normalizeLocationToken(assignment);
+    return token && locationTokens.has(token);
+  });
+};
+
+const filterProductsForLocation = (productList = [], locationData) => {
+  if (!Array.isArray(productList)) return [];
+  return productList.filter((product) => productAssignedToLocation(product, locationData));
+};
+
+const filterProductsByCategory = (productList = [], categoryInfo) => {
+  if (!categoryInfo || !Array.isArray(productList)) return [];
+
+  const categoryId = categoryInfo._id || categoryInfo.id;
+  const categoryName = categoryInfo.name;
+
+  return productList.filter((product) => (
+    product?.category === categoryName ||
+    product?.category === categoryId ||
+    product?.categoryId === categoryId
+  ));
+};
+
+const mergeProductsById = (...lists) => {
+  const merged = new Map();
+
+  lists.forEach((list) => {
+    if (!Array.isArray(list)) return;
+    list.forEach((product) => {
+      const productId = String(product?._id || product?.id || '');
+      if (!productId) return;
+      merged.set(productId, product);
+    });
+  });
+
+  return Array.from(merged.values());
+};
+
 export default function MenuScreen() {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -177,6 +252,7 @@ export default function MenuScreen() {
   const handleManualSyncRef = useRef(null);
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
+  const hasActiveLocation = Boolean(location?._id || location?.id || location?.name || location?.code);
 
   const updateRoomAvailabilityLocally = useCallback((items = [], nextStatus = ROOM_STATUSES.OCCUPIED) => {
     const roomIds = new Set(
@@ -327,9 +403,10 @@ export default function MenuScreen() {
 
             if (response.ok) {
               const data = await response.json();
-              const freshProducts = data.data || [];
+              const freshProducts = filterProductsForLocation(data.data || [], location);
               if (freshProducts.length > 0) {
                 setProducts(freshProducts);
+                setAllProducts((prev) => mergeProductsById(filterProductsForLocation(prev, location), freshProducts));
                 // Also update IndexedDB with fresh data
                 try { await syncProducts(freshProducts); } catch (e) {}
                 console.log(`✅ Auto-refreshed ${freshProducts.length} products from API`);
@@ -355,8 +432,9 @@ export default function MenuScreen() {
         if (!localProducts || localProducts.length === 0) {
           localProducts = await getLocalProductsByCategory(categoryId);
         }
-        if (localProducts && localProducts.length > 0) {
-          setProducts(localProducts);
+        const visibleProducts = filterProductsForLocation(localProducts || [], location);
+        if (visibleProducts.length > 0) {
+          setProducts(visibleProducts);
         }
       }
     };
@@ -577,13 +655,20 @@ export default function MenuScreen() {
   useEffect(() => {
     const loadAllLocalProducts = async () => {
       try {
+        if (!hasActiveLocation) {
+          setAllProducts([]);
+          return;
+        }
+
         console.log("📦 Loading all local products for search...");
         const localProducts = await getAllLocalProducts();
-        if (localProducts && localProducts.length > 0) {
-          console.log(`✅ Loaded ${localProducts.length} products from local storage`);
-          setAllProducts(localProducts);
+        const visibleProducts = filterProductsForLocation(localProducts || [], location);
+        if (visibleProducts.length > 0) {
+          console.log(`✅ Loaded ${visibleProducts.length} location products from local storage`);
+          setAllProducts(visibleProducts);
         } else {
           console.log("📦 No local products found, will fetch on sync");
+          setAllProducts([]);
         }
       } catch (err) {
         console.error("❌ Error loading local products:", err);
@@ -591,7 +676,7 @@ export default function MenuScreen() {
     };
     
     loadAllLocalProducts();
-  }, []);
+  }, [hasActiveLocation, location]);
 
   // Fetch products when category changes (from IndexedDB ONLY - API sync is manual)
   useEffect(() => {
@@ -605,6 +690,13 @@ export default function MenuScreen() {
       setError(null);
       
       try {
+        if (!hasActiveLocation) {
+          console.log("📍 Waiting for active location before loading products");
+          setProducts([]);
+          setLoadingProducts(false);
+          return;
+        }
+
         const categoryId = selectedCategory._id || selectedCategory.id;
         const categoryName = selectedCategory.name;
         console.log("🛍️ Loading products for category:", categoryName, "(ID:", categoryId, ")");
@@ -612,11 +704,17 @@ export default function MenuScreen() {
         // ALWAYS try local storage first
         // Products in IndexedDB store category NAME (not ID) in the 'category' field
         // So search by name first, then fall back to ID
-        let localProducts = await getLocalProductsByCategory(categoryName);
+        let localProducts = filterProductsForLocation(
+          await getLocalProductsByCategory(categoryName),
+          location
+        );
         
         if (!localProducts || localProducts.length === 0) {
           // Fallback: try by ID in case some products store category ID
-          localProducts = await getLocalProductsByCategory(categoryId);
+          localProducts = filterProductsForLocation(
+            await getLocalProductsByCategory(categoryId),
+            location
+          );
         }
         
         if (localProducts && localProducts.length > 0) {
@@ -631,11 +729,9 @@ export default function MenuScreen() {
         const allLocal = await getAllLocalProducts();
         
         if (allLocal && allLocal.length > 0) {
-          // Filter by category name OR ID
-          const categoryFiltered = allLocal.filter(p => 
-            p.category === categoryName || 
-            p.category === categoryId ||
-            p.categoryId === categoryId
+          const categoryFiltered = filterProductsByCategory(
+            filterProductsForLocation(allLocal, location),
+            selectedCategory
           );
           
           if (categoryFiltered.length > 0) {
@@ -652,15 +748,12 @@ export default function MenuScreen() {
           : null;
         if (cachedProductsRaw) {
           const cachedProducts = JSON.parse(cachedProductsRaw);
-          if (cachedProducts && cachedProducts.length > 0) {
+          const visibleCachedProducts = filterProductsForLocation(cachedProducts, location);
+          if (visibleCachedProducts.length > 0) {
             console.log("✅ Using cached products from localStorage");
-            await syncProducts(cachedProducts);
-            setAllProducts(cachedProducts);
-            const categoryFiltered = cachedProducts.filter(p =>
-              p.category === categoryName ||
-              p.category === categoryId ||
-              p.categoryId === categoryId
-            );
+            await syncProducts(visibleCachedProducts);
+            setAllProducts(visibleCachedProducts);
+            const categoryFiltered = filterProductsByCategory(visibleCachedProducts, selectedCategory);
             setProducts(categoryFiltered);
             setLoadingProducts(false);
             return;
@@ -678,32 +771,23 @@ export default function MenuScreen() {
             
             if (response.ok) {
               const data = await response.json();
-              console.log("🛍️ Products from API:", data.data?.length || 0);
-              setProducts(data.data || []);
+              const visibleApiProducts = filterProductsForLocation(data.data || [], location);
+              console.log("🛍️ Products from API:", visibleApiProducts.length || 0);
+              setProducts(filterProductsByCategory(visibleApiProducts, selectedCategory));
               // Save to IndexedDB for offline support
-              if (data.data && data.data.length > 0) {
-                await syncProducts(data.data);
+              if (visibleApiProducts.length > 0) {
+                await syncProducts(visibleApiProducts);
                 // Also save to localStorage as backup cache
                 try {
-                  const existingCached = JSON.parse(localStorage.getItem('cachedProducts') || '[]');
-                  const merged = [...existingCached];
-                  data.data.forEach(product => {
-                    const idx = merged.findIndex(p => p._id === product._id);
-                    if (idx >= 0) merged[idx] = product;
-                    else merged.push(product);
-                  });
+                  const existingCached = filterProductsForLocation(
+                    JSON.parse(localStorage.getItem('cachedProducts') || '[]'),
+                    location
+                  );
+                  const merged = mergeProductsById(existingCached, visibleApiProducts);
                   localStorage.setItem('cachedProducts', JSON.stringify(merged));
                 } catch (e) {}
                 // Also update allProducts for search
-                setAllProducts(prev => {
-                  const merged = [...prev];
-                  data.data.forEach(product => {
-                    if (!merged.find(p => p._id === product._id)) {
-                      merged.push(product);
-                    }
-                  });
-                  return merged;
-                });
+                setAllProducts((prev) => mergeProductsById(filterProductsForLocation(prev, location), visibleApiProducts));
               }
               setLastSyncTime(new Date());
             } else {
@@ -729,12 +813,17 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline, allProducts.length, location?._id]);
+  }, [selectedCategory, isOnline, allProducts.length, hasActiveLocation, location]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
+      if (!hasActiveLocation) {
+        setError('Location is still loading. Please wait and try again.');
+        return;
+      }
+
       console.log("🔄 Manual sync initiated - syncing ALL products...");
       setError(null);
       
@@ -747,9 +836,14 @@ export default function MenuScreen() {
       const catResponse = await fetch(catUrl);
       if (catResponse.ok) {
         const catData = await catResponse.json();
-        const fetchedCategories = catData.data || [];
+        const fetchedCategories = filterCategoriesForLocation(catData.data || []);
         await syncCategories(fetchedCategories);
         setCategories(fetchedCategories);
+        const nextSelectedCategory = fetchedCategories.find((category) => (
+          String(category._id || category.id) === String(selectedCategory?._id || selectedCategory?.id)
+          || String(category.name || '') === String(selectedCategory?.name || '')
+        )) || fetchedCategories[0] || null;
+        setSelectedCategory(nextSelectedCategory);
         // Save categories to localStorage as backup cache
         try { localStorage.setItem('cachedCategories', JSON.stringify(fetchedCategories)); } catch (e) {}
         console.log(`✅ Categories synced: ${fetchedCategories.length} categories`);
@@ -768,8 +862,8 @@ export default function MenuScreen() {
             
             if (prodResponse.ok) {
               const prodData = await prodResponse.json();
-              const categoryProducts = prodData.data || [];
-              allFetchedProducts = [...allFetchedProducts, ...categoryProducts];
+              const categoryProducts = filterProductsForLocation(prodData.data || [], location);
+              allFetchedProducts = mergeProductsById(allFetchedProducts, categoryProducts);
               console.log(`   ✅ ${categoryProducts.length} products for ${category.name}`);
             }
           } catch (prodErr) {
@@ -786,16 +880,15 @@ export default function MenuScreen() {
           console.log(`✅ Total products synced: ${allFetchedProducts.length}`);
           
           // Reload current category products
-          if (selectedCategory) {
-            const categoryId = selectedCategory._id || selectedCategory.id;
-            const categoryName = selectedCategory.name;
-            const categoryProducts = allFetchedProducts.filter(p => 
-              p.category === categoryName ||
-              p.category === categoryId || 
-              p.categoryId === categoryId
-            );
+          if (nextSelectedCategory) {
+            const categoryProducts = filterProductsByCategory(allFetchedProducts, nextSelectedCategory);
             setProducts(categoryProducts);
+          } else {
+            setProducts([]);
           }
+        } else {
+          setAllProducts([]);
+          setProducts([]);
         }
         
       } else {
