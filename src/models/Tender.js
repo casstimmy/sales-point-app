@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 const TenderSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
+  name: { type: String, required: true, unique: true, trim: true },
   description: { type: String, default: "" },
   buttonColor: { type: String, default: "#9dccebff" },
   tillOrder: { type: Number, default: 1 },

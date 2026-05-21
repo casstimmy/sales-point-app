@@ -291,9 +291,18 @@ export async function getOfflineTillSales(tillId) {
       const getAllReq = txStore.getAll();
       getAllReq.onsuccess = () => {
         const all = getAllReq.result || [];
-        const tillTx = all.filter(tx => String(tx.tillId) === String(tillId));
+        const tillTx = all.filter((tx) => {
+          if (String(tx.tillId) !== String(tillId)) return false;
+          const status = String(tx.status || '').toUpperCase();
+          if (["UNPAID", "VOID", "CANCELLED", "REFUNDED"].includes(status)) return false;
+          const total = Number(tx.total);
+          return Number.isFinite(total) && total > 0;
+        });
         let totalSales = 0;
-        tillTx.forEach(tx => { totalSales += (tx.total || 0); });
+        tillTx.forEach((tx) => {
+          const total = Number(tx.total);
+          totalSales += Number.isFinite(total) ? total : 0;
+        });
         resolve({ totalSales, transactionCount: tillTx.length });
       };
       getAllReq.onerror = () => reject(getAllReq.error);

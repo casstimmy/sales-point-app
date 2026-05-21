@@ -997,9 +997,21 @@ export default function StaffLogin() {
   // Handle refresh of store/location data
   const handleRefreshData = async () => {
     setLoadingData(true);
+    setLoadingStep("Preparing sync...");
+    let didCloudRefresh = false;
     try {
       // Try online first
       if (isOnline) {
+        setLoadingStep("Syncing local data to cloud...");
+        try {
+          await syncPendingTillOpens();
+          await syncPendingTransactions();
+          await syncPendingTillCloses();
+        } catch (syncErr) {
+          console.warn("⚠️ Local-to-cloud sync had issues:", syncErr?.message || syncErr);
+        }
+
+        setLoadingStep("Downloading latest cloud data...");
         const storeResponse = await fetch("/api/store/init-locations");
         if (storeResponse.ok) {
           const storeData = await storeResponse.json();
@@ -1041,9 +1053,11 @@ export default function StaffLogin() {
                 })
               );
             }
+            didCloudRefresh = true;
           }
         }
         
+        setLoadingStep("Refreshing staff data...");
         const staffResponse = await fetch("/api/staff/list");
         if (staffResponse.ok) {
           const staffData = await staffResponse.json();
@@ -1062,7 +1076,14 @@ export default function StaffLogin() {
       console.error("Failed to refresh data:", error);
       loadCachedData();
     } finally {
+      setLoadingStep("");
       setLoadingData(false);
+      if (didCloudRefresh && typeof window !== "undefined") {
+        // Hard reload ensures all POS contexts rehydrate from freshly synced data.
+        setTimeout(() => {
+          window.location.reload();
+        }, 200);
+      }
     }
   };
 
@@ -1266,7 +1287,7 @@ export default function StaffLogin() {
                   className="w-full px-4 py-3 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
                 >
                   <FontAwesomeIcon icon={faSync} className={`w-4 h-4 flex-shrink-0 ${loadingData ? 'animate-spin' : ''}`} />
-                  <span>{loadingData ? 'Syncing...' : (isOnline ? 'Sync Data from Cloud' : 'Load Cached Data')}</span>
+                  <span>{loadingData ? 'Syncing...' : (isOnline ? 'Sync Data' : 'Load Cached Data')}</span>
                 </button>
                 {/* Sync Status */}
                 {(() => {

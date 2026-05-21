@@ -13,6 +13,7 @@ import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 import { ROOM_STATUSES } from '@/src/lib/roomReservations';
 import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
+import { normalizeTenderName, normalizeTenderPayments, toNormalizedTenderMap } from '@/src/lib/tenderKey';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -40,8 +41,8 @@ export default async function handler(req, res) {
       total, 
       tax, 
       subtotal, 
-      tenderType,           // Legacy: single tender
-      tenderPayments,       // New: split payments [{tenderId, tenderName, amount}]
+      tenderType: rawTenderType, // Legacy: single tender
+      tenderPayments: rawTenderPayments, // New: split payments [{tenderId, tenderName, amount}]
       discount = 0,
       amountPaid,
       change,
@@ -55,9 +56,12 @@ export default async function handler(req, res) {
       externalId
     } = req.body;
 
+    const normalizedTenderPayments = normalizeTenderPayments(rawTenderPayments, 'CASH');
+    const normalizedTenderType = normalizeTenderName(rawTenderType, '');
+
     // Determine which payment method is being used
-    const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
-    const hasSingleTender = tenderType && !hasMultiplePayments;
+    const hasMultiplePayments = normalizedTenderPayments.length > 0;
+    const hasSingleTender = Boolean(normalizedTenderType) && !hasMultiplePayments;
     const rawStatus = String(status || 'completed').trim().toLowerCase();
     const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
     const isHeldTransaction = normalizedStatus === 'held';
@@ -128,8 +132,8 @@ export default async function handler(req, res) {
       tax: tax || 0,
       discount: discount || 0,
       total,
-      ...(hasSingleTender && { tenderType }),
-      ...(hasMultiplePayments && { tenderPayments }),
+      ...(hasSingleTender && { tenderType: normalizedTenderType }),
+      ...(hasMultiplePayments && { tenderPayments: normalizedTenderPayments }),
       amountPaid: amountPaid || total,
       change: Number(change || 0),
       ...(staffId && { staff: staffId }),
@@ -159,17 +163,15 @@ export default async function handler(req, res) {
           till.totalSales = (till.totalSales || 0) + Number(total || 0);
           till.transactionCount = till.transactions.length;
 
-          if (!(till.tenderBreakdown instanceof Map)) {
-            till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
-          }
+          till.tenderBreakdown = toNormalizedTenderMap(till.tenderBreakdown);
 
           if (hasMultiplePayments) {
-            tenderPayments.forEach((payment) => {
+            normalizedTenderPayments.forEach((payment) => {
               const currentAmount = till.tenderBreakdown.get(payment.tenderName) || 0;
               till.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
             });
           } else {
-            const tenderKey = tenderType || 'CASH';
+            const tenderKey = normalizedTenderType || 'CASH';
             const currentAmount = till.tenderBreakdown.get(tenderKey) || 0;
             till.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
           }

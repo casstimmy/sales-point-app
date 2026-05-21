@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       console.log(`   [${idx}] ${tender.name} (${tender.classification}) - Color: ${tender.buttonColor}`);
     });
 
-    // Normalize and return
+    // Normalize and dedupe by tender name (case-insensitive)
     const normalizedTenders = tenders
       .filter(tender => tender && tender._id)
       .map(tender => ({
@@ -78,15 +78,27 @@ export default async function handler(req, res) {
         description: tender.description || '',
         buttonColor: tender.buttonColor || '#9dccebff',
         classification: tender.classification || 'Other',
+        tillOrder: tender.tillOrder || 0,
         active: tender.active !== false,
       }));
 
-    console.log(`✅ Returning ${normalizedTenders.length} normalized tenders`);
+    const seenNames = new Set();
+    const dedupedTenders = normalizedTenders
+      .sort((a, b) => (a.tillOrder || 0) - (b.tillOrder || 0))
+      .filter((tender) => {
+        const key = String(tender.name || '').trim().toLowerCase();
+        if (!key) return false;
+        if (seenNames.has(key)) return false;
+        seenNames.add(key);
+        return true;
+      });
+
+    console.log(`✅ Returning ${dedupedTenders.length} normalized tenders`);
     console.log('📍 ='.repeat(40) + '\n');
 
     return res.status(200).json({
       success: true,
-      tenders: normalizedTenders,
+      tenders: dedupedTenders,
     });
   } catch (error) {
     console.error("❌ Error fetching location tenders:", error.message);

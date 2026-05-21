@@ -10,6 +10,31 @@ import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
 
+const toNumber = (value) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const isCountableSale = (tx) => {
+  if (!tx) return false;
+  const status = String(tx.status || "").toUpperCase();
+  if (["UNPAID", "VOID", "CANCELLED", "REFUNDED"].includes(status)) {
+    return false;
+  }
+  return toNumber(tx.total) > 0;
+};
+
+const getTenderAmount = (tenderBreakdown, tenderName) => {
+  const breakdown = tenderBreakdown || {};
+  if (Object.prototype.hasOwnProperty.call(breakdown, tenderName)) {
+    return toNumber(breakdown[tenderName]);
+  }
+  const key = Object.keys(breakdown).find(
+    (k) => String(k).trim().toLowerCase() === String(tenderName || "").trim().toLowerCase()
+  );
+  return key ? toNumber(breakdown[key]) : 0;
+};
+
 // Generate and print End-of-Day report
 const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closingNotes, locationName) => {
   const formatNaira = (amount) =>
@@ -27,8 +52,8 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
 
   // Build tender reconciliation rows
   const tenderRows = (tenders || []).map(tender => {
-    const expected = summaryData?.tenderBreakdown?.[tender.name] || 0;
-    const physical = parseFloat(tenderCounts?.[tender.id]) || 0;
+    const expected = getTenderAmount(summaryData?.tenderBreakdown, tender.name);
+    const physical = toNumber(tenderCounts?.[tender.id]);
     const variance = physical - expected;
     return `
       <tr>
@@ -41,8 +66,8 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       </tr>`;
   }).join('');
 
-  const totalPhysical = (tenders || []).reduce((sum, t) => sum + (parseFloat(tenderCounts?.[t.id]) || 0), 0);
-  const totalExpected = (summaryData?.openingBalance || 0) + (summaryData?.totalSales || 0);
+  const totalPhysical = (tenders || []).reduce((sum, t) => sum + toNumber(tenderCounts?.[t.id]), 0);
+  const totalExpected = toNumber(summaryData?.openingBalance) + toNumber(summaryData?.totalSales);
   const totalVariance = totalPhysical - totalExpected;
 
   const html = `<!DOCTYPE html>
@@ -225,7 +250,9 @@ const getOfflineTillData = async (tillId) => {
         allTxRequest.onsuccess = () => {
           const allTransactions = allTxRequest.result || [];
           // Filter transactions for this specific till using string comparison
-          const tillTransactions = allTransactions.filter(tx => String(tx.tillId) === tillIdStr);
+          const tillTransactions = allTransactions.filter(
+            (tx) => String(tx.tillId) === tillIdStr && isCountableSale(tx)
+          );
           
           // Calculate totals from offline transactions
           let totalSales = 0;
@@ -233,7 +260,7 @@ const getOfflineTillData = async (tillId) => {
           let unsyncedCount = 0;
           
           tillTransactions.forEach(tx => {
-            totalSales += tx.total || 0;
+            totalSales += toNumber(tx.total);
             if (tx.synced !== true) {
               unsyncedCount += 1;
             }
@@ -241,11 +268,12 @@ const getOfflineTillData = async (tillId) => {
             // Process tender payments
             if (tx.tenderPayments && Array.isArray(tx.tenderPayments)) {
               tx.tenderPayments.forEach(tp => {
-                const tenderName = tp.tenderName || 'Cash';
-                tenderBreakdown[tenderName] = (tenderBreakdown[tenderName] || 0) + (tp.amount || 0);
+                const tenderName = (tp.tenderName || 'Cash').trim();
+                tenderBreakdown[tenderName] = toNumber(tenderBreakdown[tenderName]) + toNumber(tp.amount);
               });
             } else if (tx.tenderType) {
-              tenderBreakdown[tx.tenderType] = (tenderBreakdown[tx.tenderType] || 0) + (tx.total || 0);
+              const tenderName = String(tx.tenderType).trim();
+              tenderBreakdown[tenderName] = toNumber(tenderBreakdown[tenderName]) + toNumber(tx.total);
             }
           });
           

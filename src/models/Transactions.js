@@ -29,13 +29,13 @@ const TransactionSchema = new mongoose.Schema({
   inventoryRestockedAt: { type: Date, default: null },
   // PAYMENT HANDLING: Support both single tenderType (legacy) and split payments (new)
   // Single tender (legacy, for backwards compatibility)
-  tenderType: String, // Payment method: CASH, HYDROGEN POS, ACCESS POS, etc.
+  tenderType: { type: String, trim: true }, // Payment method: CASH, HYDROGEN POS, ACCESS POS, etc.
   
   // Split payments - array of tender amounts (new, takes precedence over tenderType)
   // Example: [{ tenderId: ObjectId, tenderName: "CASH", amount: 3000 }, { tenderId: ObjectId, tenderName: "TRANSFER", amount: 2000 }]
   tenderPayments: [{
     tenderId: mongoose.Schema.Types.ObjectId, // Reference to Tender
-    tenderName: String,                         // Tender name (CASH, HYDROGEN POS, etc.)
+    tenderName: { type: String, trim: true },   // Tender name (CASH, HYDROGEN POS, etc.)
     amount: Number,                             // Amount paid with this tender
   }],
   
