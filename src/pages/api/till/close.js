@@ -7,12 +7,6 @@ import Tender from "@/src/models/Tender";
 import Store from "@/src/models/Store";
 import mongoose from "mongoose";
 import { sanitizeBody } from '@/src/lib/apiValidation';
-import {
-  addTenderAmount,
-  getTenderAmount,
-  normalizeTenderBreakdown,
-  normalizeTenderName,
-} from '@/src/lib/tenderKey';
 
 /**
  * Bulletproof Mongoose Map → plain object extraction.
@@ -111,9 +105,7 @@ export default async function handler(req, res) {
       const existingReport = await EndOfDayReport.findOne({ tillId: till._id });
 
       const tillResponse = till.toObject();
-      tillResponse.tenderBreakdown = normalizeTenderBreakdown(
-        extractMapToObject(till.tenderBreakdown, tillResponse.tenderBreakdown)
-      );
+      tillResponse.tenderBreakdown = extractMapToObject(till.tenderBreakdown, tillResponse.tenderBreakdown);
       tillResponse.tenderVariances = extractMapToObject(till.tenderVariances, tillResponse.tenderVariances);
 
       return res.status(200).json({
@@ -192,11 +184,11 @@ export default async function handler(req, res) {
     const tenderVariances = {}; // Variance per tender
 
     tenderAggregation.forEach((group) => {
-      const tenderType = normalizeTenderName(group._id, "CASH");
+      const tenderType = group._id || "CASH";
       const amount = group.totalAmount || 0;
       const count = group.transactionCount || 0;
       
-      addTenderAmount(tenderBreakdown, tenderType, amount, "CASH");
+      tenderBreakdown[tenderType] = amount;
       totalSales += amount;
       
       console.log(`   💳 ${tenderType}: ₦${amount.toLocaleString('en-NG')} (${count} payment${count !== 1 ? 's' : ''})`);
@@ -207,7 +199,7 @@ export default async function handler(req, res) {
     // If aggregation returned nothing, fall back to stored tenderBreakdown
     if (Object.keys(tenderBreakdown).length === 0 && till.tenderBreakdown) {
       console.log('🔄 Aggregation empty, using stored tenderBreakdown as fallback');
-      const storedBreakdown = normalizeTenderBreakdown(extractMapToObject(till.tenderBreakdown));
+      const storedBreakdown = extractMapToObject(till.tenderBreakdown);
       Object.entries(storedBreakdown).forEach(([key, value]) => {
         if (typeof value === 'number') {
           tenderBreakdown[key] = value;
@@ -223,14 +215,10 @@ export default async function handler(req, res) {
     // Get tender mapping (ID to name)
     const tenderDocs = await Tender.find();
     const tenderMap = {}; // Map tender ID to name
+    const tenderNameMap = {}; // Map tender name to ID (for reverse lookup)
     tenderDocs.forEach(t => {
-      const tenderName = normalizeTenderName(t.name);
-      if (!tenderName) {
-        console.warn(`⚠️ Skipping tender with blank name: ${t._id}`);
-        return;
-      }
-
-      tenderMap[t._id.toString()] = tenderName;
+      tenderMap[t._id.toString()] = t.name;
+      tenderNameMap[t.name] = t._id.toString();
     });
 
     console.log("📋 Tender mapping:", tenderMap);
@@ -238,7 +226,6 @@ export default async function handler(req, res) {
 
     let totalCountedAmount = 0;
     let totalVariance = 0;
-    const countedByTenderName = {};
 
     // Process tender counts (keyed by tender ID)
     for (const [tenderId, countedAmount] of Object.entries(safeTenderCounts)) {
@@ -248,25 +235,20 @@ export default async function handler(req, res) {
         console.warn(`⚠️ Unknown tender ID: ${tenderId}`);
         continue;
       }
-
-      addTenderAmount(countedByTenderName, tenderName, countedAmount);
-    }
-
-    for (const [tenderName, countedAmount] of Object.entries(countedByTenderName)) {
-      const countedValue = Number(countedAmount || 0);
-      const processedAmount = getTenderAmount(tenderBreakdown, tenderName);
-      const variance = countedValue - processedAmount;
-
+      
+      const processedAmount = tenderBreakdown[tenderName] || 0;
+      const variance = parseFloat(countedAmount) - processedAmount;
+      
       tenderVariances[tenderName] = {
         processed: processedAmount,
-        counted: countedValue,
-        variance,
+        counted: parseFloat(countedAmount),
+        variance: variance
       };
-
-      totalCountedAmount += countedValue;
+      
+      totalCountedAmount += parseFloat(countedAmount);
       totalVariance += variance;
 
-      console.log(`  📊 ${tenderName} - Processed: ${processedAmount}, Counted: ${countedValue}, Variance: ${variance}`);
+      console.log(`  📊 ${tenderName} - Processed: ${processedAmount}, Counted: ${parseFloat(countedAmount)}, Variance: ${variance}`);
     }
 
     // Calculate expected closing balance
@@ -333,7 +315,13 @@ export default async function handler(req, res) {
         console.log(`📊 EndOfDayReport already exists - ID: ${existingReport._id}`);
       } else {
         // Build tenderActual map (physical counted amounts per tender)
-        const tenderActualMap = { ...countedByTenderName };
+        const tenderActualMap = {};
+        for (const [tenderId, countedAmount] of Object.entries(safeTenderCounts)) {
+          const tenderName = tenderMap[tenderId];
+          if (tenderName) {
+            tenderActualMap[tenderName] = parseFloat(countedAmount) || 0;
+          }
+        }
 
         const report = new EndOfDayReport({
         storeId: updatedTill.storeId,
@@ -382,9 +370,7 @@ export default async function handler(req, res) {
     const sourceTill = updatedTill || till;
     const tillResponse = sourceTill.toObject();
     
-    const tenderBreakdownObj = normalizeTenderBreakdown(
-      extractMapToObject(sourceTill.tenderBreakdown, tillResponse.tenderBreakdown)
-    );
+    const tenderBreakdownObj = extractMapToObject(sourceTill.tenderBreakdown, tillResponse.tenderBreakdown);
     const tenderVariancesObj = extractMapToObject(sourceTill.tenderVariances, tillResponse.tenderVariances);
     
     tillResponse.tenderBreakdown = tenderBreakdownObj;

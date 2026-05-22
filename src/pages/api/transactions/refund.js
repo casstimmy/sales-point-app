@@ -15,35 +15,27 @@ import { reverseInventoryForRefund } from '@/src/lib/syncPackQty';
 import EndOfDayReport from '@/src/models/EndOfDayReport';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 import { releaseRoomsFromTransaction } from '@/src/lib/roomAvailability';
-import {
-  normalizeTenderBreakdown,
-  normalizeTenderName,
-  normalizeTenderPayments,
-  toNormalizedTenderMap,
-} from '@/src/lib/tenderKey';
 
 const getTenderEntries = (transaction) => {
-  const normalizedPayments = normalizeTenderPayments(transaction?.tenderPayments, 'CASH');
-
-  if (normalizedPayments.length > 0) {
-    return normalizedPayments.map((payment) => ({
-      name: payment.tenderName,
+  if (Array.isArray(transaction?.tenderPayments) && transaction.tenderPayments.length > 0) {
+    return transaction.tenderPayments.map((payment) => ({
+      name: payment?.tenderName || 'CASH',
       amount: Number(payment?.amount || 0),
     }));
   }
 
   return [{
-    name: normalizeTenderName(transaction?.tenderType, 'CASH'),
+    name: transaction?.tenderType || 'CASH',
     amount: Number(transaction?.total || 0),
   }];
 };
 
 const ensureTenderBreakdownMap = (value) =>
-  toNormalizedTenderMap(value);
+  value instanceof Map ? value : new Map(Object.entries(value || {}));
 
 const applyTenderDelta = (map, entries = [], sign = -1) => {
   entries.forEach((entry) => {
-    const key = normalizeTenderName(entry?.name, 'CASH');
+    const key = entry?.name || 'CASH';
     const current = Number(map.get(key) || 0);
     const next = Math.max(0, current + (sign * Number(entry?.amount || 0)));
     map.set(key, next);
@@ -55,8 +47,7 @@ const syncClosedTillReport = async (till) => {
   if (!report) return false;
 
   const tenderBreakdownMap = ensureTenderBreakdownMap(till.tenderBreakdown);
-  till.tenderBreakdown = tenderBreakdownMap;
-  const tenderBreakdownObj = normalizeTenderBreakdown(tenderBreakdownMap);
+  const tenderBreakdownObj = Object.fromEntries(tenderBreakdownMap);
   const recalculatedTotalSales = Object.values(tenderBreakdownObj).reduce(
     (sum, amount) => sum + Number(amount || 0),
     0

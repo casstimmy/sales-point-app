@@ -14,7 +14,7 @@
  * - Empty state when no items
  */
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import {
   faPlus,
@@ -31,9 +31,22 @@ import {
   faChevronUp,
   faBoxOpen,
   faGripVertical,
+  faExclamationTriangle,
+  faFileAlt,
+  faSyncAlt,
+  faTimes,
+  faWifi,
 } from "@fortawesome/free-solid-svg-icons";
 import { useCart } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
+import {
+  getOnlineStatus,
+  getPendingTransactions,
+  getResolvedPendingTransactionsHistory,
+  resolvePendingTransaction,
+  syncPendingTransactionById,
+} from "../../lib/offlineSync";
+import { hasPosPermission } from "../../lib/posPermissions";
 import {
   printTransactionReceipt,
   getReceiptSettings,
@@ -42,11 +55,6 @@ import { getUiSettings } from "../../lib/uiSettings";
 import AdjustFloatModal from "./AdjustFloatModal";
 import NumKeypad from "../common/NumKeypad";
 import { showToast } from "../common/Toast";
-import {
-  getRoomReservationDateRange,
-  getRoomReservationDetails,
-  isRoomProduct,
-} from "../../lib/roomReservations";
 
 export default function CartPanel() {
   const [selectedItemId, setSelectedItemId] = useState(null);
@@ -59,6 +67,14 @@ export default function CartPanel() {
   const [totalsCollapsed, setTotalsCollapsed] = useState(false);
   const [qtyEditorItemId, setQtyEditorItemId] = useState(null);
   const [qtyDraft, setQtyDraft] = useState("");
+  const [showPendingTransactions, setShowPendingTransactions] = useState(false);
+  const [pendingTransactions, setPendingTransactions] = useState([]);
+  const [resolvedTransactions, setResolvedTransactions] = useState([]);
+  const [pendingTransactionsLoading, setPendingTransactionsLoading] = useState(false);
+  const [pendingTransactionsError, setPendingTransactionsError] = useState("");
+  const [pendingActionId, setPendingActionId] = useState(null);
+  const [pendingIsOnline, setPendingIsOnline] = useState(getOnlineStatus());
+  const [pendingOverlayTab, setPendingOverlayTab] = useState("pending");
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
   const {
     activeCart,
@@ -76,6 +92,161 @@ export default function CartPanel() {
 
   const totals = calculateTotals();
   const isEmpty = activeCart.items.length === 0;
+  const canViewResolvedHistory = hasPosPermission(staff, "viewAdvancedOrders");
+
+  const loadPendingTransactions = useCallback(async () => {
+    setPendingTransactionsLoading(true);
+    setPendingTransactionsError("");
+
+    try {
+      const [pending, resolved] = await Promise.all([
+        getPendingTransactions(),
+        canViewResolvedHistory ? getResolvedPendingTransactionsHistory() : Promise.resolve([]),
+      ]);
+
+      setPendingTransactions(pending);
+      setResolvedTransactions(resolved);
+      setPendingIsOnline(getOnlineStatus());
+    } catch (error) {
+      console.error("Failed to load pending transactions:", error);
+      setPendingTransactionsError("Could not load pending transactions.");
+    } finally {
+      setPendingTransactionsLoading(false);
+    }
+  }, [canViewResolvedHistory]);
+
+  const getCurrentTillIds = useCallback(() => {
+    const tillIds = new Set();
+
+    if (till?._id) {
+      tillIds.add(String(till._id));
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        const savedTill = localStorage.getItem("till");
+        if (savedTill) {
+          const parsedTill = JSON.parse(savedTill);
+          if (parsedTill?._id) {
+            tillIds.add(String(parsedTill._id));
+          }
+          if (parsedTill?.serverTillId) {
+            tillIds.add(String(parsedTill.serverTillId));
+          }
+        }
+      } catch (error) {
+        console.warn("Failed to read persisted till:", error);
+      }
+    }
+
+    return tillIds;
+  }, [till?._id]);
+
+  const isCurrentTillTransaction = useCallback(
+    (transaction) => {
+      const tillIds = getCurrentTillIds();
+      if (tillIds.size === 0) {
+        return false;
+      }
+
+      return [transaction?.tillId, transaction?.originalOfflineTillId].some(
+        (candidate) => candidate && tillIds.has(String(candidate))
+      );
+    },
+    [getCurrentTillIds]
+  );
+
+  const formatPendingAmount = (amount) =>
+    `₦${(Number(amount) || 0).toLocaleString("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const formatPendingDate = (value) => {
+    if (!value) return "Just now";
+
+    try {
+      return new Date(value).toLocaleString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch (error) {
+      return String(value);
+    }
+  };
+
+  const closePendingTransactions = () => {
+    setShowPendingTransactions(false);
+    setPendingTransactionsError("");
+    setPendingActionId(null);
+    setPendingOverlayTab("pending");
+  };
+
+  const handlePendingTransactionSync = async (transaction) => {
+    const transactionId = transaction?.id;
+    if (!transactionId) return;
+
+    if (!getOnlineStatus()) {
+      setPendingIsOnline(false);
+      showToast("Device is offline. Reconnect before syncing this transaction.", "warning");
+      return;
+    }
+
+    setPendingActionId(String(transactionId));
+    try {
+      const result = await syncPendingTransactionById(transactionId);
+
+      if (result?.success) {
+        showToast("Transaction synced successfully.", "success");
+      } else if (result?.reason === "already-synced") {
+        showToast("Transaction was already synced.", "success");
+      } else if (result?.reason === "till-not-mapped") {
+        showToast("Till mapping is not ready yet for this transaction.", "warning");
+      } else {
+        showToast("Transaction could not be synced yet.", "error");
+      }
+
+      await loadPendingTransactions();
+    } catch (error) {
+      console.error("Failed to sync pending transaction:", error);
+      showToast("Failed to sync the selected transaction.", "error");
+    } finally {
+      setPendingActionId(null);
+      setPendingIsOnline(getOnlineStatus());
+    }
+  };
+
+  const handlePendingTransactionResolve = async (transaction) => {
+    const transactionId = transaction?.id;
+    if (!transactionId) return;
+
+    setPendingActionId(String(transactionId));
+    try {
+      const result = await resolvePendingTransaction(transactionId, {
+        type: "previous-till",
+        note: "Resolved from unsynced transactions panel.",
+        tillId: till?._id || null,
+        staffId: staff?._id || null,
+        staffName: staff?.name || null,
+        staffRole: staff?.role || null,
+      });
+
+      if (result?.success) {
+        showToast("Previous till transaction resolved and cleared from the queue.", "success");
+      } else {
+        showToast("Transaction could not be resolved.", "error");
+      }
+
+      await loadPendingTransactions();
+    } catch (error) {
+      console.error("Failed to resolve pending transaction:", error);
+      showToast("Failed to resolve the selected transaction.", "error");
+    } finally {
+      setPendingActionId(null);
+    }
+  };
 
   // Auto-highlight the last added item ONLY when a new item is added (not on deselect)
   useEffect(() => {
@@ -115,6 +286,42 @@ export default function CartPanel() {
     getReceiptSettings().then((s) => setReceiptSettings(s)).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const handleOpenPendingTransactions = () => {
+      setPendingOverlayTab("pending");
+      setShowPendingTransactions(true);
+    };
+
+    const handleSyncStateChange = () => {
+      setPendingIsOnline(getOnlineStatus());
+      if (showPendingTransactions) {
+        loadPendingTransactions();
+      }
+    };
+
+    const handleConnectivityChange = () => {
+      setPendingIsOnline(getOnlineStatus());
+    };
+
+    window.addEventListener("pos:pending-transactions:open", handleOpenPendingTransactions);
+    window.addEventListener("pos:sync-state-changed", handleSyncStateChange);
+    window.addEventListener("online", handleConnectivityChange);
+    window.addEventListener("offline", handleConnectivityChange);
+
+    return () => {
+      window.removeEventListener("pos:pending-transactions:open", handleOpenPendingTransactions);
+      window.removeEventListener("pos:sync-state-changed", handleSyncStateChange);
+      window.removeEventListener("online", handleConnectivityChange);
+      window.removeEventListener("offline", handleConnectivityChange);
+    };
+  }, [loadPendingTransactions, showPendingTransactions]);
+
+  useEffect(() => {
+    if (showPendingTransactions) {
+      loadPendingTransactions();
+    }
+  }, [showPendingTransactions, loadPendingTransactions]);
+
   const handlePayment = async () => {
     if (isEmpty) {
       showToast("Cart is empty. Add items to complete payment.", "warning");
@@ -133,12 +340,10 @@ export default function CartPanel() {
       // Create a temporary transaction object for printing
       const printTransaction = {
         items: activeCart.items.map((item) => ({
-          ...item,
           productId: item.id,
           name: item.name,
-          quantity: isRoomProduct(item) ? 1 : item.quantity,
+          quantity: item.quantity,
           price: item.price,
-          reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : undefined,
         })),
         total: totals.total,
         subtotal: totals.subtotal,
@@ -176,7 +381,6 @@ export default function CartPanel() {
   };
 
   const openQtyEditor = (item) => {
-    if (isRoomProduct(item)) return;
     setQtyEditorItemId(item.id);
     setQtyDraft(String(item.quantity || 1));
   };
@@ -193,9 +397,325 @@ export default function CartPanel() {
   };
 
   const qtyEditItem = activeCart.items.find((item) => item.id === qtyEditorItemId) || null;
+  const activeOverlayCount = pendingOverlayTab === "resolved" ? resolvedTransactions.length : pendingTransactions.length;
 
   return (
     <div className="relative flex flex-col h-full bg-white touch-manipulation border-l border-neutral-200 text-xs sm:text-sm">
+      {showPendingTransactions && (
+        <div className="absolute inset-0 z-20 flex flex-col bg-white">
+          <div className="flex items-center justify-between gap-3 bg-neutral-900 px-3 py-3 text-white sm:px-4">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-bold sm:text-base">
+                <FontAwesomeIcon icon={faFileAlt} className="w-4 h-4 text-cyan-300" />
+                <span className="truncate">Unsynced Transactions</span>
+              </div>
+              <p className="mt-1 text-[11px] text-neutral-300 sm:text-xs">
+                {pendingOverlayTab === "resolved"
+                  ? `${activeOverlayCount} resolved previous-till record${activeOverlayCount !== 1 ? "s" : ""}`
+                  : `${activeOverlayCount} pending transaction${activeOverlayCount !== 1 ? "s" : ""}`}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold ${
+                  pendingIsOnline ? "bg-green-500/20 text-green-200" : "bg-red-500/20 text-red-200"
+                }`}
+              >
+                <FontAwesomeIcon icon={faWifi} className="w-3 h-3" />
+                {pendingIsOnline ? "Online" : "Offline"}
+              </span>
+              <button
+                onClick={loadPendingTransactions}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+                title="Refresh pending transactions"
+              >
+                <FontAwesomeIcon
+                  icon={faSyncAlt}
+                  className={pendingTransactionsLoading ? "animate-spin" : ""}
+                />
+              </button>
+              <button
+                onClick={closePendingTransactions}
+                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+                title="Close pending transactions"
+              >
+                <FontAwesomeIcon icon={faTimes} />
+              </button>
+            </div>
+          </div>
+
+          <div className="border-b border-neutral-200 bg-neutral-50 px-3 py-2 text-[11px] text-neutral-600 sm:px-4 sm:text-xs">
+            Current till: {till?.number || till?.name || till?._id || "Not loaded"}
+          </div>
+
+          {canViewResolvedHistory && (
+            <div className="flex gap-2 border-b border-neutral-200 bg-white px-3 py-2 sm:px-4">
+              <button
+                onClick={() => setPendingOverlayTab("pending")}
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold transition sm:text-xs ${
+                  pendingOverlayTab === "pending"
+                    ? "bg-cyan-600 text-white"
+                    : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                }`}
+              >
+                <span>Pending</span>
+                <span className={`rounded-full px-1.5 py-0.5 ${pendingOverlayTab === "pending" ? "bg-white/20 text-white" : "bg-white text-neutral-700"}`}>
+                  {pendingTransactions.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setPendingOverlayTab("resolved")}
+                className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[11px] font-bold transition sm:text-xs ${
+                  pendingOverlayTab === "resolved"
+                    ? "bg-neutral-900 text-white"
+                    : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+                }`}
+              >
+                <span>Resolved History</span>
+                <span className={`rounded-full px-1.5 py-0.5 ${pendingOverlayTab === "resolved" ? "bg-white/10 text-white" : "bg-white text-neutral-700"}`}>
+                  {resolvedTransactions.length}
+                </span>
+              </button>
+            </div>
+          )}
+
+          <div className="flex-1 overflow-y-auto bg-neutral-50 p-3 sm:p-4">
+            {pendingTransactionsLoading ? (
+              <div className="flex h-full items-center justify-center text-neutral-500">
+                <FontAwesomeIcon icon={faSyncAlt} className="mr-2 w-4 h-4 animate-spin" />
+                Loading pending transactions...
+              </div>
+            ) : pendingTransactionsError ? (
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {pendingTransactionsError}
+              </div>
+            ) : pendingOverlayTab === "resolved" ? (
+              resolvedTransactions.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white p-6 text-center">
+                  <FontAwesomeIcon icon={faFileAlt} className="mb-3 h-10 w-10 text-neutral-400" />
+                  <p className="text-sm font-bold text-neutral-900">No resolved history yet</p>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Previous-till records resolved from this device will appear here for supervisor review.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {resolvedTransactions.map((transaction, index) => {
+                    const transactionId = String(
+                      transaction?.id || transaction?.externalId || transaction?.clientId || index
+                    );
+
+                    return (
+                      <div
+                        key={transactionId}
+                        className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-xs font-bold text-neutral-900 sm:text-sm">
+                              {transaction.externalId || transaction.clientId || transaction.id}
+                            </p>
+                            <p className="mt-1 text-[11px] text-neutral-500 sm:text-xs">
+                              Resolved {formatPendingDate(transaction.resolvedAt || transaction.syncedAt)}
+                            </p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
+                            Resolved
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex items-center justify-between gap-3">
+                          <div className="text-lg font-black text-neutral-900 sm:text-xl">
+                            {formatPendingAmount(transaction.total)}
+                          </div>
+                          <div className="text-[11px] text-neutral-500 sm:text-xs">
+                            {transaction.items?.length || 0} item{(transaction.items?.length || 0) !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+
+                        <div className="mt-3 space-y-1.5 text-[11px] text-neutral-600 sm:text-xs">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Original sale</span>
+                            <span className="truncate font-medium text-neutral-900">
+                              {formatPendingDate(transaction.createdAt || transaction.timestamp)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Resolved by</span>
+                            <span className="truncate font-medium text-neutral-900">
+                              {transaction.resolvedByStaffName || transaction.resolvedByStaffId || "Supervisor"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Role</span>
+                            <span className="truncate font-medium text-neutral-900 capitalize">
+                              {transaction.resolvedByStaffRole || "Supervisor"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Location</span>
+                            <span className="truncate font-medium text-neutral-900">
+                              {transaction.locationName || transaction.location || location?.name || "-"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Original till</span>
+                            <span className="truncate font-mono text-neutral-700">
+                              {transaction.originalOfflineTillId || transaction.tillId || "-"}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span>Resolved from till</span>
+                            <span className="truncate font-mono text-neutral-700">
+                              {transaction.resolvedByTillId || "-"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {transaction.resolutionNote && (
+                          <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 p-2.5 text-[11px] text-neutral-600 sm:text-xs">
+                            {transaction.resolutionNote}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : pendingTransactions.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white p-6 text-center">
+                <FontAwesomeIcon icon={faFileAlt} className="mb-3 h-10 w-10 text-green-500" />
+                <p className="text-sm font-bold text-neutral-900">No unsynced transactions</p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  The local transaction queue is clear for this device.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingTransactions.map((transaction, index) => {
+                  const transactionId = String(
+                    transaction?.id || transaction?.externalId || transaction?.clientId || index
+                  );
+                  const belongsToCurrentTill = isCurrentTillTransaction(transaction);
+                  const isActingOnTransaction = pendingActionId === transactionId;
+
+                  return (
+                    <div
+                      key={transactionId}
+                      className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-bold text-neutral-900 sm:text-sm">
+                            {transaction.externalId || transaction.clientId || transaction.id}
+                          </p>
+                          <p className="mt-1 text-[11px] text-neutral-500 sm:text-xs">
+                            {formatPendingDate(transaction.createdAt || transaction.timestamp)}
+                          </p>
+                        </div>
+                        <span
+                          className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${
+                            belongsToCurrentTill
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {belongsToCurrentTill ? "This till" : "Previous till"}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        <div className="text-lg font-black text-neutral-900 sm:text-xl">
+                          {formatPendingAmount(transaction.total)}
+                        </div>
+                        <div className="text-[11px] text-neutral-500 sm:text-xs">
+                          {transaction.items?.length || 0} item{(transaction.items?.length || 0) !== 1 ? "s" : ""}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-1.5 text-[11px] text-neutral-600 sm:text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Staff</span>
+                          <span className="truncate font-medium text-neutral-900">
+                            {transaction.staffName || "POS Staff"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Location</span>
+                          <span className="truncate font-medium text-neutral-900">
+                            {transaction.locationName || transaction.location || location?.name || "-"}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span>Till</span>
+                          <span className="truncate font-mono text-neutral-700">
+                            {transaction.originalOfflineTillId || transaction.tillId || "-"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {transaction.items?.length > 0 && (
+                        <div className="mt-3 rounded-xl bg-neutral-50 p-2">
+                          <div className="space-y-1">
+                            {transaction.items.slice(0, 3).map((item, itemIndex) => (
+                              <div
+                                key={`${transactionId}-${itemIndex}`}
+                                className="flex items-center justify-between gap-2 text-[11px] text-neutral-600 sm:text-xs"
+                              >
+                                <span className="truncate text-neutral-700">
+                                  {item.name || item.productName || "Item"}
+                                </span>
+                                <span className="shrink-0 font-medium text-neutral-900">
+                                  {item.quantity || 1} x {formatPendingAmount(item.price || item.unitPrice || 0)}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                          {transaction.items.length > 3 && (
+                            <p className="mt-2 text-[10px] text-neutral-500">
+                              +{transaction.items.length - 3} more item{transaction.items.length - 3 !== 1 ? "s" : ""}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {!belongsToCurrentTill && (
+                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800 sm:text-xs">
+                          <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            This transaction belongs to a previous till session. Resolve it here if it should no longer stay in the live sync queue.
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex gap-2">
+                        {belongsToCurrentTill ? (
+                          <button
+                            onClick={() => handlePendingTransactionSync(transaction)}
+                            disabled={isActingOnTransaction || !pendingIsOnline}
+                            className="flex-1 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                          >
+                            {isActingOnTransaction ? "Syncing..." : pendingIsOnline ? "Sync" : "Offline"}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handlePendingTransactionResolve(transaction)}
+                            disabled={isActingOnTransaction}
+                            className="flex-1 rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                          >
+                            {isActingOnTransaction ? "Resolving..." : "Resolve"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {isEmpty ? (
         // Empty Cart State
         <div className="flex-1 flex flex-col items-center justify-center text-neutral-400 p-3 text-center">
@@ -224,9 +744,6 @@ export default function CartPanel() {
           {/* Line Items */}
           <div className="flex-1 overflow-y-auto bg-white divide-y divide-neutral-200">
             {activeCart.items.map((item) => {
-              const isRoomItem = isRoomProduct(item);
-              const roomReservation = isRoomItem ? getRoomReservationDetails(item) : null;
-              const roomStayRange = isRoomItem ? getRoomReservationDateRange(item) : "";
               // Calculate adjusted price if promotion is active
               let adjustedPrice = item.price;
               if (
@@ -276,12 +793,6 @@ export default function CartPanel() {
                         <div className="text-xs sm:text-sm font-medium text-neutral-700 line-clamp-1">
                           {item.name}
                         </div>
-                        {isRoomItem && (
-                          <div className="mt-0.5 text-[11px] text-cyan-700 font-medium leading-tight">
-                            {roomReservation?.guestName || "Guest not set"}
-                            {roomStayRange ? ` · ${roomStayRange}` : ""}
-                          </div>
-                        )}
                         {(item.discount > 0 || hasPromoAdjustment) && (
                           <div className="text-xs text-purple-600 mt-0.5 font-semibold">
                             {hasPromoAdjustment && (
@@ -302,7 +813,7 @@ export default function CartPanel() {
                         )}
                       </div>
                       <div className="col-span-2 text-center text-xs sm:text-sm font-semibold text-neutral-900">
-                        {isRoomItem ? "ROOM" : item.quantity}
+                        {item.quantity}
                       </div>
                       <div className="col-span-2 text-right">
                         {hasPromoAdjustment ? (
@@ -381,12 +892,6 @@ export default function CartPanel() {
                             )
                           </div>
                         )}
-                        {isRoomItem && (
-                          <div className="mt-2 text-xs text-cyan-100">
-                            {roomReservation?.guestName || "Guest name pending"}
-                            {roomStayRange ? ` · ${roomStayRange}` : ""}
-                          </div>
-                        )}
                       </div>
 
                       {/* Expanded Controls */}
@@ -394,65 +899,52 @@ export default function CartPanel() {
                         className="px-3 py-2 space-y-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        {isRoomItem ? (
-                          <div className="rounded-xl border border-white/20 bg-white/10 p-3 text-center text-xs text-white">
-                            <div className="font-semibold uppercase tracking-[0.18em] text-cyan-100">Reservation</div>
-                            <div className="mt-2 text-sm font-semibold">{roomReservation?.guestName || "Guest name pending"}</div>
-                            {roomStayRange && (
-                              <div className="mt-1 text-cyan-100">{roomStayRange}</div>
-                            )}
-                            <div className="mt-2 text-cyan-100">Room bookings stay at quantity 1.</div>
-                          </div>
-                        ) : (
-                          <>
-                            {/* Quantity Control - Center */}
-                            <div className="flex items-center justify-center gap-3">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  updateQuantity(
-                                    item.id,
-                                    Math.max(1, item.quantity - 1),
-                                  );
-                                }}
-                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
-                              >
-                                <FontAwesomeIcon
-                                  icon={faMinus}
-                                  className="w-4 h-4"
-                                />
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openQtyEditor(item);
-                                }}
-                                className="text-center w-14 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition py-1"
-                              >
-                                <div className="text-2xl font-bold">
-                                  {item.quantity}
-                                </div>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  updateQuantity(item.id, item.quantity + 1);
-                                }}
-                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
-                              >
-                                <FontAwesomeIcon
-                                  icon={faPlus}
-                                  className="w-4 h-4"
-                                />
-                              </button>
+                        {/* Quantity Control - Center */}
+                        <div className="flex items-center justify-center gap-3">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(
+                                item.id,
+                                Math.max(1, item.quantity - 1),
+                              );
+                            }}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
+                          >
+                            <FontAwesomeIcon
+                              icon={faMinus}
+                              className="w-4 h-4"
+                            />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openQtyEditor(item);
+                            }}
+                            className="text-center w-14 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition py-1"
+                          >
+                            <div className="text-2xl font-bold">
+                              {item.quantity}
                             </div>
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateQuantity(item.id, item.quantity + 1);
+                            }}
+                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
+                          >
+                            <FontAwesomeIcon
+                              icon={faPlus}
+                              className="w-4 h-4"
+                            />
+                          </button>
+                        </div>
 
-                            {/* Quantity Label */}
-                            <div className="text-center text-xs font-semibold tracking-wider">
-                              QTY
-                            </div>
-                          </>
-                        )}
+                        {/* Quantity Label */}
+                        <div className="text-center text-xs font-semibold tracking-wider">
+                          QTY
+                        </div>
 
                         {/* Action Buttons */}
                         <div className="flex gap-1.5 pt-1 justify-center">

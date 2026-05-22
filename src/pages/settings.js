@@ -58,7 +58,6 @@ const PAYMENT_SCALE_OPTIONS = [
 
 const CONTENT_SCALE_MIN = 60;
 const CONTENT_SCALE_MAX = 150;
-const normalizeLocationId = (value) => String(value?._id || value || '').trim();
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -81,9 +80,6 @@ export default function SettingsPage() {
   const [saveLabel, setSaveLabel] = useState('Save Settings');
   const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const canAccessSettings = hasPosPermission(staff, 'settingsAccess');
-  const selectedVisibleLocationIds = (settings.login?.visibleLocationIds || [])
-    .map((id) => normalizeLocationId(id))
-    .filter(Boolean);
 
   // Track online/offline status
   useEffect(() => {
@@ -228,13 +224,10 @@ export default function SettingsPage() {
 
   const toggleLocationVisibility = (locationId) => {
     setSettings((prev) => {
-      const normalizedLocationId = normalizeLocationId(locationId);
-      const current = (prev.login?.visibleLocationIds || [])
-        .map((id) => normalizeLocationId(id))
-        .filter(Boolean);
-      const next = current.includes(normalizedLocationId)
-        ? current.filter((id) => id !== normalizedLocationId)
-        : [...current, normalizedLocationId];
+      const current = prev.login?.visibleLocationIds || [];
+      const next = current.includes(locationId)
+        ? current.filter((id) => id !== locationId)
+        : [...current, locationId];
       return {
         ...prev,
         login: {
@@ -790,24 +783,6 @@ export default function SettingsPage() {
                   </label>
                 </div>
 
-                {/* QR Code Toggle */}
-                <div className="border-t border-gray-100 pt-4">
-                  <label className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      checked={settings.system?.showQrCode !== false}
-                      onChange={(e) => updateSystemSetting('showQrCode', e.target.checked)}
-                    />
-                    <span className="text-xl">🔲</span>
-                    <div>
-                      <span className="font-semibold text-gray-700">Show QR Code on Receipts</span>
-                      <span className="block text-xs text-gray-500">
-                        When enabled, the QR code configured for the transaction location appears on receipts. Configure QR codes per location in Receipt Settings (admin).
-                      </span>
-                    </div>
-                  </label>
-                </div>
-
                 {/* Auto Refresh Products Toggle */}
                 <div className="border-t border-gray-100 pt-4">
                   <label className="flex items-center gap-3">
@@ -866,11 +841,10 @@ export default function SettingsPage() {
                   ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       {allLocations.map((loc) => {
-                        const locationId = normalizeLocationId(loc._id);
-                        const isSelected = selectedVisibleLocationIds.includes(locationId);
+                        const isSelected = (settings.login?.visibleLocationIds || []).includes(loc._id);
                         return (
                           <label
-                            key={locationId}
+                            key={loc._id}
                             className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${
                               isSelected
                                 ? 'border-teal-400 bg-teal-50'
@@ -880,7 +854,7 @@ export default function SettingsPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={() => toggleLocationVisibility(locationId)}
+                              onChange={() => toggleLocationVisibility(loc._id)}
                               className="accent-teal-600"
                             />
                             <div>

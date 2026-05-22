@@ -35,18 +35,9 @@ export async function getReceiptSettings() {
   const cachedLogo = getStoreLogo();
   const cached = getCachedReceiptSettings();
 
-  // If cached settings don't include locations, treat as stale — force a fresh fetch
-  // (ensures per-location QR codes work after the feature was deployed)
-  if (cached && !Array.isArray(cached.locations)) {
-    // Invalidate the stale cache
-    try { localStorage.removeItem(RECEIPT_SETTINGS_CACHE_KEY); } catch {}
-  }
-
-  const freshCached = getCachedReceiptSettings();
-
-  // If we have cached settings (with locations), return immediately and refresh in background
-  if (freshCached) {
-    const result = { ...freshCached, companyLogo: cachedLogo };
+  // If we have cached settings, return immediately and refresh in background
+  if (cached) {
+    const result = { ...cached, companyLogo: cachedLogo };
     // Background refresh if online (non-blocking)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       fetch('/api/receipt-settings', { signal: AbortSignal.timeout(3000) })
@@ -66,14 +57,8 @@ export async function getReceiptSettings() {
       email: '',
       website: '',
       businessAddress: '',
-      taxNumber: '',
       refundDays: 0,
       receiptMessage: 'Thank you for shopping with us!',
-      qrUrl: '',
-      qrDataUrl: '',
-      qrDescription: '',
-      paymentStatus: 'paid',
-      fontSize: '8.0',
     };
   }
 
@@ -98,31 +83,10 @@ export async function getReceiptSettings() {
       email: '',
       website: '',
       businessAddress: '',
-      taxNumber: '',
       refundDays: 0,
       receiptMessage: 'Thank you for shopping with us!',
-      qrUrl: '',
-      qrDataUrl: '',
-      qrDescription: '',
-      paymentStatus: 'paid',
-      fontSize: '8.0',
     };
   }
-}
-
-function escapeHTML(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function normalizeReceiptFontSize(fontSize) {
-  const parsed = Number.parseFloat(fontSize);
-  if (!Number.isFinite(parsed)) return 8;
-  return Math.min(9.5, Math.max(7.2, parsed));
 }
 
 /**
@@ -424,9 +388,6 @@ function generateReceiptHTML(transaction, settings) {
     subtotal = 0,
     tax = 0,
     discount = 0,
-    incrementAmount = 0,
-    promotionValueType = null,
-    customerType = '',
     change = 0,
     staffName = 'Unknown Staff',
     location,
@@ -452,51 +413,9 @@ function generateReceiptHTML(transaction, settings) {
     taxNumber = '',
     refundDays = 0,
     receiptMessage = '',
-    qrUrl: storeQrUrl = '',
-    qrDataUrl: storeQrDataUrl = '',
-    qrDescription: storeQrDescription = '',
-    paymentStatus = 'paid',
-    fontSize = '8.0',
+    qrUrl = '',
+    qrDescription = '',
   } = settings;
-
-  // Determine QR code: prefer location-specific, fall back to store-wide
-  let qrUrl = storeQrUrl;
-  let qrDataUrl = storeQrDataUrl;
-  let qrDescription = storeQrDescription;
-
-  // Check if user wants QR code shown at all (showQrCode uiSetting)
-  let showQrCode = true;
-  try {
-    const stored = localStorage.getItem('uiSettings');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      if (parsed?.system?.showQrCode === false) showQrCode = false;
-    }
-  } catch (e) {}
-
-  if (showQrCode) {
-    // Look up location-specific QR from settings.locations (passed through from getReceiptSettings)
-    const locationsList = Array.isArray(settings?.locations) ? settings.locations : [];
-    if (locationsList.length > 0) {
-      const transactionLocation = transaction?.locationName || transaction?.location;
-      const matchedLocQr = locationsList.find(
-        (l) => l.name === transactionLocation || String(l._id) === transactionLocation
-      );
-      if (matchedLocQr?.qrDataUrl) {
-        qrUrl = matchedLocQr.qrUrl || '';
-        qrDataUrl = matchedLocQr.qrDataUrl;
-        qrDescription = matchedLocQr.qrDescription || storeQrDescription;
-      } else if (matchedLocQr?.qrUrl) {
-        qrUrl = matchedLocQr.qrUrl;
-        qrDataUrl = '';
-        qrDescription = matchedLocQr.qrDescription || storeQrDescription;
-      }
-    }
-  } else {
-    qrUrl = '';
-    qrDataUrl = '';
-    qrDescription = '';
-  }
 
   // Ensure logo URL is absolute for print context (iframe/new window)
   const fallbackLogo = getStoreLogo();
@@ -522,54 +441,39 @@ function generateReceiptHTML(transaction, settings) {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      second: '2-digit',
       hour12: false,
     });
   };
 
-  const receiptFontSize = normalizeReceiptFontSize(fontSize);
-  const totalQuantity = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const shortReceiptId = String(_id || '').substring(0, 8).toUpperCase() || 'RECEIPT';
-  const receiptStatus = String(status || paymentStatus || 'paid').trim().toUpperCase() || 'PAID';
-  const incrementLabel = incrementAmount > 0 || promotionValueType === 'INCREMENT'
-    ? (customerType || 'Service Fee')
-    : '';
-  const incrementValue = incrementAmount || (promotionValueType === 'INCREMENT' ? discount : 0);
-  const contactLine = [
-    storePhone ? `Tel: ${storePhone}` : '',
-    website,
-    email,
-  ].filter(Boolean).join(' • ');
-  const renderedItems = items.length > 0 ? items : [{ name: 'No items', quantity: 0, price: 0 }];
-
-  const itemsHTML = renderedItems.map((item) => {
-    const quantity = Number(item.quantity || 0);
-    const lineTotal = Number(item.price || 0) * quantity;
-    return `
-      <tr>
-        <td class="item-name">${escapeHTML(item.name || 'Item')}</td>
-        <td class="item-qty">${escapeHTML(quantity)}</td>
-        <td class="item-amount">${escapeHTML(formatNaira(lineTotal))}</td>
-      </tr>
-    `;
-  }).join('');
+  const itemsHTML = items.map((item, idx) => `
+    <tr>
+      <td style="text-align: left; padding: 2px 0;">${item.name}</td>
+      <td style="text-align: center; padding: 2px 0;">${item.quantity}</td>
+      <td style="text-align: right; padding: 2px 0;">${formatNaira(item.price * item.quantity)}</td>
+    </tr>
+  `).join('');
 
   const paymentItemsHTML = tenderPayments && tenderPayments.length > 0
-    ? tenderPayments.map((payment) => `
-        <div class="summary-row">
-          <span>${escapeHTML(payment.tenderName || 'Unknown')}</span>
-          <span>${escapeHTML(formatNaira(payment.amount))}</span>
-        </div>
+    ? tenderPayments.map((payment, idx) => `
+        <tr>
+          <td style="text-align: left; padding: 1px 0;">${payment.tenderName || 'Unknown'}</td>
+          <td style="text-align: right; padding: 1px 0;">${formatNaira(payment.amount)}</td>
+        </tr>
       `).join('')
     : `
-        <div class="summary-row">
-          <span>CASH</span>
-          <span>${escapeHTML(formatNaira(total))}</span>
-        </div>
+        <tr>
+          <td style="text-align: left; padding: 1px 0;">CASH</td>
+          <td style="text-align: right; padding: 1px 0;">${formatNaira(total)}</td>
+        </tr>
       `;
 
-  const qrMarkup = qrDataUrl
-    ? `<img src="${escapeHTML(qrDataUrl)}" class="qr-image" alt="QR code" />`
-    : (qrUrl ? `<div class="qr-link">${escapeHTML(qrUrl)}</div>` : '');
+  const changeHTML = change > 0 ? `
+    <tr style="border-top: 1px solid #000; margin-top: 3px;">
+      <td style="text-align: left; padding: 3px 0; font-weight: bold;">CHANGE:</td>
+      <td style="text-align: right; padding: 3px 0; font-weight: bold;">${formatNaira(change)}</td>
+    </tr>
+  ` : '';
 
   return `
     <!DOCTYPE html>
@@ -579,17 +483,15 @@ function generateReceiptHTML(transaction, settings) {
         <title>Transaction Receipt</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          :root { --receipt-font-size: ${receiptFontSize}pt; }
           html, body {
             margin: 0;
             padding: 0;
             background: white;
           }
           body {
-            font-family: 'Roboto Mono', 'Courier New', monospace;
-            font-size: var(--receipt-font-size);
-            line-height: 1.18;
-            color: #111;
+            font-family: 'Arial', 'Helvetica Neue', sans-serif;
+            font-size: 8.5pt;
+            line-height: 1.05;
             overflow-x: hidden;
           }
           .receipt-page {
@@ -605,141 +507,145 @@ function generateReceiptHTML(transaction, settings) {
           .receipt {
             width: 100%;
             margin: 0;
-            padding: 1.7mm 1.35mm 1.35mm;
-          }
-          .header,
-          .section,
-          .footer {
-            border-top: 1px dashed #000;
-            padding-top: 1.05mm;
-            margin-top: 1.05mm;
+            padding: 2mm 1.5mm 1.5mm;
+            color: #000;
+            text-align: center;
           }
           .header {
             text-align: center;
-            border-top: none;
-            padding-top: 0;
-            margin-top: 0;
+            border-bottom: 1px solid #000;
+            padding-bottom: 2mm;
+            margin-bottom: 2mm;
           }
           .logo {
-            max-width: 28mm;
-            max-height: 12mm;
+            max-width: 40mm;
+            max-height: 24mm;
             width: auto;
             height: auto;
             display: block;
-            margin: 0 auto 1.2mm auto;
-            filter: grayscale(100%) contrast(1.05);
+            margin: 0 auto 2mm auto;
+            filter: grayscale(100%);
           }
           .company-name {
             font-weight: bold;
-            font-size: 1.15em;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
+            font-size: 10pt;
+            letter-spacing: 1px;
+            margin: 1mm 0;
           }
-          .company-line,
-          .compact-text,
-          .message,
-          .qr-link {
-            font-size: 0.84em;
-            line-height: 1.24;
-            word-break: break-word;
+          .company-info {
+            font-size: 7pt;
+            line-height: 1.2;
           }
-          .company-line + .company-line {
-            margin-top: 0.35mm;
+
+          .details {
+            font-size: 7.5pt;
+            margin: 0.5mm 0;
+            text-align: left;
           }
-          .receipt-title {
-            font-weight: bold;
-            font-size: 0.96em;
-            margin-bottom: 0.65mm;
-            text-transform: uppercase;
-          }
-          .meta-row,
-          .summary-row {
+          .detail-row {
             display: flex;
             justify-content: space-between;
-            gap: 2mm;
-            margin: 0.35mm 0;
-            align-items: flex-start;
+            margin: 0.3mm 0;
+            text-align: left;
           }
-          .meta-row span:first-child,
-          .summary-row span:first-child {
-            flex: 1;
+          .items-section {
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 1mm 0;
+            margin: 1mm 0;
+            text-align: left;
+          }
+          .items-header {
+            display: grid;
+            grid-template-columns: 1fr 0.5fr 0.75fr;
+            gap: 2mm;
+            font-weight: bold;
+            margin-bottom: 0.5mm;
+            font-size: 7pt;
+            text-align: left;
           }
           .items-table {
             width: 100%;
             border-collapse: collapse;
-            table-layout: fixed;
-            margin-top: 0.3mm;
-          }
-          .items-table th {
-            font-size: 0.82em;
-            padding-bottom: 0.45mm;
-            text-transform: uppercase;
-          }
-          .items-table td {
-            padding: 0.38mm 0;
-            vertical-align: top;
-          }
-          .items-table th:first-child,
-          .item-name {
+            font-size: 7.25pt;
             text-align: left;
           }
-          .item-name {
-            width: 68%;
-            padding-right: 1.5mm;
-            word-break: break-word;
+          .items-table td {
+            padding: 0.3mm 0;
           }
-          .item-qty,
-          .items-table th:nth-child(2) {
-            width: 12%;
-            text-align: center;
+          .totals {
+            margin: 0.5mm 0;
+            font-size: 7.5pt;
+            text-align: left;
           }
-          .item-amount,
-          .items-table th:last-child {
-            width: 20%;
-            text-align: right;
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 0.3mm 0;
+            text-align: left;
           }
-          .minor-rule {
-            border-top: 1px solid #c7c7c7;
-            margin-top: 0.7mm;
-            padding-top: 0.7mm;
-          }
-          .summary-row.strong {
+          .final-total {
             font-weight: bold;
-            font-size: 1.03em;
+            font-size: 9pt;
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 1mm 0;
+            margin: 1mm 0;
+          }
+          .payment-section {
+            border-top: 1px solid #000;
+            border-bottom: 1px solid #000;
+            padding: 1mm 0;
+            margin: 1mm 0;
+            text-align: left;
+          }
+          .payment-title {
+            font-weight: bold;
+            font-size: 7.5pt;
+            margin-bottom: 0.5mm;
+          }
+          .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7.25pt;
+          }
+          .payment-table td {
+            padding: 0.3mm 0;
+          }
+          .thank-you {
+            text-align: center;
+            font-weight: bold;
+            font-size: 10pt;
+            margin: 1mm 0;
           }
           .footer {
             text-align: center;
+            font-size: 7pt;
+            margin-top: 1mm;
+            padding-top: 1mm;
+            border-top: 1px solid #000;
           }
-          .footer-note {
+          .status-box {
+            text-align: center;
             font-weight: bold;
-            margin-top: 0.85mm;
+            font-size: 9pt;
+            border: 2px solid #000;
+            padding: 1mm;
+            margin: 1mm 0;
           }
-          .status-line {
-            margin-top: 0.9mm;
-            padding-top: 0.8mm;
-            border-top: 1px dashed #000;
-            font-weight: bold;
-            font-size: 0.9em;
-            letter-spacing: 0.12em;
-          }
-          .status-line.alert {
-            background: #efefef;
-            border: 1px solid #111;
-            padding: 0.65mm 0;
+          .message {
+            text-align: center;
+            font-size: 7pt;
+            margin: 0.5mm 0;
+            padding: 1mm 0;
+            border-top: 1px solid #000;
+            white-space: pre-wrap;
           }
           .qr-section {
             text-align: center;
-            margin-top: 0.9mm;
-          }
-          .qr-image {
-            width: 18mm;
-            height: 18mm;
-            margin: 0.75mm auto;
-            image-rendering: pixelated;
-          }
-          .message {
-            margin-top: 0.8mm;
-            white-space: pre-wrap;
+            margin: 1mm 0;
+            padding: 1mm 0;
+            border-top: 1px solid #000;
           }
           @media print {
             html, body {
@@ -759,7 +665,7 @@ function generateReceiptHTML(transaction, settings) {
             .receipt {
               width: 100%;
               margin: 0;
-              padding: 1.7mm 1.35mm 1.35mm;
+              padding: 2mm 1.5mm 1.5mm;
             }
             @page {
               size: 58mm auto;
@@ -772,78 +678,101 @@ function generateReceiptHTML(transaction, settings) {
       <body>
         <div class="receipt-page">
         <div class="receipt">
+          <!-- Header -->
           <div class="header">
-            ${companyLogo ? `<img src="${escapeHTML(companyLogo)}" class="logo" alt="Logo" onerror="this.style.display='none'">` : ''}
-            <div class="company-name">${escapeHTML(companyDisplayName)}</div>
-            <div class="company-line">${escapeHTML(displayLocation)}</div>
-            ${displayAddress ? `<div class="company-line">${escapeHTML(displayAddress)}</div>` : ''}
-            ${contactLine ? `<div class="company-line compact-text">${escapeHTML(contactLine)}</div>` : ''}
-            ${taxNumber ? `<div class="company-line compact-text">Tax ID: ${escapeHTML(taxNumber)}</div>` : ''}
-          </div>
-
-          <div class="section">
-            <div class="receipt-title">${tax > 0 ? 'Sales Receipt (Inc Tax)' : 'Sales Receipt'}</div>
-            <div class="meta-row">
-              <span>${escapeHTML(formatDateTime(createdAt))}</span>
-              <span>${escapeHTML(shortReceiptId)}</span>
-            </div>
-            <div class="meta-row">
-              <span>Staff: ${escapeHTML(staffName)}</span>
-              <span>${customerType ? escapeHTML(customerType) : ''}</span>
+            ${companyLogo ? `<div style="text-align: center;"><img src="${companyLogo}" class="logo" alt="Logo" onerror="this.style.display='none'"></div>` : ''}
+            <div class="company-name">${companyDisplayName}</div>
+            <div class="company-info">
+              <div>${displayLocation}</div>
+              ${displayAddress ? `<div>${displayAddress}</div>` : ''}
+              ${storePhone ? `<div>Tel: ${storePhone}</div>` : ''}
+              ${email ? `<div>${email}</div>` : ''}
+              ${website ? `<div>${website}</div>` : ''}
+              ${taxNumber ? `<div>Tax ID: ${taxNumber}</div>` : ''}
             </div>
           </div>
 
-          <div class="section">
-            <table class="items-table">
+          <!-- Receipt Details -->
+          <div class="details">
+            <div style="font-weight: bold; margin-bottom: 1mm;">Receipt of Purchase (Inc Tax)</div>
+            <div class="detail-row">
+              <span>${formatDateTime(createdAt)}</span>
+              <span>${_id.substring(0, 8).toUpperCase()}</span>
+            </div>
+            <div class="detail-row">
+              <span>Staff: ${staffName}</span>
+              <span>Till #1</span>
+            </div>
+          </div>
+
+          <!-- Items -->
+          <div class="items-section">
+            <table style="width: 100%; font-size: 7pt;">
               <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Qty</th>
-                  <th>Amt</th>
+                <tr style="font-weight: bold;">
+                  <td style="text-align: left;">PRODUCT</td>
+                  <td style="text-align: center;">QTY</td>
+                  <td style="text-align: right;">PRICE</td>
                 </tr>
               </thead>
               <tbody>
                 ${itemsHTML}
+                <tr style="border-top: 1px solid #ccc; margin-top: 2mm; padding-top: 2mm;">
+                  <td style="text-align: left;"></td>
+                  <td style="text-align: center; font-weight: bold;">Total: ${items.reduce((sum, item) => sum + item.quantity, 0)} Items</td>
+                  <td style="text-align: right;"></td>
+                </tr>
               </tbody>
             </table>
-            <div class="summary-row minor-rule compact-text">
-              <span>Total Qty</span>
-              <span>${escapeHTML(totalQuantity)}</span>
-            </div>
           </div>
 
-          <div class="section">
-            <div class="summary-row">
+          <!-- Totals -->
+          <div class="totals">
+            <div class="total-row">
               <span>Subtotal:</span>
-              <span>${escapeHTML(formatNaira(subtotal))}</span>
+              <span>${formatNaira(subtotal)}</span>
             </div>
-            ${tax > 0 ? `<div class="summary-row"><span>Tax:</span><span>${escapeHTML(formatNaira(tax))}</span></div>` : ''}
-            ${discount > 0 && promotionValueType !== 'INCREMENT' ? `<div class="summary-row"><span>Discount:</span><span>-${escapeHTML(formatNaira(discount))}</span></div>` : ''}
-            ${incrementLabel ? `<div class="summary-row"><span>${escapeHTML(incrementLabel)}:</span><span>${escapeHTML(formatNaira(incrementValue))}</span></div>` : ''}
-            <div class="summary-row strong minor-rule">
-              <span>Total</span>
-              <span>${escapeHTML(formatNaira(total))}</span>
-            </div>
-            ${change > 0 ? `<div class="summary-row strong"><span>Change</span><span>${escapeHTML(formatNaira(change))}</span></div>` : ''}
-          </div>
-
-          <div class="section">
-            <div class="receipt-title">Payment</div>
-            ${paymentItemsHTML}
-          </div>
-
-          <div class="footer">
-            ${refundDays > 0 ? `<div class="compact-text">Refund within ${escapeHTML(refundDays)} days with receipt</div>` : ''}
-            ${receiptMessage ? `<div class="message">${escapeHTML(receiptMessage)}</div>` : ''}
-            ${(qrDataUrl || qrUrl) ? `
-              <div class="qr-section">
-                ${qrDescription ? `<div class="compact-text">${escapeHTML(qrDescription)}</div>` : ''}
-                ${qrMarkup}
+            ${tax > 0 ? `<div class="total-row"><span>Tax:</span><span>${formatNaira(tax)}</span></div>` : ''}
+            ${discount > 0 ? `<div class="total-row"><span>Discount:</span><span>-${formatNaira(discount)}</span></div>` : ''}
+            <div class="final-total">
+              <div class="total-row">
+                <span>TOTAL:</span>
+                <span>${formatNaira(total)}</span>
               </div>
-            ` : ''}
-            <div class="footer-note">Thank You</div>
-            <div class="status-line ${receiptStatus === 'PAID' ? '' : 'alert'}">${escapeHTML(receiptStatus)}</div>
+            </div>
           </div>
+
+          <!-- Payment -->
+          <div class="payment-section">
+            <div class="payment-title">PAYMENT BY TENDER</div>
+            <table class="payment-table">
+              <tbody>
+                ${paymentItemsHTML}
+              </tbody>
+            </table>
+          </div>
+
+          ${changeHTML}
+
+          <!-- Thank You -->
+          <div class="thank-you"> THANK YOU! </div>
+
+          <!-- Additional Info -->
+          ${refundDays > 0 ? `<div style="text-align: center; font-size: 8pt;">Refund within ${refundDays} days with receipt</div>` : ''}
+
+          <!-- Status -->
+          <div class="status-box" style="${status === 'UNPAID' ? 'color: black; border-color: black;' : ''}">${status === 'UNPAID' ? 'UNPAID' : 'PAID'}</div>
+
+          <!-- Message -->
+          ${receiptMessage ? `<div class="message">${receiptMessage}</div>` : ''}
+
+          <!-- QR Code -->
+          ${qrUrl ? `
+            <div class="qr-section">
+              ${qrDescription ? `<div style="font-weight: bold; font-size: 8pt; margin-bottom: 2mm;">${qrDescription}</div>` : ''}
+              <div style="background: #f0f0f0; border: 1px solid #000; width: 30mm; height: 30mm; margin: 2mm auto; display: flex; align-items: center; justify-content: center; font-size: 8pt;">[QR CODE]</div>
+            </div>
+          ` : ''}
         </div>
         </div>
       </body>

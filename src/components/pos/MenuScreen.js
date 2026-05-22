@@ -35,15 +35,6 @@ import { getLocalCategories, getLocalProductsByCategory, syncCategories, syncPro
 import { initOfflineSync, getOnlineStatus, getImageUrl, shouldShowPlaceholder, syncPendingTransactions, syncPendingTillCloses } from '../../lib/offlineSync';
 import { cleanupOldTransactions } from '../../lib/indexedDBCleanup';
 import AlphaKeyboardModal from '../common/AlphaKeyboardModal';
-import RoomReservationModal from './RoomReservationModal';
-import {
-  getRoomReservationDetails,
-  getRoomStatusLabel,
-  isRoomProduct,
-  isRoomUnavailable,
-  ROOM_PRODUCT_TYPE,
-  ROOM_STATUSES,
-} from '../../lib/roomReservations';
 
 // Color mapping for categories
 const CATEGORY_COLORS = {
@@ -154,81 +145,6 @@ const DEFAULT_CATEGORIES = [
   { _id: '5', name: 'Wine' },
 ];
 
-const normalizeLocationToken = (value) => {
-  if (!value) return '';
-  if (typeof value === 'object') {
-    return String(value._id || value.id || value.name || value.code || '')
-      .trim()
-      .toLowerCase();
-  }
-  return String(value).trim().toLowerCase();
-};
-
-const getLocationAssignmentTokens = (locationData) => {
-  const tokens = new Set();
-  if (!locationData || typeof locationData !== 'object') return tokens;
-
-  [locationData._id, locationData.id, locationData.name, locationData.code].forEach((candidate) => {
-    const token = normalizeLocationToken(candidate);
-    if (token) tokens.add(token);
-  });
-
-  return tokens;
-};
-
-const productAssignedToLocation = (product, locationData) => {
-  const locationTokens = getLocationAssignmentTokens(locationData);
-  if (locationTokens.size === 0) return false;
-
-  const assignments = Array.isArray(product?.locations) ? product.locations : [];
-  if (assignments.length === 0) return false;
-
-  return assignments.some((assignment) => {
-    if (assignment && typeof assignment === 'object') {
-      return [assignment._id, assignment.id, assignment.name, assignment.code].some((candidate) => {
-        const token = normalizeLocationToken(candidate);
-        return token && locationTokens.has(token);
-      });
-    }
-
-    const token = normalizeLocationToken(assignment);
-    return token && locationTokens.has(token);
-  });
-};
-
-const filterProductsForLocation = (productList = [], locationData) => {
-  if (!Array.isArray(productList)) return [];
-  return productList.filter((product) => productAssignedToLocation(product, locationData));
-};
-
-const filterProductsByCategory = (productList = [], categoryInfo) => {
-  if (!categoryInfo || !Array.isArray(productList)) return [];
-
-  const categoryId = categoryInfo._id || categoryInfo.id;
-  const categoryName = categoryInfo.name;
-
-  return productList.filter((product) => (
-    product?.category === categoryName ||
-    product?.category === categoryId ||
-    product?.categoryId === categoryId
-  ));
-};
-
-const mergeProductsById = (...lists) => {
-  const merged = new Map();
-
-  lists.forEach((list) => {
-    if (!Array.isArray(list)) return;
-    list.forEach((product) => {
-      const productId = String(product?._id || product?.id || '');
-      if (!productId) return;
-      merged.set(productId, product);
-    });
-  });
-
-  return Array.from(merged.values());
-};
-
 export default function MenuScreen() {
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -247,89 +163,10 @@ export default function MenuScreen() {
   const [isOnline, setIsOnline] = useState(true); // Track online status
   const [pendingTransactions, setPendingTransactions] = useState(0); // Track unsync'd transactions
   const [showSearchKeyboard, setShowSearchKeyboard] = useState(false);
-  const [reservationProduct, setReservationProduct] = useState(null);
   const imageObserver = useRef(null);
   const handleManualSyncRef = useRef(null);
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
-  const hasActiveLocation = Boolean(location?._id || location?.id || location?.name || location?.code);
-
-  const updateRoomAvailabilityLocally = useCallback((items = [], nextStatus = ROOM_STATUSES.OCCUPIED) => {
-    const roomIds = new Set(
-      (Array.isArray(items) ? items : [])
-        .filter((item) => isRoomProduct(item))
-        .map((item) => String(item.productId || item.id || ''))
-        .filter(Boolean)
-    );
-
-    if (roomIds.size === 0) return;
-
-    const applyStatus = (productList = []) => productList.map((product) => {
-      const productId = String(product?._id || product?.id || '');
-      if (!roomIds.has(productId)) return product;
-      return {
-        ...product,
-        productType: ROOM_PRODUCT_TYPE,
-        roomStatus: nextStatus,
-      };
-    });
-
-    setProducts((prev) => applyStatus(prev));
-    setAllProducts((prev) => applyStatus(prev));
-
-    try {
-      const cachedProducts = JSON.parse(localStorage.getItem('cachedProducts') || '[]');
-      const updatedCachedProducts = applyStatus(Array.isArray(cachedProducts) ? cachedProducts : []);
-      localStorage.setItem('cachedProducts', JSON.stringify(updatedCachedProducts));
-      syncProducts(updatedCachedProducts).catch(() => {});
-    } catch (error) {
-      console.warn('⚠️ Could not update cached room availability:', error?.message || error);
-    }
-  }, []);
-
-  const handleProductSelect = useCallback((product) => {
-    if (isRoomProduct(product)) {
-      if (isRoomUnavailable(product)) {
-        return;
-      }
-
-      const roomId = String(product._id || product.id || '');
-      const existingRoomItem = activeCart.items.find((item) => String(item.id) === roomId);
-
-      setReservationProduct({
-        ...product,
-        existingReservation: existingRoomItem ? getRoomReservationDetails(existingRoomItem) : null,
-      });
-      return;
-    }
-
-    addItem({
-      id: product._id || product.id,
-      name: product.name,
-      price: product.salePriceIncTax,
-      category: product.category,
-      quantity: 1,
-      productType: product.productType || 'standard',
-    });
-  }, [activeCart.items, addItem]);
-
-  const handleReservationConfirm = useCallback((reservationDetails) => {
-    if (!reservationProduct) return;
-
-    addItem({
-      id: reservationProduct._id || reservationProduct.id,
-      name: reservationProduct.name,
-      price: reservationProduct.salePriceIncTax,
-      category: reservationProduct.category,
-      quantity: 1,
-      productType: reservationProduct.productType || ROOM_PRODUCT_TYPE,
-      roomStatus: reservationProduct.roomStatus || ROOM_STATUSES.AVAILABLE,
-      reservationDetails,
-      notes: reservationDetails.notes || '',
-    });
-
-    setReservationProduct(null);
-  }, [addItem, reservationProduct]);
 
   // Initialize offline sync on mount ONLY (empty deps — runs once)
   useEffect(() => {
@@ -368,8 +205,7 @@ export default function MenuScreen() {
   // Listen for transaction completion to refresh products (separate effect so it
   // re-binds when selectedCategory changes, but doesn't re-run initOfflineSync)
   useEffect(() => {
-    const handleTransactionCompleted = async (event) => {
-      updateRoomAvailabilityLocally(event?.detail?.transaction?.items || [], ROOM_STATUSES.OCCUPIED);
+    const handleTransactionCompleted = async () => {
       console.log('📲 Transaction completed event received, refreshing products...');
 
       // Check if auto-refresh is enabled in UI settings
@@ -403,10 +239,9 @@ export default function MenuScreen() {
 
             if (response.ok) {
               const data = await response.json();
-              const freshProducts = filterProductsForLocation(data.data || [], location);
+              const freshProducts = data.data || [];
               if (freshProducts.length > 0) {
                 setProducts(freshProducts);
-                setAllProducts((prev) => mergeProductsById(filterProductsForLocation(prev, location), freshProducts));
                 // Also update IndexedDB with fresh data
                 try { await syncProducts(freshProducts); } catch (e) {}
                 console.log(`✅ Auto-refreshed ${freshProducts.length} products from API`);
@@ -432,9 +267,8 @@ export default function MenuScreen() {
         if (!localProducts || localProducts.length === 0) {
           localProducts = await getLocalProductsByCategory(categoryId);
         }
-        const visibleProducts = filterProductsForLocation(localProducts || [], location);
-        if (visibleProducts.length > 0) {
-          setProducts(visibleProducts);
+        if (localProducts && localProducts.length > 0) {
+          setProducts(localProducts);
         }
       }
     };
@@ -466,7 +300,7 @@ export default function MenuScreen() {
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
       window.removeEventListener('online', handleBackOnline);
     };
-  }, [selectedCategory, location, updateRoomAvailabilityLocally]);
+  }, [selectedCategory, location]);
 
   // Listen for sidebar cloud sync to refresh products/categories/images
   useEffect(() => {
@@ -655,20 +489,13 @@ export default function MenuScreen() {
   useEffect(() => {
     const loadAllLocalProducts = async () => {
       try {
-        if (!hasActiveLocation) {
-          setAllProducts([]);
-          return;
-        }
-
         console.log("📦 Loading all local products for search...");
         const localProducts = await getAllLocalProducts();
-        const visibleProducts = filterProductsForLocation(localProducts || [], location);
-        if (visibleProducts.length > 0) {
-          console.log(`✅ Loaded ${visibleProducts.length} location products from local storage`);
-          setAllProducts(visibleProducts);
+        if (localProducts && localProducts.length > 0) {
+          console.log(`✅ Loaded ${localProducts.length} products from local storage`);
+          setAllProducts(localProducts);
         } else {
           console.log("📦 No local products found, will fetch on sync");
-          setAllProducts([]);
         }
       } catch (err) {
         console.error("❌ Error loading local products:", err);
@@ -676,7 +503,7 @@ export default function MenuScreen() {
     };
     
     loadAllLocalProducts();
-  }, [hasActiveLocation, location]);
+  }, []);
 
   // Fetch products when category changes (from IndexedDB ONLY - API sync is manual)
   useEffect(() => {
@@ -690,13 +517,6 @@ export default function MenuScreen() {
       setError(null);
       
       try {
-        if (!hasActiveLocation) {
-          console.log("📍 Waiting for active location before loading products");
-          setProducts([]);
-          setLoadingProducts(false);
-          return;
-        }
-
         const categoryId = selectedCategory._id || selectedCategory.id;
         const categoryName = selectedCategory.name;
         console.log("🛍️ Loading products for category:", categoryName, "(ID:", categoryId, ")");
@@ -704,17 +524,11 @@ export default function MenuScreen() {
         // ALWAYS try local storage first
         // Products in IndexedDB store category NAME (not ID) in the 'category' field
         // So search by name first, then fall back to ID
-        let localProducts = filterProductsForLocation(
-          await getLocalProductsByCategory(categoryName),
-          location
-        );
+        let localProducts = await getLocalProductsByCategory(categoryName);
         
         if (!localProducts || localProducts.length === 0) {
           // Fallback: try by ID in case some products store category ID
-          localProducts = filterProductsForLocation(
-            await getLocalProductsByCategory(categoryId),
-            location
-          );
+          localProducts = await getLocalProductsByCategory(categoryId);
         }
         
         if (localProducts && localProducts.length > 0) {
@@ -729,9 +543,11 @@ export default function MenuScreen() {
         const allLocal = await getAllLocalProducts();
         
         if (allLocal && allLocal.length > 0) {
-          const categoryFiltered = filterProductsByCategory(
-            filterProductsForLocation(allLocal, location),
-            selectedCategory
+          // Filter by category name OR ID
+          const categoryFiltered = allLocal.filter(p => 
+            p.category === categoryName || 
+            p.category === categoryId ||
+            p.categoryId === categoryId
           );
           
           if (categoryFiltered.length > 0) {
@@ -748,12 +564,15 @@ export default function MenuScreen() {
           : null;
         if (cachedProductsRaw) {
           const cachedProducts = JSON.parse(cachedProductsRaw);
-          const visibleCachedProducts = filterProductsForLocation(cachedProducts, location);
-          if (visibleCachedProducts.length > 0) {
+          if (cachedProducts && cachedProducts.length > 0) {
             console.log("✅ Using cached products from localStorage");
-            await syncProducts(visibleCachedProducts);
-            setAllProducts(visibleCachedProducts);
-            const categoryFiltered = filterProductsByCategory(visibleCachedProducts, selectedCategory);
+            await syncProducts(cachedProducts);
+            setAllProducts(cachedProducts);
+            const categoryFiltered = cachedProducts.filter(p =>
+              p.category === categoryName ||
+              p.category === categoryId ||
+              p.categoryId === categoryId
+            );
             setProducts(categoryFiltered);
             setLoadingProducts(false);
             return;
@@ -771,23 +590,32 @@ export default function MenuScreen() {
             
             if (response.ok) {
               const data = await response.json();
-              const visibleApiProducts = filterProductsForLocation(data.data || [], location);
-              console.log("🛍️ Products from API:", visibleApiProducts.length || 0);
-              setProducts(filterProductsByCategory(visibleApiProducts, selectedCategory));
+              console.log("🛍️ Products from API:", data.data?.length || 0);
+              setProducts(data.data || []);
               // Save to IndexedDB for offline support
-              if (visibleApiProducts.length > 0) {
-                await syncProducts(visibleApiProducts);
+              if (data.data && data.data.length > 0) {
+                await syncProducts(data.data);
                 // Also save to localStorage as backup cache
                 try {
-                  const existingCached = filterProductsForLocation(
-                    JSON.parse(localStorage.getItem('cachedProducts') || '[]'),
-                    location
-                  );
-                  const merged = mergeProductsById(existingCached, visibleApiProducts);
+                  const existingCached = JSON.parse(localStorage.getItem('cachedProducts') || '[]');
+                  const merged = [...existingCached];
+                  data.data.forEach(product => {
+                    const idx = merged.findIndex(p => p._id === product._id);
+                    if (idx >= 0) merged[idx] = product;
+                    else merged.push(product);
+                  });
                   localStorage.setItem('cachedProducts', JSON.stringify(merged));
                 } catch (e) {}
                 // Also update allProducts for search
-                setAllProducts((prev) => mergeProductsById(filterProductsForLocation(prev, location), visibleApiProducts));
+                setAllProducts(prev => {
+                  const merged = [...prev];
+                  data.data.forEach(product => {
+                    if (!merged.find(p => p._id === product._id)) {
+                      merged.push(product);
+                    }
+                  });
+                  return merged;
+                });
               }
               setLastSyncTime(new Date());
             } else {
@@ -813,17 +641,12 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline, allProducts.length, hasActiveLocation, location]);
+  }, [selectedCategory, isOnline, allProducts.length, location?._id]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
     setIsSyncing(true);
     try {
-      if (!hasActiveLocation) {
-        setError('Location is still loading. Please wait and try again.');
-        return;
-      }
-
       console.log("🔄 Manual sync initiated - syncing ALL products...");
       setError(null);
       
@@ -836,14 +659,9 @@ export default function MenuScreen() {
       const catResponse = await fetch(catUrl);
       if (catResponse.ok) {
         const catData = await catResponse.json();
-        const fetchedCategories = filterCategoriesForLocation(catData.data || []);
+        const fetchedCategories = catData.data || [];
         await syncCategories(fetchedCategories);
         setCategories(fetchedCategories);
-        const nextSelectedCategory = fetchedCategories.find((category) => (
-          String(category._id || category.id) === String(selectedCategory?._id || selectedCategory?.id)
-          || String(category.name || '') === String(selectedCategory?.name || '')
-        )) || fetchedCategories[0] || null;
-        setSelectedCategory(nextSelectedCategory);
         // Save categories to localStorage as backup cache
         try { localStorage.setItem('cachedCategories', JSON.stringify(fetchedCategories)); } catch (e) {}
         console.log(`✅ Categories synced: ${fetchedCategories.length} categories`);
@@ -862,8 +680,8 @@ export default function MenuScreen() {
             
             if (prodResponse.ok) {
               const prodData = await prodResponse.json();
-              const categoryProducts = filterProductsForLocation(prodData.data || [], location);
-              allFetchedProducts = mergeProductsById(allFetchedProducts, categoryProducts);
+              const categoryProducts = prodData.data || [];
+              allFetchedProducts = [...allFetchedProducts, ...categoryProducts];
               console.log(`   ✅ ${categoryProducts.length} products for ${category.name}`);
             }
           } catch (prodErr) {
@@ -880,15 +698,16 @@ export default function MenuScreen() {
           console.log(`✅ Total products synced: ${allFetchedProducts.length}`);
           
           // Reload current category products
-          if (nextSelectedCategory) {
-            const categoryProducts = filterProductsByCategory(allFetchedProducts, nextSelectedCategory);
+          if (selectedCategory) {
+            const categoryId = selectedCategory._id || selectedCategory.id;
+            const categoryName = selectedCategory.name;
+            const categoryProducts = allFetchedProducts.filter(p => 
+              p.category === categoryName ||
+              p.category === categoryId || 
+              p.categoryId === categoryId
+            );
             setProducts(categoryProducts);
-          } else {
-            setProducts([]);
           }
-        } else {
-          setAllProducts([]);
-          setProducts([]);
         }
         
       } else {
@@ -1137,13 +956,14 @@ export default function MenuScreen() {
                   {searchResults.map(product => (
                     <button
                       key={product._id || product.id}
-                      onClick={() => handleProductSelect(product)}
-                      disabled={isRoomUnavailable(product)}
-                      className={`relative bg-white rounded-lg border-2 transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] ${
-                        isRoomUnavailable(product)
-                          ? 'border-red-200 opacity-60 cursor-not-allowed'
-                          : 'border-green-200 hover:border-green-400 hover:shadow-lg'
-                      }`}
+                      onClick={() => addItem({
+                        id: product._id || product.id,
+                        name: product.name,
+                        price: product.salePriceIncTax,
+                        category: product.category,
+                        quantity: 1,
+                      })}
+                      className="relative bg-white rounded-lg border-2 border-green-200 hover:border-green-400 hover:shadow-lg transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98]"
                     >
                       {/* Top Row: Image + Details Side by Side */}
                       <div className="flex h-14 sm:h-16">
@@ -1187,15 +1007,8 @@ export default function MenuScreen() {
                             {product.name}
                           </div>
                           <div className="flex items-center justify-between mt-1">
-                            {isRoomProduct(product) ? (
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
-                                isRoomUnavailable(product)
-                                  ? 'bg-red-100 text-red-700'
-                                  : 'bg-emerald-100 text-emerald-700'
-                              }`}>
-                                {getRoomStatusLabel(product.roomStatus)}
-                              </span>
-                            ) : product.quantity !== undefined && (
+                            {/* Stock Badge */}
+                            {product.quantity !== undefined && (
                               <span className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
                                 product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                                 product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
@@ -1256,13 +1069,14 @@ export default function MenuScreen() {
                 {filteredProducts.map(product => (
                   <button
                     key={product._id || product.id}
-                    onClick={() => handleProductSelect(product)}
-                    disabled={isRoomUnavailable(product)}
-                    className={`relative bg-white rounded border transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] w-full ${
-                      isRoomUnavailable(product)
-                        ? 'border-red-200 opacity-60 cursor-not-allowed'
-                        : 'border-gray-200 hover:border-cyan-400 hover:shadow-md'
-                    }`}
+                    onClick={() => addItem({
+                      id: product._id || product.id,
+                      name: product.name,
+                      price: product.salePriceIncTax,
+                      category: product.category,
+                      quantity: 1,
+                    })}
+                    className="relative bg-white rounded border border-gray-200 hover:border-cyan-400 hover:shadow-md transition-all shadow-sm touch-manipulation overflow-hidden active:scale-[0.98] w-full"
                   >
                     {/* Top Row: Image + Details Side by Side */}
                     <div className="flex h-14 sm:h-16">
@@ -1301,15 +1115,8 @@ export default function MenuScreen() {
                           {product.name}
                         </div>
                         <div className="flex items-center justify-end mt-0.5">
-                          {isRoomProduct(product) ? (
-                            <span className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
-                              isRoomUnavailable(product)
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-emerald-100 text-emerald-700'
-                            }`}>
-                              {getRoomStatusLabel(product.roomStatus)}
-                            </span>
-                          ) : product.quantity !== undefined && (
+                          {/* Stock Badge - Right Aligned */}
+                          {product.quantity !== undefined && (
                             <span className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-bold ${
                               product.quantity <= 0 ? 'bg-red-100 text-red-700' :
                               product.quantity <= 5 ? 'bg-yellow-100 text-yellow-700' :
@@ -1365,13 +1172,6 @@ export default function MenuScreen() {
         }}
         onClose={() => setShowSearchKeyboard(false)}
         onSubmit={handleSearchClick}
-      />
-
-      <RoomReservationModal
-        product={reservationProduct}
-        initialReservation={reservationProduct?.existingReservation || null}
-        onClose={() => setReservationProduct(null)}
-        onConfirm={handleReservationConfirm}
       />
     </div>
   );

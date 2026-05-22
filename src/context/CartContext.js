@@ -16,9 +16,12 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { addLocalTransaction, getUnsyncedTransactions } from '../lib/indexedDB';
 import { autoSyncTransactions } from '../services/syncService';
-import { saveTransactionOffline, getOnlineStatus } from '../lib/offlineSync';
+import {
+  getOnlineStatus,
+  getPendingTransactionsCount,
+  saveTransactionOffline,
+} from '../lib/offlineSync';
 import { getRoomReservationDetails, isRoomProduct } from '../lib/roomReservations';
 
 // ============================================================================
@@ -69,6 +72,25 @@ export function CartProvider({ children }) {
   const [showPaymentPanel, setShowPaymentPanel] = useState(false);
   const lastAddRef = useRef({});
 
+  const refreshSyncState = useCallback(async ({ syncedAt = null } = {}) => {
+    try {
+      const pendingCount = await getPendingTransactionsCount();
+      const persistedSyncTime =
+        syncedAt ||
+        (typeof window !== 'undefined' ? localStorage.getItem('pos_lastSyncTime') : null) ||
+        null;
+
+      setPendingSyncCount(pendingCount);
+      setState(prev => ({
+        ...prev,
+        isOnline: getOnlineStatus(),
+        lastSyncTime: persistedSyncTime || prev.lastSyncTime || null,
+      }));
+    } catch (err) {
+      console.error('Failed to refresh sync state:', err);
+    }
+  }, []);
+
   // Load persisted orders from localStorage on mount
   useEffect(() => {
     try {
@@ -81,16 +103,14 @@ export function CartProvider({ children }) {
         orders: savedOrders ? JSON.parse(savedOrders) : [],
         activeCart: savedCart ? JSON.parse(savedCart) : { ...INITIAL_CART },
         lastSyncTime: savedSyncTime,
+        isOnline: getOnlineStatus(),
       }));
-      
-      // Load pending sync count from IndexedDB
-      getUnsyncedTransactions().then(unsyncedTx => {
-        setPendingSyncCount(unsyncedTx.length);
-      });
+
+      refreshSyncState({ syncedAt: savedSyncTime });
     } catch (err) {
       console.error('Failed to load persisted cart state:', err);
     }
-  }, []);
+  }, [refreshSyncState]);
 
   // Persist state changes
   useEffect(() => {
@@ -100,17 +120,79 @@ export function CartProvider({ children }) {
 
   // Detect online/offline
   useEffect(() => {
-    const handleOnline = () => setState(prev => ({ ...prev, isOnline: true }));
-    const handleOffline = () => setState(prev => ({ ...prev, isOnline: false }));
+    const handleConnectivityChange = () => {
+      setState(prev => ({ ...prev, isOnline: getOnlineStatus() }));
+      refreshSyncState();
+    };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleConnectivityChange);
+    window.addEventListener('offline', handleConnectivityChange);
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleConnectivityChange);
+      window.removeEventListener('offline', handleConnectivityChange);
     };
-  }, []);
+  }, [refreshSyncState]);
+
+  useEffect(() => {
+    const handleSyncStateChange = (event) => {
+      const syncedAt = event?.detail?.syncedAt || event?.detail?.lastSyncTime || null;
+
+      if (syncedAt && typeof window !== 'undefined') {
+        localStorage.setItem('pos_lastSyncTime', syncedAt);
+      }
+
+      refreshSyncState({ syncedAt });
+    };
+
+    window.addEventListener('pos:sync-state-changed', handleSyncStateChange);
+    window.addEventListener('transactions:completed', handleSyncStateChange);
+
+    return () => {
+      window.removeEventListener('pos:sync-state-changed', handleSyncStateChange);
+      window.removeEventListener('transactions:completed', handleSyncStateChange);
+    };
+  }, [refreshSyncState]);
+
+  const manualSync = useCallback(async () => {
+    setState(prev => ({
+      ...prev,
+      syncStatus: 'syncing',
+      error: null,
+      isOnline: getOnlineStatus(),
+    }));
+
+    try {
+      const result = await autoSyncTransactions();
+      const hasSuccessfulSync = Boolean(result?.success || Number(result?.synced || 0) > 0);
+      const syncedAt = hasSuccessfulSync ? new Date().toISOString() : null;
+
+      if (syncedAt && typeof window !== 'undefined') {
+        localStorage.setItem('pos_lastSyncTime', syncedAt);
+      }
+
+      await refreshSyncState({ syncedAt });
+
+      setState(prev => ({
+        ...prev,
+        syncStatus: result?.error ? 'error' : 'synced',
+        lastSyncTime: syncedAt || prev.lastSyncTime,
+        error: result?.error || null,
+        isOnline: getOnlineStatus(),
+      }));
+
+      return result;
+    } catch (err) {
+      await refreshSyncState();
+      setState(prev => ({
+        ...prev,
+        syncStatus: 'error',
+        error: err?.message || 'Sync failed',
+        isOnline: getOnlineStatus(),
+      }));
+      throw err;
+    }
+  }, [refreshSyncState]);
 
   // =========================================================================
   // CART OPERATIONS
@@ -396,20 +478,10 @@ export function CartProvider({ children }) {
     }));
 
     // Create transaction object with "held" status
-    // Handle location consistently for both object- and string-based contexts.
-    const resolvedLocation = locationInfo || state.activeCart.location || null;
-    const locationString = typeof resolvedLocation === 'string'
-      ? resolvedLocation
-      : (resolvedLocation?.name || resolvedLocation?.code || state.activeCart.locationName || 'Default Location');
-    const locationId = typeof resolvedLocation === 'object'
-      ? (resolvedLocation?._id || resolvedLocation?.id || state.activeCart.locationId || null)
-      : (state.activeCart.locationId || null);
-    const locationName = typeof resolvedLocation === 'string'
-      ? resolvedLocation
-      : (resolvedLocation?.name || resolvedLocation?.code || state.activeCart.locationName || locationString);
-    const locationAddress = typeof resolvedLocation === 'object'
-      ? (resolvedLocation?.address || state.activeCart.locationAddress || '')
-      : (state.activeCart.locationAddress || '');
+    // Handle location - it might be a string or an object with a name property
+    const locationString = typeof locationInfo === 'string' 
+      ? locationInfo 
+      : (locationInfo?.name || locationInfo?.code || 'Default Location');
     
     // If this cart was recalled from an existing held transaction, update it instead of creating a new one
     const existingHeldId = state.activeCart.recallSourceTransactionId || null;
@@ -427,9 +499,6 @@ export function CartProvider({ children }) {
       staffName: staffInfo?.name || staffInfo || 'POS Staff',
       staffId: staffInfo?._id || staffInfo?.id || null,
       location: locationString,
-      locationId,
-      locationName,
-      locationAddress,
       device: state.activeCart.device || 'POS',
       tableName: state.activeCart.tableName || null,
       customerName: state.activeCart.customer?.name || null,
@@ -565,8 +634,6 @@ export function CartProvider({ children }) {
     setState(prev => ({
       ...prev,
       activeCart: { ...INITIAL_CART }, // Clear the active cart
-      syncStatus: 'synced',
-      lastSyncTime: new Date().toISOString(),
     }));
 
     console.log('✅ Cart cleared after payment');
@@ -718,7 +785,7 @@ export function CartProvider({ children }) {
     getOrdersByStatus: (status) => state.orders.filter(o => o.status === status),
     clearCart: () => setState(prev => ({ ...prev, activeCart: { ...INITIAL_CART } })),
     getPendingSyncCount: () => pendingSyncCount,
-    manualSync: autoSyncTransactions,
+    manualSync,
 
     // Payment UI
     showPaymentPanel,

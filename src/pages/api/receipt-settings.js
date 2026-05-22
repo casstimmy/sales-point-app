@@ -64,14 +64,6 @@ export default async function handler(req, res) {
       qrDescription: store.qrDescription || defaultSettings.qrDescription,
       paymentStatus: store.paymentStatus || defaultSettings.paymentStatus,
       fontSize: store.fontSize || defaultSettings.fontSize,
-      // Per-location QR codes (included in settings so they are cached with the rest)
-      locations: (store.locations || []).map((loc) => ({
-        _id: String(loc._id),
-        name: loc.name || "",
-        qrUrl: loc.qrUrl || "",
-        qrDescription: loc.qrDescription || "",
-        qrDataUrl: loc.qrDataUrl || "",
-      })),
     };
 
     return res.status(200).json({
@@ -79,7 +71,7 @@ export default async function handler(req, res) {
       settings,
       store: {
         name: store.storeName,
-        locations: settings.locations,
+        locations: store.locations,
       },
     });
   } catch (error) {

@@ -263,6 +263,16 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
     );
   };
 
+  const handleOpenPendingTransactions = () => {
+    if (typeof window === 'undefined') return;
+
+    window.dispatchEvent(new CustomEvent('pos:pending-transactions:open'));
+
+    if (window.innerWidth < 768 && typeof onToggle === 'function') {
+      onToggle();
+    }
+  };
+
   const formatSyncTime = (isoString) => {
     if (!isoString) return 'Never';
     const date = new Date(isoString);
@@ -394,6 +404,21 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
           )}
         </div>
 
+        <button
+          onClick={handleOpenPendingTransactions}
+          className={`w-full flex items-center justify-between gap-2 ${scaleClasses.paddingLg} rounded-lg border border-blue-200 bg-white text-neutral-800 hover:bg-blue-50 transition-colors duration-base ${scaleClasses.heading} font-bold shadow-sm`}
+        >
+          <span className="flex items-center gap-2 min-w-0">
+            <FontAwesomeIcon icon={faFileAlt} className={scaleClasses.icon} />
+            <span className="truncate">Unsynced Transactions</span>
+          </span>
+          <span className={`min-w-[1.75rem] rounded-full px-2 py-0.5 text-[10px] font-bold ${
+            pendingSyncCount > 0 ? 'bg-red-100 text-red-700' : 'bg-neutral-200 text-neutral-600'
+          }`}>
+            {pendingSyncCount}
+          </span>
+        </button>
+
         {/* Manual Sync Button */}
         {(pendingSyncCount > 0 || !isOnline) && (
           <button
@@ -402,7 +427,7 @@ export default function Sidebar({ isOpen, onToggle, widthClass = 'w-56', mobileW
             className={`w-full flex items-center justify-center gap-2 ${scaleClasses.paddingLg} bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-neutral-400 disabled:cursor-not-allowed transition-colors duration-base ${scaleClasses.heading} font-bold shadow-md hover:shadow-lg`}
           >
             <FontAwesomeIcon icon={faSyncAlt} className={isSyncing ? 'animate-spin' : ''} />
-            {isSyncing ? 'Syncing...' : 'Sync Products'}
+            {isSyncing ? 'Syncing...' : !isOnline ? 'Offline' : 'Sync Now'}
           </button>
         )}
 

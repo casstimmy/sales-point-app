@@ -111,6 +111,16 @@ const normalizeStaffName = (transaction = {}) => {
   return 'POS Staff';
 };
 
+const emitSyncStateChange = (detail = {}) => {
+  if (typeof window === 'undefined') return;
+
+  window.dispatchEvent(
+    new CustomEvent('pos:sync-state-changed', {
+      detail,
+    })
+  );
+};
+
 async function ensureExternalIdsInTransactions() {
   try {
     const db = await openSalesPosDb();
@@ -239,6 +249,7 @@ export async function saveTransactionOffline(transaction) {
         console.log('💾 Transaction saved offline with ID:', addRequest.result);
         // Update till in localStorage with new sales totals
         updateTillInLocalStorage(transaction.tillId, transaction.total || 0);
+        emitSyncStateChange({ reason: 'transaction-queued' });
         resolve(addRequest.result);
       };
 
@@ -291,18 +302,9 @@ export async function getOfflineTillSales(tillId) {
       const getAllReq = txStore.getAll();
       getAllReq.onsuccess = () => {
         const all = getAllReq.result || [];
-        const tillTx = all.filter((tx) => {
-          if (String(tx.tillId) !== String(tillId)) return false;
-          const status = String(tx.status || '').toUpperCase();
-          if (["UNPAID", "VOID", "CANCELLED", "REFUNDED"].includes(status)) return false;
-          const total = Number(tx.total);
-          return Number.isFinite(total) && total > 0;
-        });
+        const tillTx = all.filter(tx => String(tx.tillId) === String(tillId));
         let totalSales = 0;
-        tillTx.forEach((tx) => {
-          const total = Number(tx.total);
-          totalSales += Number.isFinite(total) ? total : 0;
-        });
+        tillTx.forEach(tx => { totalSales += (tx.total || 0); });
         resolve({ totalSales, transactionCount: tillTx.length });
       };
       getAllReq.onerror = () => reject(getAllReq.error);
@@ -310,6 +312,114 @@ export async function getOfflineTillSales(tillId) {
   } catch (err) {
     console.warn('⚠️ Could not get offline till sales:', err);
     return { totalSales: 0, transactionCount: 0 };
+  }
+}
+
+async function syncTransactionRecord(transaction, { forceRetry = false } = {}) {
+  const tx = {
+    ...transaction,
+    staffName: normalizeStaffName(transaction),
+    location: normalizeLocationName(transaction?.location),
+    status: normalizeTransactionStatus(transaction?.status),
+  };
+
+  const retryInfo = _retryMap.get(tx.id);
+  if (!forceRetry && retryInfo) {
+    if (retryInfo.attempts >= MAX_RETRY_ATTEMPTS) {
+      console.warn(`⛔ Transaction ${tx.id} exceeded max retries (${MAX_RETRY_ATTEMPTS}), skipping`);
+      return { synced: false, failed: true, reason: 'max-retries' };
+    }
+
+    if (Date.now() < retryInfo.nextRetryAt) {
+      return { synced: false, failed: false, skipped: true, reason: 'retry-backoff' };
+    }
+  }
+
+  try {
+    if (tx.tillId && String(tx.tillId).startsWith('offline-till-')) {
+      const resolved = await resolveTillId(tx.tillId, tx);
+      if (!resolved) {
+        console.warn(`⚠️ Skipping transaction ${tx.id} - till not mapped yet`);
+        return { synced: false, failed: true, reason: 'till-not-mapped' };
+      }
+
+      const origOfflineTillId = tx.tillId;
+      tx.tillId = resolved;
+
+      try {
+        const updateDb = await openSalesPosDb();
+        await new Promise((resolve, reject) => {
+          const updateStore = updateDb.transaction(['transactions'], 'readwrite')
+            .objectStore('transactions');
+          const getReq = updateStore.get(tx.id);
+
+          getReq.onsuccess = () => {
+            const record = getReq.result;
+            if (record) {
+              record.tillId = resolved;
+              record.originalOfflineTillId = origOfflineTillId;
+              const putReq = updateStore.put(record);
+              putReq.onsuccess = () => resolve();
+              putReq.onerror = () => reject(putReq.error);
+            } else {
+              resolve();
+            }
+          };
+
+          getReq.onerror = () => reject(getReq.error);
+        });
+      } catch (err) {
+        console.warn('⚠️ Could not persist resolved tillId:', err);
+      }
+    }
+
+    const payload = {
+      ...tx,
+      externalId: tx.externalId || tx.clientId || String(tx.id),
+      staffName: normalizeStaffName(tx),
+      location: normalizeLocationName(tx?.location),
+      status: normalizeTransactionStatus(tx?.status),
+    };
+
+    console.log('📊 Syncing transaction:', payload);
+
+    const response = await fetch('/api/transactions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      await markTransactionSynced(tx.id);
+      _retryMap.delete(tx.id);
+      console.log(`✅ Transaction ${tx.id} synced`);
+      return { synced: true, failed: false };
+    }
+
+    const attempts = (retryInfo?.attempts || 0) + 1;
+    const delay = BASE_RETRY_DELAY * Math.pow(2, Math.min(attempts - 1, 4));
+    _retryMap.set(tx.id, { attempts, nextRetryAt: Date.now() + delay });
+    const errorData = await response.json().catch(() => ({}));
+    console.warn(`⚠️ Failed to sync transaction ${tx.id} (attempt ${attempts}/${MAX_RETRY_ATTEMPTS}, next retry in ${delay / 1000}s):`, errorData);
+    return {
+      synced: false,
+      failed: true,
+      attempts,
+      error: errorData,
+      reason: 'request-failed',
+    };
+  } catch (err) {
+    const attempts = (retryInfo?.attempts || 0) + 1;
+    const delay = BASE_RETRY_DELAY * Math.pow(2, Math.min(attempts - 1, 4));
+    _retryMap.set(tx.id, { attempts, nextRetryAt: Date.now() + delay });
+    console.error(`❌ Error syncing transaction ${tx.id} (attempt ${attempts}/${MAX_RETRY_ATTEMPTS}):`, err);
+    return {
+      synced: false,
+      failed: true,
+      attempts,
+      error: err,
+      reason: 'request-error',
+    };
   }
 }
 
@@ -348,7 +458,7 @@ export async function syncPendingTransactions() {
       const getAllRequest = txStore.getAll();
 
       getAllRequest.onsuccess = async () => {
-        const allTransactions = getAllRequest.result;
+        const allTransactions = getAllRequest.result || [];
           
           // Filter out old invalid transactions and only get unsync'd ones
           const transactions = allTransactions
@@ -362,7 +472,16 @@ export async function syncPendingTransactions() {
 
           if (transactions.length === 0) {
             console.log('✅ All transactions synced');
-            resolve();
+            const syncedAt = new Date().toISOString();
+            emitSyncStateChange({
+              reason: 'transactions-synced',
+              pendingCount: 0,
+              syncedAt,
+              synced: 0,
+              failed: 0,
+              total: 0,
+            });
+            resolve({ synced: 0, failed: 0, remaining: 0, total: 0 });
             return;
           }
 
@@ -373,91 +492,28 @@ export async function syncPendingTransactions() {
           let failed = 0;
 
           for (const tx of transactions) {
-            // Check retry backoff — skip if not yet time to retry
-            const retryInfo = _retryMap.get(tx.id);
-            if (retryInfo) {
-              if (retryInfo.attempts >= MAX_RETRY_ATTEMPTS) {
-                console.warn(`⛔ Transaction ${tx.id} exceeded max retries (${MAX_RETRY_ATTEMPTS}), skipping`);
-                failed++;
-                continue;
-              }
-              if (Date.now() < retryInfo.nextRetryAt) {
-                continue; // Not yet time to retry
-              }
-            }
-            try {
-              if (tx.tillId && String(tx.tillId).startsWith('offline-till-')) {
-                const resolved = await resolveTillId(tx.tillId, tx);
-                if (!resolved) {
-                  failed++;
-                  console.warn(`⚠️ Skipping transaction ${tx.id} - till not mapped yet`);
-                  continue;
-                }
-                // Persist resolved tillId back to IndexedDB so retries don't need to re-resolve
-                const origOfflineTillId = tx.tillId;
-                tx.tillId = resolved;
-                try {
-                  const updateDb = await openSalesPosDb();
-                  await new Promise((res, rej) => {
-                    const updateStore = updateDb.transaction(['transactions'], 'readwrite')
-                      .objectStore('transactions');
-                    const getReq = updateStore.get(tx.id);
-                    getReq.onsuccess = () => {
-                      const record = getReq.result;
-                      if (record) {
-                        record.tillId = resolved;
-                        record.originalOfflineTillId = origOfflineTillId;
-                        const putReq = updateStore.put(record);
-                        putReq.onsuccess = () => res();
-                        putReq.onerror = () => rej(putReq.error);
-                      } else { res(); }
-                    };
-                    getReq.onerror = () => rej(getReq.error);
-                  });
-                } catch (e) {
-                  console.warn('⚠️ Could not persist resolved tillId:', e);
-                }
-              }
-
-              const payload = {
-                ...tx,
-                externalId: tx.externalId || tx.clientId || String(tx.id),
-                staffName: normalizeStaffName(tx),
-                location: normalizeLocationName(tx?.location),
-                status: normalizeTransactionStatus(tx?.status),
-              };
-              console.log(`📊 Syncing transaction:`, payload);
-              const response = await fetch('/api/transactions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-              });
-
-              if (response.ok) {
-                // Mark as synced
-                await markTransactionSynced(tx.id);
-                synced++;
-                _retryMap.delete(tx.id); // Clear retry tracking on success
-                console.log(`✅ Transaction ${tx.id} synced`);
-              } else {
-                failed++;
-                const attempts = (retryInfo?.attempts || 0) + 1;
-                const delay = BASE_RETRY_DELAY * Math.pow(2, Math.min(attempts - 1, 4));
-                _retryMap.set(tx.id, { attempts, nextRetryAt: Date.now() + delay });
-                const errorData = await response.json().catch(() => ({}));
-                console.warn(`⚠️ Failed to sync transaction ${tx.id} (attempt ${attempts}/${MAX_RETRY_ATTEMPTS}, next retry in ${delay/1000}s):`, errorData);
-              }
-            } catch (err) {
+            const result = await syncTransactionRecord(tx);
+            if (result?.synced) {
+              synced++;
+            } else if (result?.failed) {
               failed++;
-              const attempts = (retryInfo?.attempts || 0) + 1;
-              const delay = BASE_RETRY_DELAY * Math.pow(2, Math.min(attempts - 1, 4));
-              _retryMap.set(tx.id, { attempts, nextRetryAt: Date.now() + delay });
-              console.error(`❌ Error syncing transaction ${tx.id} (attempt ${attempts}/${MAX_RETRY_ATTEMPTS}):`, err);
             }
           }
 
+          const pendingAfter = await getPendingTransactionsCount();
+          const syncedAt = synced > 0 || pendingAfter === 0 ? new Date().toISOString() : null;
+
+          emitSyncStateChange({
+            reason: 'transactions-synced',
+            pendingCount: pendingAfter,
+            syncedAt,
+            synced,
+            failed,
+            total: transactions.length,
+          });
+
           console.log(`📊 Sync complete: ${synced} synced, ${failed} failed`);
-        resolve();
+        resolve({ synced, failed, remaining: pendingAfter, total: transactions.length });
       };
 
       getAllRequest.onerror = () => reject(getAllRequest.error);
@@ -906,6 +962,185 @@ export async function getCompletedTransactions() {
   } catch (err) {
     console.error('❌ Error getting completed transactions:', err);
     return [];
+  }
+}
+
+export async function getPendingTransactions() {
+  try {
+    const db = await openSalesPosDb();
+
+    return new Promise((resolve, reject) => {
+      const txStore = db.transaction(['transactions'], 'readonly')
+        .objectStore('transactions');
+      const getAllRequest = txStore.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const pending = (getAllRequest.result || [])
+          .filter((tx) => tx && tx.synced !== true)
+          .sort((a, b) => {
+            const left = new Date(b?.createdAt || b?.timestamp || 0).getTime();
+            const right = new Date(a?.createdAt || a?.timestamp || 0).getTime();
+            return left - right;
+          });
+
+        resolve(pending);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  } catch (err) {
+    console.error('❌ Error getting pending transactions:', err);
+    return [];
+  }
+}
+
+export async function getResolvedPendingTransactionsHistory() {
+  try {
+    const db = await openSalesPosDb();
+
+    return new Promise((resolve, reject) => {
+      const txStore = db.transaction(['transactions'], 'readonly')
+        .objectStore('transactions');
+      const getAllRequest = txStore.getAll();
+
+      getAllRequest.onsuccess = () => {
+        const resolvedTransactions = (getAllRequest.result || [])
+          .filter(
+            (tx) =>
+              tx &&
+              tx.resolved === true &&
+              tx.resolutionType === 'previous-till'
+          )
+          .sort((a, b) => {
+            const left = new Date(b?.resolvedAt || b?.syncedAt || 0).getTime();
+            const right = new Date(a?.resolvedAt || a?.syncedAt || 0).getTime();
+            return left - right;
+          });
+
+        resolve(resolvedTransactions);
+      };
+
+      getAllRequest.onerror = () => reject(getAllRequest.error);
+    });
+  } catch (err) {
+    console.error('❌ Error getting resolved pending transaction history:', err);
+    return [];
+  }
+}
+
+export async function syncPendingTransactionById(transactionId) {
+  if (!isOnline) {
+    return { success: false, reason: 'offline' };
+  }
+
+  try {
+    const db = await openSalesPosDb();
+
+    return new Promise((resolve, reject) => {
+      const txStore = db.transaction(['transactions'], 'readonly')
+        .objectStore('transactions');
+      const getRequest = txStore.get(transactionId);
+
+      getRequest.onsuccess = async () => {
+        try {
+          const transaction = getRequest.result;
+          if (!transaction) {
+            resolve({ success: false, reason: 'not-found' });
+            return;
+          }
+
+          if (transaction.synced === true) {
+            const pendingCount = await getPendingTransactionsCount();
+            emitSyncStateChange({ reason: 'transaction-already-synced', pendingCount });
+            resolve({ success: true, synced: false, pendingCount, reason: 'already-synced' });
+            return;
+          }
+
+          const result = await syncTransactionRecord(transaction, { forceRetry: true });
+          const pendingCount = await getPendingTransactionsCount();
+          const syncedAt = result?.synced ? new Date().toISOString() : null;
+
+          emitSyncStateChange({
+            reason: 'transaction-synced',
+            transactionId,
+            pendingCount,
+            syncedAt,
+          });
+
+          resolve({
+            success: Boolean(result?.synced),
+            pendingCount,
+            syncedAt,
+            ...result,
+          });
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  } catch (err) {
+    console.error(`❌ Error syncing pending transaction ${transactionId}:`, err);
+    return { success: false, reason: 'request-error', error: err };
+  }
+}
+
+export async function resolvePendingTransaction(transactionId, resolution = {}) {
+  try {
+    const db = await openSalesPosDb();
+
+    return new Promise((resolve, reject) => {
+      const txStore = db.transaction(['transactions'], 'readwrite')
+        .objectStore('transactions');
+      const getRequest = txStore.get(transactionId);
+
+      getRequest.onsuccess = () => {
+        const transaction = getRequest.result;
+        if (!transaction) {
+          resolve({ success: false, reason: 'not-found' });
+          return;
+        }
+
+        const resolvedAt = new Date().toISOString();
+        const nextTransaction = {
+          ...transaction,
+          synced: true,
+          syncedAt: resolvedAt,
+          resolved: true,
+          resolvedAt,
+          resolutionType: resolution.type || 'manual',
+          resolutionNote: resolution.note || '',
+          resolvedByTillId: resolution.tillId || null,
+          resolvedByStaffId: resolution.staffId || null,
+          resolvedByStaffName: resolution.staffName || null,
+          resolvedByStaffRole: resolution.staffRole || null,
+        };
+
+        const putRequest = txStore.put(nextTransaction);
+        putRequest.onsuccess = async () => {
+          const pendingCount = await getPendingTransactionsCount();
+
+          emitSyncStateChange({
+            reason: 'transaction-resolved',
+            transactionId,
+            pendingCount,
+          });
+
+          resolve({
+            success: true,
+            pendingCount,
+            transaction: nextTransaction,
+          });
+        };
+        putRequest.onerror = () => reject(putRequest.error);
+      };
+
+      getRequest.onerror = () => reject(getRequest.error);
+    });
+  } catch (err) {
+    console.error(`❌ Error resolving pending transaction ${transactionId}:`, err);
+    return { success: false, reason: 'request-error', error: err };
   }
 }
 
