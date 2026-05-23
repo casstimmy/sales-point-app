@@ -54,6 +54,8 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   const [onlineOrders, setOnlineOrders] = useState([]);
   const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
   const [isLoadingOnlineOrders, setIsLoadingOnlineOrders] = useState(false);
+  const [processingOrderId, setProcessingOrderId] = useState(null);
+  const [deliveringOrderId, setDeliveringOrderId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
@@ -203,6 +205,17 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     if (activeStatus === 'ORDERED') {
       fetchOnlineOrders();
     }
+  }, [activeStatus, fetchOnlineOrders]);
+
+  useEffect(() => {
+    const handleOnlineOrderUpdated = () => {
+      if (activeStatus === 'ORDERED') {
+        fetchOnlineOrders();
+      }
+    };
+
+    window.addEventListener('orders:online-updated', handleOnlineOrderUpdated);
+    return () => window.removeEventListener('orders:online-updated', handleOnlineOrderUpdated);
   }, [activeStatus, fetchOnlineOrders]);
 
   // Refresh completed transactions on external updates
@@ -389,6 +402,9 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           shippingCost: order.shippingCost || 0,
           status: order.status || 'Pending',
           reservationStatus: order.reservationStatus || null,
+          hasPosTransaction: Boolean(order.hasPosTransaction),
+          posTransactionId: order.posTransactionId || null,
+          posTransactionCreatedAt: order.posTransactionCreatedAt || null,
           items: orderItems,
           amountPaid: order.paymentStatus === 'Paid' ? (order.total || 0) : 0,
           change: 0,
@@ -447,25 +463,124 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   };
 
   const handleProcessOnlineOrder = useCallback((order) => {
-    if (!order) {
-      return;
-    }
+    const run = async () => {
+      if (!order) {
+        return;
+      }
 
-    loadOnlineOrderToCart(order);
-    setShowDetailPanel(false);
-    setDetailOrder(null);
-    setShowPaymentPanel(true);
-    showToast(
-      order.paymentStatus === 'Paid'
-        ? 'Online order loaded. Confirm delivery to record the sale for this location.'
-        : 'Online order loaded. Complete payment in POS to finish delivery.',
-      'success'
-    );
+      if (!isOnline) {
+        showToast('Online orders can only be processed while the POS is online.', 'error');
+        return;
+      }
 
-    if (onNavigateToMenu) {
-      onNavigateToMenu();
-    }
-  }, [loadOnlineOrderToCart, onNavigateToMenu, setShowPaymentPanel]);
+      setProcessingOrderId(order.id);
+
+      try {
+        let nextOrder = order;
+
+        if (order.status !== 'Processing') {
+          const response = await fetch(`/api/orders/${order.id}/process-from-pos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              locationId: location?._id || null,
+              locationName: location?.name || '',
+            }),
+          });
+
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok || !result?.success) {
+            throw new Error(result?.error || 'Failed to move order into POS processing.');
+          }
+
+          nextOrder = {
+            ...order,
+            ...result.order,
+            id: result.order?._id || order.id,
+            locationName: result.order?.locationName || order.location,
+            locationId: result.order?.locationId || order.locationId,
+            status: result.order?.status || 'Processing',
+          };
+
+          window.dispatchEvent(new CustomEvent('orders:online-updated', {
+            detail: { orderId: order.id, status: nextOrder.status },
+          }));
+
+          if (result.emailState === 'failed') {
+            showToast('Order moved to processing, but the processing email could not be sent.', 'warning');
+          } else {
+            showToast('Order moved to processing and customer notified.', 'success');
+          }
+        }
+
+        loadOnlineOrderToCart(nextOrder);
+        setShowDetailPanel(false);
+        setDetailOrder(null);
+        setShowPaymentPanel(true);
+
+        if (onNavigateToMenu) {
+          onNavigateToMenu();
+        }
+      } catch (error) {
+        showToast(error.message || 'Failed to process order in POS.', 'error');
+      } finally {
+        setProcessingOrderId(null);
+      }
+    };
+
+    run();
+  }, [isOnline, loadOnlineOrderToCart, location?._id, location?.name, onNavigateToMenu, setShowPaymentPanel]);
+
+  const handleMarkDelivered = useCallback((order) => {
+    const run = async () => {
+      if (!order) {
+        return;
+      }
+
+      if (!isOnline) {
+        showToast('Delivered notifications require an online connection.', 'error');
+        return;
+      }
+
+      setDeliveringOrderId(order.id);
+
+      try {
+        const response = await fetch(`/api/orders/${order.id}/mark-delivered`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            locationId: location?._id || null,
+            locationName: location?.name || order.location || '',
+          }),
+        });
+
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok || !result?.success) {
+          throw new Error(result?.error || 'Failed to mark order delivered.');
+        }
+
+        window.dispatchEvent(new CustomEvent('orders:online-updated', {
+          detail: { orderId: order.id, status: 'Delivered' },
+        }));
+
+        if (result.emailState === 'failed') {
+          showToast('Order marked delivered, but the delivery email could not be sent.', 'warning');
+        } else {
+          showToast('Order marked delivered and customer notified.', 'success');
+        }
+
+        setShowDetailPanel(false);
+        setDetailOrder(null);
+        await fetchOnlineOrders();
+      } catch (error) {
+        showToast(error.message || 'Failed to mark order delivered.', 'error');
+      } finally {
+        setDeliveringOrderId(null);
+      }
+    };
+
+    run();
+  }, [fetchOnlineOrders, isOnline, location?._id, location?.name]);
 
   const formatSyncTime = (isoString) => {
     if (!isoString) return 'Never synced';
@@ -825,13 +940,29 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             </div>
 
             {/* Actions */}
-            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
               {detailOrder.source === 'E-Commerce' && (
                 <button
                   onClick={() => handleProcessOnlineOrder(detailOrder)}
-                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95"
+                  disabled={processingOrderId === detailOrder.id || detailOrder.hasPosTransaction}
+                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
                 >
-                  {detailOrder.paymentStatus === 'Paid' ? 'Complete Delivery' : 'Process in POS'}
+                  {processingOrderId === detailOrder.id
+                    ? 'Starting...'
+                    : detailOrder.hasPosTransaction
+                    ? 'Sale Recorded'
+                    : detailOrder.status === 'Processing'
+                    ? 'Resume POS Sale'
+                    : 'Process in POS'}
+                </button>
+              )}
+              {detailOrder.source === 'E-Commerce' && detailOrder.hasPosTransaction && detailOrder.status !== 'Delivered' && (
+                <button
+                  onClick={() => handleMarkDelivered(detailOrder)}
+                  disabled={deliveringOrderId === detailOrder.id}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
+                >
+                  {deliveringOrderId === detailOrder.id ? 'Sending...' : 'Mark Delivered'}
                 </button>
               )}
               {detailOrder.source !== 'E-Commerce' && (

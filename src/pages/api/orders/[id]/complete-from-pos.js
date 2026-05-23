@@ -1,4 +1,3 @@
-import nodemailer from 'nodemailer';
 import mongoose from 'mongoose';
 import { mongooseConnect } from '@/src/lib/mongoose';
 import Order from '@/src/models/Order';
@@ -101,95 +100,6 @@ const normalizePaymentDetails = ({ order, paymentDetails }) => {
     change: Number(paymentDetails?.change || 0),
     paymentChannel: 'pos',
   };
-};
-
-const buildEmailPayload = (order, status) => {
-  const contact = getOrderContactDetails(order);
-  const items = getOrderItems(order);
-
-  return {
-    name: order?.customer?.name || contact?.name || 'Customer',
-    email: order?.customer?.email || contact?.email || '',
-    orderId: order?._id,
-    status,
-    total: Number(order?.total || 0),
-    products: items.map((item) => ({
-      name: item?.name || 'Item',
-      quantity: Number(item?.quantity || item?.qty || 0),
-      price: Number(item?.price || item?.salePriceIncTax || 0),
-    })),
-    shippingDetails: contact,
-  };
-};
-
-const sendDeliveredEmail = async (order) => {
-  const payload = buildEmailPayload(order, 'Delivered');
-  const recipient = payload.email;
-
-  if (!recipient || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    return 'skipped';
-  }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  try {
-    await transporter.sendMail({
-      from: `"St's Micheals" <${process.env.EMAIL_USER}>`,
-      to: recipient,
-      subject: "Order Delivered - St's Micheals",
-      html: `
-        <div style="font-family: 'Segoe UI', sans-serif; background: #f9fafb; padding: 20px;">
-          <div style="max-width: 600px; margin: auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            <div style="background: #1e40af; color: white; padding: 20px; text-align: center;">
-              <h2 style="margin: 0;">St's Micheals</h2>
-              <p style="margin: 0;">Your order has been delivered</p>
-            </div>
-            <div style="padding: 25px;">
-              <p>Hi <strong>${payload.name}</strong>,</p>
-              <p>Your order <strong>${payload.orderId}</strong> has been completed from our POS and marked as delivered.</p>
-              <h3 style="margin-top: 25px;">Order Summary</h3>
-              <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
-                <thead>
-                  <tr style="background: #f1f5f9;">
-                    <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left;">Item</th>
-                    <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left;">Qty</th>
-                    <th style="padding: 8px; border-bottom: 1px solid #e5e7eb; text-align: left;">Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${payload.products
-                    .map(
-                      (product) => `
-                        <tr>
-                          <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${product.name}</td>
-                          <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">${product.quantity}</td>
-                          <td style="padding: 8px; border-bottom: 1px solid #f1f5f9;">₦${product.price.toLocaleString('en-NG')}</td>
-                        </tr>
-                      `
-                    )
-                    .join('')}
-                </tbody>
-              </table>
-              <p style="margin-top: 20px;"><strong>Total:</strong> ₦${payload.total.toLocaleString('en-NG')}</p>
-              <p><strong>Status:</strong> Delivered</p>
-              <p style="margin-top: 24px;">Thank you for shopping with <strong>St's Micheals</strong>.</p>
-            </div>
-          </div>
-        </div>
-      `,
-    });
-
-    return 'sent';
-  } catch (error) {
-    console.error('Delivered email failed:', error.message);
-    return 'failed';
-  }
 };
 
 const clearReservedInventory = async (items = []) => {
@@ -310,7 +220,7 @@ export default async function handler(req, res) {
       if (!hasTender || normalizedPayment.amountPaid < Number(order.total || 0)) {
         return res.status(400).json({
           success: false,
-          error: 'A complete POS payment is required before delivery',
+          error: 'A complete POS payment is required before recording this sale',
         });
       }
     }
@@ -329,7 +239,6 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: true,
         alreadyProcessed: true,
-        emailState: 'skipped',
         order,
         transaction: formatTransactionResponse(transaction),
       });
@@ -400,7 +309,7 @@ export default async function handler(req, res) {
     }
 
     const updatePayload = {
-      status: 'Delivered',
+      status: 'Processing',
       paid: true,
       paymentStatus: 'Paid',
       paymentChannel: order.paid ? (order.paymentChannel || 'paystack') : 'pos',
@@ -424,12 +333,9 @@ export default async function handler(req, res) {
       .populate('customer')
       .lean();
 
-    const emailState = order.status === 'Delivered' ? 'skipped' : await sendDeliveredEmail(updatedOrder);
-
     return res.status(200).json({
       success: true,
-      alreadyProcessed: false,
-      emailState,
+      alreadyProcessed: Boolean(transaction),
       order: updatedOrder,
       transaction: formatTransactionResponse(transaction),
     });

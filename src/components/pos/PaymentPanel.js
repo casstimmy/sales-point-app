@@ -149,7 +149,7 @@ export default function PaymentPanel() {
         window.dispatchEvent(new CustomEvent('orders:online-updated', {
           detail: {
             orderId: onlineOrderContext.id,
-            status: 'Delivered',
+            status: 'Processing',
           },
         }));
 
@@ -163,10 +163,10 @@ export default function PaymentPanel() {
           _id: transaction._id || transaction.id || Date.now().toString(),
         }, settings).catch(() => {});
 
-        if (result.emailState === 'failed') {
-          showToast('Order delivered, but the customer email could not be sent.', 'warning');
+        if (result.alreadyProcessed) {
+          showToast('Online sale was already recorded for this order.', 'warning');
         } else {
-          showToast('Online order completed and marked delivered.', 'success');
+          showToast('Online sale recorded. Mark the order delivered after fulfilment is completed.', 'success');
         }
 
         return;
@@ -279,7 +279,7 @@ export default function PaymentPanel() {
           <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 text-neutral-700" />
         </button>
         <div className="text-sm sm:text-base font-semibold text-neutral-900">
-          {isPrepaidOnlineOrder ? 'Complete Online Delivery' : 'Complete Payment'}
+          {isPrepaidOnlineOrder ? 'Record Online Sale' : 'Complete Payment'}
         </div>
       </div>
 
@@ -303,7 +303,7 @@ export default function PaymentPanel() {
             <div>
               <div className="text-base sm:text-lg font-semibold text-neutral-900">This order was already paid online</div>
               <div className="text-xs sm:text-sm text-neutral-600 mt-2 max-w-lg">
-                Completing delivery will record the sale against {location?.name || 'this location'} with an online-store tag and mark the order delivered across the system.
+                Recording this sale will attribute it to {location?.name || 'this location'} with an online-store tag. After fulfilment is complete, use the order panel to mark delivery and notify the customer.
               </div>
             </div>
 
@@ -325,7 +325,7 @@ export default function PaymentPanel() {
               disabled={isProcessingPayment}
               className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition disabled:opacity-60"
             >
-              {isProcessingPayment ? 'Completing Delivery...' : 'Complete Delivery'}
+              {isProcessingPayment ? 'Recording Sale...' : 'Record Sale'}
             </button>
           </div>
         ) : (

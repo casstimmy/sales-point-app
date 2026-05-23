@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { mongooseConnect } from "@/src/lib/mongoose";
 import Order from "@/src/models/Order";
+import { Transaction } from "@/src/models/Transactions";
 
 const ACTIVE_ORDER_STATUSES = [
   "Pending",
@@ -120,7 +121,35 @@ export default async function handler(req, res) {
       .limit(parseInt(limit, 10) || 200)
       .lean();
 
-    const formattedOrders = orders.map((order) => ({
+    const orderIds = orders.map((order) => String(order._id));
+    const externalIds = orderIds.map((orderId) => `order:${orderId}`);
+    const transactions = orderIds.length > 0
+      ? await Transaction.find({
+        $or: [
+          { externalId: { $in: externalIds } },
+          { sourceOrderId: { $in: orderIds } },
+        ],
+      })
+        .select("_id externalId sourceOrderId createdAt salesChannel")
+        .lean()
+      : [];
+
+    const transactionsByOrderId = new Map();
+    transactions.forEach((transaction) => {
+      const orderId = String(
+        transaction?.sourceOrderId ||
+        String(transaction?.externalId || "").replace(/^order:/, "")
+      );
+
+      if (orderId && !transactionsByOrderId.has(orderId)) {
+        transactionsByOrderId.set(orderId, transaction);
+      }
+    });
+
+    const formattedOrders = orders.map((order) => {
+      const posTransaction = transactionsByOrderId.get(String(order._id));
+
+      return {
       id: order._id?.toString(),
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
@@ -140,7 +169,13 @@ export default async function handler(req, res) {
       paymentStatus: order.paymentStatus || "Pending",
       status: order.status || "Pending",
       paid: Boolean(order.paid),
-    }));
+      reservationStatus: order.reservationStatus || null,
+      hasPosTransaction: Boolean(posTransaction),
+      posTransactionId: posTransaction?._id?.toString?.() || posTransaction?._id || null,
+      posTransactionCreatedAt: posTransaction?.createdAt || null,
+      salesChannel: posTransaction?.salesChannel || null,
+    };
+    });
 
     return res.status(200).json({
       success: true,
