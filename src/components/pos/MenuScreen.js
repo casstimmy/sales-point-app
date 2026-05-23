@@ -173,6 +173,39 @@ export default function MenuScreen() {
   const { addItem, activeCart, showPaymentPanel } = useCart();
   const { location } = useStaff(); // Get store location
 
+  const filterProductsForLocation = useCallback((productList = []) => {
+    if (!Array.isArray(productList)) return [];
+
+    const locationTokens = new Set([
+      normalizeLocationToken(location?._id),
+      normalizeLocationToken(location?.id),
+      normalizeLocationToken(location?.name),
+      normalizeLocationToken(location?.code),
+    ].filter(Boolean));
+
+    if (locationTokens.size === 0) {
+      return [];
+    }
+
+    return productList.filter((product) => {
+      if (!Array.isArray(product?.locations) || product.locations.length === 0) {
+        return false;
+      }
+
+      return product.locations.some((locationEntry) => {
+        if (locationEntry && typeof locationEntry === 'object') {
+          return [locationEntry._id, locationEntry.id, locationEntry.name, locationEntry.code].some((candidate) => {
+            const token = normalizeLocationToken(candidate);
+            return token && locationTokens.has(token);
+          });
+        }
+
+        const token = normalizeLocationToken(locationEntry);
+        return token && locationTokens.has(token);
+      });
+    });
+  }, [location?._id, location?.id, location?.name, location?.code]);
+
   // Initialize offline sync on mount ONLY (empty deps — runs once)
   useEffect(() => {
     initOfflineSync();
@@ -335,39 +368,6 @@ export default function MenuScreen() {
     const idSet = new Set(locationCategoryIds.map(id => String(id)));
     return categoryList.filter(cat => idSet.has(String(cat?._id || cat?.id)));
   }, [location?.categories, location?.categoryIds]);
-
-  const filterProductsForLocation = useCallback((productList = []) => {
-    if (!Array.isArray(productList)) return [];
-
-    const locationTokens = new Set([
-      normalizeLocationToken(location?._id),
-      normalizeLocationToken(location?.id),
-      normalizeLocationToken(location?.name),
-      normalizeLocationToken(location?.code),
-    ].filter(Boolean));
-
-    if (locationTokens.size === 0) {
-      return [];
-    }
-
-    return productList.filter((product) => {
-      if (!Array.isArray(product?.locations) || product.locations.length === 0) {
-        return false;
-      }
-
-      return product.locations.some((locationEntry) => {
-        if (locationEntry && typeof locationEntry === 'object') {
-          return [locationEntry._id, locationEntry.id, locationEntry.name, locationEntry.code].some((candidate) => {
-            const token = normalizeLocationToken(candidate);
-            return token && locationTokens.has(token);
-          });
-        }
-
-        const token = normalizeLocationToken(locationEntry);
-        return token && locationTokens.has(token);
-      });
-    });
-  }, [location?._id, location?.id, location?.name, location?.code]);
 
   // Log when products change
   useEffect(() => {
