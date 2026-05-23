@@ -94,6 +94,7 @@ export default async function handler(req, res) {
       staffId,
       discount = 0,
       location = 'Default Location',
+      locationId,
       device,
       tableName,
       customerName,
@@ -108,6 +109,10 @@ export default async function handler(req, res) {
       incrementAmount,
       promotionValueType,
       customerType,
+      salesChannel,
+      sourceOrderId,
+      sourceOrderType,
+      sourceSiteKey,
     } = req.body;
     
     // Normalize staff name and location for legacy/offline payloads
@@ -234,6 +239,9 @@ export default async function handler(req, res) {
       existingTransaction.staff = staffId || existingTransaction.staff || null;
       existingTransaction.staffName = staffName || existingTransaction.staffName || 'POS Staff';
       existingTransaction.location = normalizedLocation;
+      existingTransaction.locationId = mongoose.Types.ObjectId.isValid(String(locationId || ''))
+        ? new mongoose.Types.ObjectId(String(locationId))
+        : existingTransaction.locationId || null;
       existingTransaction.device = device || existingTransaction.device;
       existingTransaction.tableName = tableName || existingTransaction.tableName;
       existingTransaction.customerName = customerName || existingTransaction.customerName;
@@ -243,6 +251,10 @@ export default async function handler(req, res) {
       existingTransaction.incrementAmount = Number(incrementAmount || 0);
       existingTransaction.promotionValueType = promotionValueType || null;
       existingTransaction.customerType = customerType || null;
+      existingTransaction.salesChannel = salesChannel || existingTransaction.salesChannel || 'POS';
+      existingTransaction.sourceOrderId = sourceOrderId || existingTransaction.sourceOrderId || '';
+      existingTransaction.sourceOrderType = sourceOrderType || existingTransaction.sourceOrderType || '';
+      existingTransaction.sourceSiteKey = sourceSiteKey || existingTransaction.sourceSiteKey || '';
       existingTransaction.updatedAt = new Date();
       // Preserve held-by info (keep original if not provided)
       if (heldByStaffName) existingTransaction.heldByStaffName = heldByStaffName;
@@ -417,6 +429,9 @@ export default async function handler(req, res) {
       staff: staffId || null,
       staffName: staffName || 'Unknown', // Store staff name for quick lookup
       location: normalizedLocation,
+      ...(mongoose.Types.ObjectId.isValid(String(locationId || '')) && {
+        locationId: new mongoose.Types.ObjectId(String(locationId)),
+      }),
       device: device,
       tableName: tableName,
       discount: discount || 0,
@@ -433,6 +448,10 @@ export default async function handler(req, res) {
       ...(incrementAmount && { incrementAmount }),
       ...(promotionValueType && { promotionValueType }),
       ...(customerType && { customerType }),
+      ...(salesChannel && { salesChannel }),
+      ...(sourceOrderId && { sourceOrderId }),
+      ...(sourceOrderType && { sourceOrderType }),
+      ...(sourceSiteKey && { sourceSiteKey }),
     });
 
     // Save to database

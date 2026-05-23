@@ -105,7 +105,7 @@ const OrderSchema = new mongoose.Schema(
     cancellationReason: String,
     inventoryFinalizedBy: {
       type: String,
-      enum: ["paystack", "admin", null],
+      enum: ["paystack", "admin", "pos", null],
       default: null,
     },
   },

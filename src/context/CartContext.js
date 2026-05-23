@@ -37,6 +37,7 @@ const CartContext = createContext();
 const INITIAL_CART = {
   id: null, // null for new, UUID for existing
   recallSourceTransactionId: null, // original completed transaction being edited via refund recall
+  onlineOrder: null, // online order metadata when processing web orders in POS
   items: [], // [{ id, name, category, price, quantity, discount, notes }, ...]
   discountPercent: 0,
   discountAmount: 0,
@@ -608,6 +609,63 @@ export function CartProvider({ children }) {
     }));
   }, []);
 
+  const loadOnlineOrderToCart = useCallback((order) => {
+    if (!order) {
+      console.error('Invalid online order for POS processing:', order);
+      return;
+    }
+
+    const orderItems = Array.isArray(order.cartProducts) && order.cartProducts.length > 0
+      ? order.cartProducts
+      : (order.items || []);
+    const contactDetails = order.shippingDetails || order.customerSnapshot || {};
+
+    const mappedItems = orderItems.map((item) => ({
+      id: item.productId || item.id,
+      name: item.name,
+      category: item.category,
+      price: item.salePriceIncTax || item.price || 0,
+      quantity: item.qty || item.quantity || 1,
+      discount: item.discount || 0,
+      notes: item.note || item.notes || '',
+      productType: item.productType || 'standard',
+      roomStatus: item.roomStatus || 'available',
+      reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : null,
+    }));
+
+    setState(prev => ({
+      ...prev,
+      activeCart: {
+        ...INITIAL_CART,
+        id: order.id || order._id || null,
+        items: mappedItems,
+        subtotal: Number(order.subtotal || order.total || 0),
+        tax: Number(order.tax || 0),
+        total: Number(order.total || 0),
+        status: 'DRAFT',
+        customer: {
+          name: contactDetails.name || order.customerName || 'Online Customer',
+          email: contactDetails.email || '',
+          phone: contactDetails.phone || '',
+          address: contactDetails.address || '',
+          city: contactDetails.city || '',
+          type: 'ONLINE',
+        },
+        createdAt: order.createdAt || new Date().toISOString(),
+        onlineOrder: {
+          id: order.id || order._id || null,
+          status: order.status || 'Pending',
+          paymentStatus: order.paymentStatus || 'Pending',
+          siteKey: order.siteKey || 'store',
+          sourceLabel: order.sourceLabel || 'Store Website',
+          shippingDetails: contactDetails,
+          locationName: order.locationName || order.location || '',
+          locationId: order.locationId || null,
+        },
+      },
+    }));
+  }, []);
+
   const deleteOrder = useCallback((orderId) => {
     setState(prev => ({
       ...prev,
@@ -775,6 +833,7 @@ export function CartProvider({ children }) {
     holdOrder,
     resumeOrder,
     recallTransactionToCart,
+    loadOnlineOrderToCart,
     deleteOrder,
     completeOrder,
 

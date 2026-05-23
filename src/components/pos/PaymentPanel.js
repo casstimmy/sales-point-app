@@ -25,6 +25,7 @@ import { getUiSettings } from "@/src/lib/uiSettings";
 import { getStoreLogo } from "@/src/lib/logoCache";
 import ThankYouNote from "./ThankYouNote";
 import OpenTillModal from "./OpenTillModal";
+import { showToast } from '../common/Toast';
 
 export default function PaymentPanel() {
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -43,6 +44,9 @@ export default function PaymentPanel() {
 
   const totals = calculateTotals();
   const isEmpty = activeCart.items.length === 0;
+  const onlineOrderContext = activeCart.onlineOrder || null;
+  const isOnlineOrderCheckout = Boolean(onlineOrderContext?.id);
+  const isPrepaidOnlineOrder = isOnlineOrderCheckout && onlineOrderContext.paymentStatus === 'Paid';
   const [uiSettings, setUiSettings] = useState(getUiSettings());
 
   useEffect(() => {
@@ -64,6 +68,41 @@ export default function PaymentPanel() {
     getReceiptSettings().then((s) => setReceiptSettings(s)).catch(() => {});
   }, []);
 
+  const buildPrepaidOnlinePaymentDetails = () => ({
+    tenderType: 'ONLINE',
+    tenderPayments: [{ tenderId: null, tenderName: 'ONLINE', amount: totals.total }],
+    tenders: { ONLINE: totals.total },
+    totalPaid: totals.total,
+    change: 0,
+    amountPaid: totals.total,
+  });
+
+  const completeOnlineOrderFromPos = async (paymentDetails) => {
+    if (!getOnlineStatus()) {
+      throw new Error('Online orders can only be completed while the POS is online.');
+    }
+
+    const response = await fetch(`/api/orders/${onlineOrderContext.id}/complete-from-pos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tillId: till?._id,
+        staffId: staff?._id || null,
+        staffName: staff?.name || staff?.fullName || 'POS Staff',
+        locationId: location?._id || null,
+        locationName: location?.name || '',
+        paymentDetails,
+      }),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || 'Failed to complete online order from POS.');
+    }
+
+    return result;
+  };
+
   const handlePaymentConfirm = async (paymentDetails) => {
     // Prevent double-firing of the entire payment handler
     if (isProcessingPayment) {
@@ -78,6 +117,59 @@ export default function PaymentPanel() {
       }
       if (!till?._id) {
         throw new Error("Till not open. Please open a till before payment.");
+      }
+
+      if (isOnlineOrderCheckout) {
+        const result = await completeOnlineOrderFromPos(paymentDetails);
+        const transaction = result.transaction || {
+          _id: `order-${onlineOrderContext.id}`,
+          createdAt: new Date().toISOString(),
+          items: activeCart.items.map((item) => ({
+            productId: item.id,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          })),
+          subtotal: totals.subtotal,
+          tax: totals.tax,
+          total: totals.total,
+          discount: totals.discountAmount || 0,
+          amountPaid: paymentDetails.amountPaid,
+          change: paymentDetails.change,
+          tenderType: paymentDetails.tenderType,
+          tenderPayments: paymentDetails.tenderPayments,
+          customerName: activeCart.customer?.name,
+          staffName: staff?.name || staff?.fullName || 'POS Staff',
+          location: location?.name || 'Default Location',
+          status: 'completed',
+        };
+
+        completeOrder(paymentDetails.tenderType || 'ONLINE');
+        window.dispatchEvent(new CustomEvent('transactions:completed', { detail: { transaction } }));
+        window.dispatchEvent(new CustomEvent('orders:online-updated', {
+          detail: {
+            orderId: onlineOrderContext.id,
+            status: 'Delivered',
+          },
+        }));
+
+        setShowPaymentPanel(false);
+        setShowThankYouModal(true);
+
+        const settings = receiptSettings || (await getReceiptSettings());
+        setReceiptSettings(settings);
+        await printTransactionReceipt({
+          ...transaction,
+          _id: transaction._id || transaction.id || Date.now().toString(),
+        }, settings).catch(() => {});
+
+        if (result.emailState === 'failed') {
+          showToast('Order delivered, but the customer email could not be sent.', 'warning');
+        } else {
+          showToast('Online order completed and marked delivered.', 'success');
+        }
+
+        return;
       }
 
       const clientId = `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -186,7 +278,9 @@ export default function PaymentPanel() {
         >
           <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 text-neutral-700" />
         </button>
-        <div className="text-sm sm:text-base font-semibold text-neutral-900">Complete Payment</div>
+        <div className="text-sm sm:text-base font-semibold text-neutral-900">
+          {isPrepaidOnlineOrder ? 'Complete Online Delivery' : 'Complete Payment'}
+        </div>
       </div>
 
       {/* Payment Body */}
@@ -202,6 +296,36 @@ export default function PaymentPanel() {
               className="mt-3 sm:mt-4 px-4 py-2 sm:px-5 sm:py-2.5 bg-cyan-600 hover:bg-cyan-700 text-white font-bold rounded-lg transition text-sm sm:text-base"
             >
               Open Till
+            </button>
+          </div>
+        ) : isPrepaidOnlineOrder ? (
+          <div className="h-full flex flex-col justify-center gap-4 border border-emerald-200 bg-emerald-50/70 rounded-2xl p-4 sm:p-6">
+            <div>
+              <div className="text-base sm:text-lg font-semibold text-neutral-900">This order was already paid online</div>
+              <div className="text-xs sm:text-sm text-neutral-600 mt-2 max-w-lg">
+                Completing delivery will record the sale against {location?.name || 'this location'} with an online-store tag and mark the order delivered across the system.
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500">Order</div>
+                <div className="mt-1 text-sm font-semibold text-neutral-900">#{String(onlineOrderContext.id || '').slice(-8)}</div>
+                <div className="mt-2 text-sm text-neutral-600">{onlineOrderContext.sourceLabel || 'Store Website'}</div>
+              </div>
+              <div className="rounded-xl border border-neutral-200 bg-white p-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500">Total</div>
+                <div className="mt-1 text-xl font-bold text-neutral-900">₦{Number(totals.total || 0).toLocaleString('en-NG')}</div>
+                <div className="mt-2 text-sm text-emerald-700">Payment already received online</div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => handlePaymentConfirm(buildPrepaidOnlinePaymentDetails())}
+              disabled={isProcessingPayment}
+              className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition disabled:opacity-60"
+            >
+              {isProcessingPayment ? 'Completing Delivery...' : 'Complete Delivery'}
             </button>
           </div>
         ) : (

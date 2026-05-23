@@ -55,6 +55,7 @@ const TransactionSchema = new mongoose.Schema({
   staff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },
   staffName: String, // Staff name for quick lookup (denormalized)
   location: String, // Store location as string (location name or 'online')
+  locationId: { type: mongoose.Schema.Types.ObjectId, default: null },
   
   // Held-by tracking (who originally held the transaction)
   heldByStaffName: String,
@@ -66,6 +67,12 @@ const TransactionSchema = new mongoose.Schema({
   
   // Customer info
   customerName: String,
+
+  // Attribution for sales influenced by external channels such as the online store
+  salesChannel: { type: String, trim: true, default: "POS" },
+  sourceOrderId: { type: String, trim: true, default: "" },
+  sourceOrderType: { type: String, trim: true, default: "" },
+  sourceSiteKey: { type: String, trim: true, default: "" },
   
   // Transaction classification
   transactionType: { 
@@ -116,8 +123,11 @@ TransactionSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 TransactionSchema.index({ tillId: 1 });
 // Index for location-based reporting
 TransactionSchema.index({ location: 1, createdAt: -1 });
+TransactionSchema.index({ locationId: 1, createdAt: -1 });
 // Index for staff performance
 TransactionSchema.index({ staff: 1, createdAt: -1 });
+TransactionSchema.index({ salesChannel: 1, createdAt: -1 });
+TransactionSchema.index({ sourceOrderId: 1 }, { sparse: true });
 
 // Avoid re-registering the model in development
 delete mongoose.models.Transaction;

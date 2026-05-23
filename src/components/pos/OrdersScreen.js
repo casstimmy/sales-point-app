@@ -62,7 +62,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   const [refundError, setRefundError] = useState(null);
   const [printingOrderId, setPrintingOrderId] = useState(null);
   const [receiptSettings, setReceiptSettings] = useState(null);
-  const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
+  const {
+    isOnline,
+    lastSyncTime,
+    resumeOrder,
+    recallTransactionToCart,
+    loadOnlineOrderToCart,
+    orders,
+    setShowPaymentPanel,
+  } = useCart();
   const { staff, till, location } = useStaff();
 
   const canRefund = hasPosPermission(staff, 'refundAccess');
@@ -438,6 +446,27 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     }
   };
 
+  const handleProcessOnlineOrder = useCallback((order) => {
+    if (!order) {
+      return;
+    }
+
+    loadOnlineOrderToCart(order);
+    setShowDetailPanel(false);
+    setDetailOrder(null);
+    setShowPaymentPanel(true);
+    showToast(
+      order.paymentStatus === 'Paid'
+        ? 'Online order loaded. Confirm delivery to record the sale for this location.'
+        : 'Online order loaded. Complete payment in POS to finish delivery.',
+      'success'
+    );
+
+    if (onNavigateToMenu) {
+      onNavigateToMenu();
+    }
+  }, [loadOnlineOrderToCart, onNavigateToMenu, setShowPaymentPanel]);
+
   const formatSyncTime = (isoString) => {
     if (!isoString) return 'Never synced';
     const date = new Date(isoString);
@@ -796,7 +825,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             </div>
 
             {/* Actions */}
-            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'}`}>
+            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-3'}`}>
+              {detailOrder.source === 'E-Commerce' && (
+                <button
+                  onClick={() => handleProcessOnlineOrder(detailOrder)}
+                  className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95"
+                >
+                  {detailOrder.paymentStatus === 'Paid' ? 'Complete Delivery' : 'Process in POS'}
+                </button>
+              )}
               {detailOrder.source !== 'E-Commerce' && (
                 <button
                   onClick={() => handlePrintOrder(detailOrder)}
