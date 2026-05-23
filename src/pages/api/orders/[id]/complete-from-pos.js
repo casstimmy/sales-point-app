@@ -9,6 +9,7 @@ import { sanitizeBody } from '@/src/lib/apiValidation';
 import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
 import { ROOM_STATUSES } from '@/src/lib/roomReservations';
+import { sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
 
 const ONLINE_TENDER_NAME = 'ONLINE';
 const ONLINE_SALES_CHANNEL = 'ONLINE_STORE';
@@ -235,11 +236,13 @@ export default async function handler(req, res) {
 
     const externalId = `order:${String(order._id)}`;
     let transaction = await Transaction.findOne({ externalId });
+    const transactionExisted = Boolean(transaction);
 
     if (transaction && order.status === 'Delivered') {
       return res.status(200).json({
         success: true,
         alreadyProcessed: true,
+        emailState: 'skipped',
         order,
         transaction: formatTransactionResponse(transaction),
       });
@@ -334,9 +337,18 @@ export default async function handler(req, res) {
       .populate('customer')
       .lean();
 
+    const shouldSendProcessingEmail =
+      order.status !== 'Processing' &&
+      updatedOrder?.status === 'Processing';
+
+    const emailState = shouldSendProcessingEmail
+      ? await sendOrderProcessingEmail(updatedOrder)
+      : 'skipped';
+
     return res.status(200).json({
       success: true,
-      alreadyProcessed: Boolean(transaction),
+      alreadyProcessed: transactionExisted,
+      emailState,
       order: updatedOrder,
       transaction: formatTransactionResponse(transaction),
     });

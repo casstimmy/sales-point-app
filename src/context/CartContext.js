@@ -76,10 +76,17 @@ export function CartProvider({ children }) {
   const refreshSyncState = useCallback(async ({ syncedAt = null } = {}) => {
     try {
       const pendingCount = await getPendingTransactionsCount();
-      const persistedSyncTime =
+      let persistedSyncTime =
         syncedAt ||
         (typeof window !== 'undefined' ? localStorage.getItem('pos_lastSyncTime') : null) ||
         null;
+
+      if (!persistedSyncTime && pendingCount === 0 && getOnlineStatus()) {
+        persistedSyncTime = new Date().toISOString();
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('pos_lastSyncTime', persistedSyncTime);
+        }
+      }
 
       setPendingSyncCount(pendingCount);
       setState(prev => ({

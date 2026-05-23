@@ -13,6 +13,7 @@ import {
   saveTransactionOffline,
   getOnlineStatus,
   syncPendingTransactions,
+  resolveTillId,
 } from "../../lib/offlineSync";
 import {
   printTransactionReceipt,
@@ -82,11 +83,26 @@ export default function PaymentPanel() {
       throw new Error('Online orders can only be completed while the POS is online.');
     }
 
+    let resolvedTillId = till?._id;
+    if (resolvedTillId && String(resolvedTillId).startsWith('offline-till-')) {
+      resolvedTillId = await resolveTillId(resolvedTillId, {
+        staffId: staff?._id || null,
+        staffName: staff?.name || staff?.fullName || 'POS Staff',
+        storeId: staff?.storeId || null,
+        locationId: location?._id || null,
+        openingBalance: Number(till?.openingBalance || 0),
+      });
+    }
+
+    if (!resolvedTillId) {
+      throw new Error('Till session is not yet synced. Please tap Sync Now, then retry payment.');
+    }
+
     const response = await fetch(`/api/orders/${onlineOrderContext.id}/complete-from-pos`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        tillId: till?._id,
+        tillId: resolvedTillId,
         staffId: staff?._id || null,
         staffName: staff?.name || staff?.fullName || 'POS Staff',
         locationId: location?._id || null,
@@ -165,8 +181,10 @@ export default function PaymentPanel() {
 
         if (result.alreadyProcessed) {
           showToast('Online sale was already recorded for this order.', 'warning');
+        } else if (result.emailState === 'failed') {
+          showToast('Online sale recorded, but customer processing email failed to send.', 'warning');
         } else {
-          showToast('Online sale recorded. Mark the order delivered after fulfilment is completed.', 'success');
+          showToast('Online sale recorded and customer notified. Mark the order delivered after fulfilment is completed.', 'success');
         }
 
         return;
