@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { mongooseConnect } from '@/src/lib/mongoose';
+import '@/src/models/Customer';
 import Order from '@/src/models/Order';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 import { sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
