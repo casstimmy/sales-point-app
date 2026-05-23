@@ -796,10 +796,21 @@ export default function StaffLogin() {
 
   const handleResumeRequest = (till) => {
     // Set the till to resume and pre-select the staff member so user can enter PIN
+    const tillStaffId = String(till?.staffId || "");
+    const tillLocationId = String(till?.locationId || "");
+
     setResumeTill(till);
-    setSelectedStaff(till.staffId);
-    const loc = locations.find(l => l._id === till.locationId);
-    if (loc) setSelectedLocation(loc._id);
+    setSelectedStaff(tillStaffId);
+
+    const loc = locations.find(
+      (locationItem) => String(locationItem?._id || locationItem?.id || "") === tillLocationId
+    );
+    if (loc?._id || loc?.id) {
+      setSelectedLocation(String(loc._id || loc.id));
+    } else if (tillLocationId) {
+      setSelectedLocation(tillLocationId);
+    }
+
     setPin("");
     setError("");
   };
@@ -810,13 +821,21 @@ export default function StaffLogin() {
       setLoading(true);
       setError("");
 
+      const tillStaffId = String(till?.staffId || "");
+      const tillLocationId = String(till?.locationId || "");
+      const tillStoreId = String(till?.storeId || selectedStore || "");
+
       console.log("🚀 Quick login to existing till:", till);
-      console.log("   Looking for staff ID:", till.staffId);
-      console.log("   Looking for location ID:", till.locationId);
+      console.log("   Looking for staff ID:", tillStaffId);
+      console.log("   Looking for location ID:", tillLocationId);
 
       // Find the staff and location data from the till
-      let staffMember = staff.find(s => s._id === till.staffId);
-      let location = locations.find(loc => loc._id === till.locationId);
+      let staffMember = staff.find(
+        (staffItem) => String(staffItem?._id || staffItem?.id || "") === tillStaffId
+      );
+      let location = locations.find(
+        (locationItem) => String(locationItem?._id || locationItem?.id || "") === tillLocationId
+      );
 
       // If not found in local data, refresh and try again
       if (!staffMember || !location) {
@@ -829,7 +848,9 @@ export default function StaffLogin() {
           const staffList = staffData.data || staffData || [];
           const refreshedStaff = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
           setStaff(refreshedStaff);
-          staffMember = refreshedStaff.find(s => s._id === till.staffId);
+          staffMember = refreshedStaff.find(
+            (staffItem) => String(staffItem?._id || staffItem?.id || "") === tillStaffId
+          );
         }
 
         // Refresh locations data
@@ -837,11 +858,23 @@ export default function StaffLogin() {
         if (locResponse.ok) {
           const locData = await locResponse.json();
           if (locData.store && Array.isArray(locData.store.locations)) {
-            const refreshedLocations = locData.store.locations.filter(loc => loc.isActive !== false);
+            const allLocations = locData.store.locations;
+            const refreshedLocations = allLocations.filter(loc => loc.isActive !== false);
             setLocations(refreshedLocations);
-            location = refreshedLocations.find(loc => loc._id === till.locationId);
+            location = allLocations.find(
+              (locationItem) => String(locationItem?._id || locationItem?.id || "") === tillLocationId
+            ) || allLocations.find(
+              (locationItem) => String(locationItem?.name || "").trim().toLowerCase() === String(till?.locationName || "").trim().toLowerCase()
+            );
           }
         }
+      }
+
+      if (!location && tillLocationId) {
+        location = {
+          _id: tillLocationId,
+          name: till.locationName || "Unknown Location",
+        };
       }
 
       if (!staffMember || !location) {
@@ -857,8 +890,7 @@ export default function StaffLogin() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            store: selectedStore,
-            location: location._id,
+            store: tillStoreId,
             staff: staffMember._id,
             pin: pin,
           }),
@@ -878,7 +910,7 @@ export default function StaffLogin() {
       // Ensure resumed session reflects the till's actual location
       const sessionStaff = normalizeStaffMember({
         ...staffMember,
-        locationId: location?._id || till.locationId,
+        locationId: location?._id || tillLocationId,
         locationName: location?.name || till.locationName || staffMember?.locationName,
       });
 
