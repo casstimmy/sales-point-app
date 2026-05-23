@@ -36,7 +36,9 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   const [selectedTime, setSelectedTime] = useState('');
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [completedTransactions, setCompletedTransactions] = useState([]);
+  const [onlineOrders, setOnlineOrders] = useState([]);
   const [isLoadingCompleted, setIsLoadingCompleted] = useState(false);
+  const [isLoadingOnlineOrders, setIsLoadingOnlineOrders] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showDetailPanel, setShowDetailPanel] = useState(false);
@@ -46,7 +48,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   const [printingOrderId, setPrintingOrderId] = useState(null);
   const [receiptSettings, setReceiptSettings] = useState(null);
   const { isOnline, lastSyncTime, resumeOrder, recallTransactionToCart, orders } = useCart();
-  const { staff, till } = useStaff();
+  const { staff, till, location } = useStaff();
 
   const canRefund = hasPosPermission(staff, 'refundAccess');
   const canViewAdvancedOrders = hasPosPermission(staff, 'viewAdvancedOrders');
@@ -54,6 +56,38 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   const visibleTabs = canViewAdvancedOrders
     ? ORDER_STATUS_TABS
     : ORDER_STATUS_TABS.filter(t => t !== 'ORDERED' && t !== 'PENDING');
+
+  const fetchOnlineOrders = useCallback(async () => {
+    setIsLoadingOnlineOrders(true);
+    try {
+      if (!isOnline) {
+        setOnlineOrders([]);
+        return;
+      }
+
+      const params = new URLSearchParams({ limit: '200' });
+      if (location?._id) {
+        params.append('locationId', String(location._id));
+      } else if (location?.name) {
+        params.append('locationName', String(location.name));
+      }
+
+      const response = await fetch(`/api/orders/online?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch online orders: ${response.status}`);
+      }
+
+      const result = await response.json();
+      const onlineOrderData = result.data || [];
+      console.log(`✅ Fetched ${onlineOrderData.length} online orders for ORDERED tab`);
+      setOnlineOrders(onlineOrderData);
+    } catch (error) {
+      console.error('Failed to fetch online orders:', error);
+      setOnlineOrders([]);
+    } finally {
+      setIsLoadingOnlineOrders(false);
+    }
+  }, [isOnline, location?._id, location?.name]);
 
   // Fetch completed transactions from server (online) or IndexedDB (offline)
   const fetchCompletedTransactions = useCallback(async () => {
@@ -136,6 +170,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
       fetchCompletedTransactions();
     }
   }, [activeStatus, fetchCompletedTransactions, isOnline]);
+
+  useEffect(() => {
+    if (activeStatus === 'ORDERED') {
+      fetchOnlineOrders();
+    }
+  }, [activeStatus, fetchOnlineOrders]);
 
   // Refresh completed transactions on external updates
   useEffect(() => {
@@ -291,6 +331,40 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           change: tx.change || 0,
         };
       });
+    } else if (activeStatus === 'ORDERED') {
+      sourceOrders = onlineOrders.map(order => {
+        const orderItems = Array.isArray(order.cartProducts) && order.cartProducts.length > 0
+          ? order.cartProducts
+          : (order.items || []);
+
+        return {
+          id: order.id || order._id,
+          time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
+          createdAt: order.createdAt || new Date().toISOString(),
+          customer: order.shippingDetails?.name || order.customerName || 'Online Customer',
+          customerEmail: order.shippingDetails?.email || '',
+          customerPhone: order.shippingDetails?.phone || '',
+          staffMember: 'Online',
+          heldByStaffName: null,
+          location: order.locationName || location?.name || 'Online',
+          locationAddress: order.shippingDetails?.address
+            ? `${order.shippingDetails.address}, ${order.shippingDetails.city || ''}`.trim().replace(/,$/, '')
+            : '',
+          tenderType: order.status || 'Pending',
+          paymentStatus: order.paymentStatus || 'Pending',
+          total: order.total || 0,
+          subtotal: order.subtotal || order.total || 0,
+          tax: 0,
+          discount: 0,
+          shippingCost: order.shippingCost || 0,
+          status: order.status || 'Pending',
+          items: orderItems,
+          amountPaid: order.paymentStatus === 'Paid' ? (order.total || 0) : 0,
+          change: 0,
+          source: 'E-Commerce',
+          shippingDetails: order.shippingDetails || null,
+        };
+      });
     } else {
       // Use held orders from CartContext
       if (!orders || orders.length === 0) {
@@ -318,16 +392,16 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     if (selectedDate) {
       const filterDate = new Date(selectedDate).toDateString();
       filtered = filtered.filter(order => {
-        const orderDate = new Date(order.time).toDateString();
+        const orderDate = new Date(order.createdAt || order.time).toDateString();
         return orderDate === filterDate;
       });
     }
 
     setFilteredOrders(filtered);
-  }, [activeStatus, selectedDate, orders, completedTransactions]);
+  }, [activeStatus, selectedDate, orders, completedTransactions, onlineOrders, location?.name]);
 
   const handleOrderSelect = (order) => {
-    if (activeStatus === 'COMPLETE') {
+    if (activeStatus === 'COMPLETE' || activeStatus === 'ORDERED') {
       // Show detail panel for completed transactions
       setDetailOrder(order);
       setShowDetailPanel(true);
@@ -417,13 +491,13 @@ export default function OrdersScreen({ onNavigateToMenu }) {
         </button>
         
         {/* Refresh button for completed transactions */}
-        {activeStatus === 'COMPLETE' && (
+        {(activeStatus === 'COMPLETE' || activeStatus === 'ORDERED') && (
           <button 
-            onClick={fetchCompletedTransactions}
-            disabled={isLoadingCompleted}
+            onClick={activeStatus === 'COMPLETE' ? fetchCompletedTransactions : fetchOnlineOrders}
+            disabled={activeStatus === 'COMPLETE' ? isLoadingCompleted : isLoadingOnlineOrders}
             className="px-3 py-1.5 bg-green-500 text-white rounded font-semibold text-xs hover:bg-green-600 flex items-center gap-1.5 transition-colors touch-manipulation disabled:opacity-50"
           >
-            <FontAwesomeIcon icon={faSync} className={`w-3 h-3 ${isLoadingCompleted ? 'animate-spin' : ''}`} />
+            <FontAwesomeIcon icon={faSync} className={`w-3 h-3 ${(activeStatus === 'COMPLETE' ? isLoadingCompleted : isLoadingOnlineOrders) ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">REFRESH</span>
           </button>
         )}
@@ -437,7 +511,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
               <th className="text-left p-2 text-gray-700">TIME</th>
               <th className="text-left p-2 text-gray-700 hidden sm:table-cell">CUSTOMER</th>
               <th className="text-left p-2 text-gray-700 hidden md:table-cell">STAFF MEMBER</th>
-              <th className="text-left p-2 text-gray-700">TENDER TYPE</th>
+              <th className="text-left p-2 text-gray-700">{activeStatus === 'ORDERED' ? 'STATUS' : 'TENDER TYPE'}</th>
               <th className="text-right p-2 text-gray-700">TOTAL</th>
               {activeStatus === 'COMPLETE' && <th className="text-center p-2 text-gray-700">ACTIONS</th>}
             </tr>
@@ -470,7 +544,26 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                   className="p-2 text-gray-800 uppercase text-xs font-semibold cursor-pointer"
                   onClick={() => handleOrderSelect(order)}
                 >
-                  {order.tenderType ? (
+                  {activeStatus === 'ORDERED' ? (
+                    <div className="flex flex-col gap-1">
+                      <span
+                        className={`inline-flex w-fit rounded px-2 py-1 normal-case ${
+                          order.status === 'Pending' || order.status === 'Pending Payment'
+                            ? 'bg-amber-100 text-amber-800'
+                            : order.status === 'Processing' || order.status === 'Inventory Reserved'
+                            ? 'bg-blue-100 text-blue-800'
+                            : order.status === 'Shipped'
+                            ? 'bg-purple-100 text-purple-800'
+                            : 'bg-gray-100 text-gray-700'
+                        }`}
+                      >
+                        {order.status}
+                      </span>
+                      <span className="text-[10px] normal-case text-gray-500">
+                        Payment: {order.paymentStatus || 'Pending'}
+                      </span>
+                    </div>
+                  ) : order.tenderType ? (
                     <span
                       className={`px-2 py-1 rounded ${
                         order.tenderType === 'CASH'
@@ -531,7 +624,9 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           <div className="flex items-center justify-center h-48 text-gray-400">
             <div className="text-center">
               <div className="text-2xl mb-1">📋</div>
-              <div className="text-xs">No {activeStatus.toLowerCase()} orders</div>
+              <div className="text-xs">
+                {activeStatus === 'ORDERED' ? 'No online orders' : `No ${activeStatus.toLowerCase()} orders`}
+              </div>
             </div>
           </div>
         )}
@@ -547,7 +642,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             {/* Header */}
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 flex items-center justify-between flex-shrink-0">
               <div>
-                <h3 className="text-base font-bold">Transaction Details</h3>
+                <h3 className="text-base font-bold">{detailOrder.source === 'E-Commerce' ? 'Online Order Details' : 'Transaction Details'}</h3>
                 <p className="text-blue-100 text-sm">{detailOrder.time}</p>
               </div>
               <button
@@ -569,7 +664,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.customer}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-600 text-sm">Completed By</span>
+                <span className="text-gray-600 text-sm">{detailOrder.source === 'E-Commerce' ? 'Source' : 'Completed By'}</span>
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.staffMember}</span>
               </div>
               {detailOrder.heldByStaffName && (
@@ -580,7 +675,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
               )}
               <div className="flex justify-between">
                 <span className="text-gray-600 text-sm">Payment</span>
-                <span className="font-semibold text-gray-800 text-sm">{detailOrder.tenderType || 'N/A'}</span>
+                <span className="font-semibold text-gray-800 text-sm">{detailOrder.paymentStatus || detailOrder.tenderType || 'N/A'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600 text-sm">Status</span>
@@ -589,6 +684,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                   {detailOrder.subStatus ? ` (${detailOrder.subStatus})` : ''}
                 </span>
               </div>
+              {detailOrder.shippingDetails?.address && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-600 text-sm">Delivery</span>
+                  <span className="text-right font-semibold text-gray-800 text-sm">
+                    {detailOrder.shippingDetails.address}
+                    {detailOrder.shippingDetails.city ? `, ${detailOrder.shippingDetails.city}` : ''}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Items List */}
@@ -631,6 +735,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                   <span>₦{Number(detailOrder.tax).toLocaleString('en-NG')}</span>
                 </div>
               )}
+              {detailOrder.shippingCost > 0 && (
+                <div className="flex justify-between text-sm text-gray-700">
+                  <span>Shipping</span>
+                  <span>₦{Number(detailOrder.shippingCost).toLocaleString('en-NG')}</span>
+                </div>
+              )}
               <div className="flex justify-between text-sm font-bold text-gray-800 pt-1.5 border-t-2 border-gray-300">
                 <span>Total</span>
                 <span>₦{Number(detailOrder.total || 0).toLocaleString('en-NG')}</span>
@@ -649,16 +759,18 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             </div>
 
             {/* Actions */}
-            <div className="p-3 bg-white border-t border-gray-200 grid grid-cols-1 sm:grid-cols-3 gap-2 flex-shrink-0">
-              <button
-                onClick={() => handlePrintOrder(detailOrder)}
-                disabled={printingOrderId === detailOrder.id}
-                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
-              >
-                <FontAwesomeIcon icon={faPrint} className="mr-1 w-3.5 h-3.5" />
-                {printingOrderId === detailOrder.id ? 'Printing...' : 'Print'}
-              </button>
-              {canRefund ? (
+            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-3'}`}>
+              {detailOrder.source !== 'E-Commerce' && (
+                <button
+                  onClick={() => handlePrintOrder(detailOrder)}
+                  disabled={printingOrderId === detailOrder.id}
+                  className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
+                >
+                  <FontAwesomeIcon icon={faPrint} className="mr-1 w-3.5 h-3.5" />
+                  {printingOrderId === detailOrder.id ? 'Printing...' : 'Print'}
+                </button>
+              )}
+              {detailOrder.source !== 'E-Commerce' && (canRefund ? (
                 <button
                   onClick={() => {
                     setShowDetailPanel(false);
@@ -672,7 +784,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                 </button>
               ) : (
                 <div />
-              )}
+              ))}
               <button
                 onClick={() => setShowDetailPanel(false)}
                 className="px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-semibold transition-colors active:scale-95"

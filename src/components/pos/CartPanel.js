@@ -426,20 +426,20 @@ export default function CartPanel() {
               </span>
               <button
                 onClick={loadPendingTransactions}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20 sm:h-8 sm:w-8"
                 title="Refresh pending transactions"
               >
                 <FontAwesomeIcon
                   icon={faSyncAlt}
-                  className={pendingTransactionsLoading ? "animate-spin" : ""}
+                  className={`h-3.5 w-3.5 ${pendingTransactionsLoading ? "animate-spin" : ""}`}
                 />
               </button>
               <button
                 onClick={closePendingTransactions}
-                className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20"
+                className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white transition hover:bg-white/20 sm:h-8 sm:w-8"
                 title="Close pending transactions"
               >
-                <FontAwesomeIcon icon={faTimes} />
+                <FontAwesomeIcon icon={faTimes} className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
