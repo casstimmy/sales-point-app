@@ -1,42 +1,57 @@
 import mongoose from "mongoose";
 
+const CustomerSnapshotSchema = new mongoose.Schema(
+  {
+    name: String,
+    email: String,
+    phone: String,
+    address: String,
+    city: String,
+    type: String,
+  },
+  { _id: false }
+);
+
+const ShippingDetailsSchema = new mongoose.Schema(
+  {
+    name: { type: String, default: "" },
+    email: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    address: { type: String, default: "" },
+    city: { type: String, default: "" },
+  },
+  { _id: false }
+);
+
+const OrderItemSchema = new mongoose.Schema(
+  {
+    productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: false },
+    name: { type: String, default: "" },
+    price: { type: Number, default: 0 },
+    quantity: { type: Number, default: 0 },
+    category: String,
+    description: String,
+    images: [String],
+  },
+  { _id: false }
+);
+
 const OrderSchema = new mongoose.Schema(
   {
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Customer",
-      required: false,
       default: null,
     },
-    shippingDetails: {
-      name: { type: String, default: "" },
-      email: { type: String, default: "" },
-      phone: { type: String, default: "" },
-      address: { type: String, default: "" },
-      city: { type: String, default: "" },
+    siteKey: {
+      type: String,
+      enum: ["store", "hotel"],
+      default: "store",
     },
-    items: [
-      {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: false },
-        name: { type: String, default: "" },
-        price: { type: Number, default: 0 },
-        quantity: { type: Number, default: 0 },
-        category: String,
-        description: String,
-        images: [String],
-      },
-    ],
-    cartProducts: [
-      {
-        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product", required: false },
-        name: { type: String, default: "" },
-        price: { type: Number, default: 0 },
-        quantity: { type: Number, default: 0 },
-        category: String,
-        description: String,
-        images: [String],
-      },
-    ],
+    customerSnapshot: CustomerSnapshotSchema,
+    shippingDetails: ShippingDetailsSchema,
+    items: [OrderItemSchema],
+    cartProducts: [OrderItemSchema],
     subtotal: { type: Number, default: 0 },
     shippingCost: { type: Number, default: 0 },
     total: { type: Number, default: 0 },
@@ -55,6 +70,10 @@ const OrderSchema = new mongoose.Schema(
       type: String,
       enum: ["Pending", "Paid", "Failed"],
       default: "Pending",
+    },
+    paymentChannel: {
+      type: String,
+      default: "paystack",
     },
     status: {
       type: String,
@@ -75,6 +94,15 @@ const OrderSchema = new mongoose.Schema(
       phone: { type: String, default: "" },
     },
     paid: { type: Boolean, default: false },
+    reservationStatus: {
+      type: String,
+      enum: ["active", "releasing", "released", "finalizing", "finalized", null],
+      default: "active",
+    },
+    reservationExpiresAt: Date,
+    reservationReleasedAt: Date,
+    finalizedAt: Date,
+    cancellationReason: String,
     inventoryFinalizedBy: {
       type: String,
       enum: ["paystack", "admin", null],

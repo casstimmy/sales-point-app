@@ -30,6 +30,21 @@ import { showToast } from '../common/Toast';
 
 const ORDER_STATUS_TABS = ['HELD', 'ORDERED', 'PENDING', 'COMPLETE'];
 
+const normalizeToken = (value) => String(value || '').trim().toLowerCase();
+
+const inferSiteKeyFromLocation = (location) => {
+  const haystack = [location?.name, location?.code, location?.locationCode]
+    .map(normalizeToken)
+    .filter(Boolean)
+    .join(' ');
+
+  return haystack.includes('hotel') ? 'hotel' : 'store';
+};
+
+const getOrderContactDetails = (order) => order?.shippingDetails || order?.customerSnapshot || {};
+
+const getOrderSourceLabel = (siteKey) => (siteKey === 'hotel' ? 'Hotel Website' : 'Store Website');
+
 export default function OrdersScreen({ onNavigateToMenu }) {
   const [activeStatus, setActiveStatus] = useState('HELD');
   const [selectedDate, setSelectedDate] = useState('');
@@ -66,9 +81,14 @@ export default function OrdersScreen({ onNavigateToMenu }) {
       }
 
       const params = new URLSearchParams({ limit: '200' });
+      const siteKey = inferSiteKeyFromLocation(location);
+      params.append('siteKey', siteKey);
+      params.append('includeUnassigned', 'true');
+
       if (location?._id) {
         params.append('locationId', String(location._id));
-      } else if (location?.name) {
+      }
+      if (location?.name) {
         params.append('locationName', String(location.name));
       }
 
@@ -87,7 +107,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     } finally {
       setIsLoadingOnlineOrders(false);
     }
-  }, [isOnline, location?._id, location?.name]);
+  }, [isOnline, location]);
 
   // Fetch completed transactions from server (online) or IndexedDB (offline)
   const fetchCompletedTransactions = useCallback(async () => {
@@ -336,19 +356,21 @@ export default function OrdersScreen({ onNavigateToMenu }) {
         const orderItems = Array.isArray(order.cartProducts) && order.cartProducts.length > 0
           ? order.cartProducts
           : (order.items || []);
+        const contactDetails = getOrderContactDetails(order);
+        const siteKey = order.siteKey || inferSiteKeyFromLocation(location);
 
         return {
           id: order.id || order._id,
           time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
           createdAt: order.createdAt || new Date().toISOString(),
-          customer: order.shippingDetails?.name || order.customerName || 'Online Customer',
-          customerEmail: order.shippingDetails?.email || '',
-          customerPhone: order.shippingDetails?.phone || '',
-          staffMember: 'Online',
+          customer: contactDetails.name || order.customerName || 'Online Customer',
+          customerEmail: contactDetails.email || '',
+          customerPhone: contactDetails.phone || '',
+          staffMember: getOrderSourceLabel(siteKey),
           heldByStaffName: null,
-          location: order.locationName || location?.name || 'Online',
-          locationAddress: order.shippingDetails?.address
-            ? `${order.shippingDetails.address}, ${order.shippingDetails.city || ''}`.trim().replace(/,$/, '')
+          location: order.locationName || (siteKey === 'hotel' ? 'Hotel' : 'Store'),
+          locationAddress: contactDetails.address
+            ? `${contactDetails.address}, ${contactDetails.city || ''}`.trim().replace(/,$/, '')
             : '',
           tenderType: order.status || 'Pending',
           paymentStatus: order.paymentStatus || 'Pending',
@@ -358,11 +380,14 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           discount: 0,
           shippingCost: order.shippingCost || 0,
           status: order.status || 'Pending',
+          reservationStatus: order.reservationStatus || null,
           items: orderItems,
           amountPaid: order.paymentStatus === 'Paid' ? (order.total || 0) : 0,
           change: 0,
           source: 'E-Commerce',
-          shippingDetails: order.shippingDetails || null,
+          sourceLabel: getOrderSourceLabel(siteKey),
+          siteKey,
+          shippingDetails: contactDetails,
         };
       });
     } else {
@@ -398,7 +423,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     }
 
     setFilteredOrders(filtered);
-  }, [activeStatus, selectedDate, orders, completedTransactions, onlineOrders, location?.name]);
+  }, [activeStatus, selectedDate, orders, completedTransactions, onlineOrders, location]);
 
   const handleOrderSelect = (order) => {
     if (activeStatus === 'COMPLETE' || activeStatus === 'ORDERED') {
@@ -663,9 +688,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                 <span className="text-gray-600 text-sm">Customer</span>
                 <span className="font-semibold text-gray-800 text-sm">{detailOrder.customer}</span>
               </div>
+              {detailOrder.source === 'E-Commerce' && detailOrder.location && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-600 text-sm">Fulfilment</span>
+                  <span className="text-right font-semibold text-gray-800 text-sm">{detailOrder.location}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-gray-600 text-sm">{detailOrder.source === 'E-Commerce' ? 'Source' : 'Completed By'}</span>
-                <span className="font-semibold text-gray-800 text-sm">{detailOrder.staffMember}</span>
+                <span className="font-semibold text-gray-800 text-sm">{detailOrder.sourceLabel || detailOrder.staffMember}</span>
               </div>
               {detailOrder.heldByStaffName && (
                 <div className="flex justify-between">
@@ -684,6 +715,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                   {detailOrder.subStatus ? ` (${detailOrder.subStatus})` : ''}
                 </span>
               </div>
+              {detailOrder.reservationStatus && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600 text-sm">Reservation</span>
+                  <span className="font-semibold text-gray-800 text-sm">{detailOrder.reservationStatus}</span>
+                </div>
+              )}
               {detailOrder.shippingDetails?.address && (
                 <div className="flex justify-between gap-4">
                   <span className="text-gray-600 text-sm">Delivery</span>

@@ -10,7 +10,43 @@ const ACTIVE_ORDER_STATUSES = [
   "Inventory Reserved",
 ];
 
+const SITE_LABELS = {
+  store: "Store",
+  hotel: "Hotel",
+};
+
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalizeSiteKey = (value) => String(value || "").trim().toLowerCase() === "hotel" ? "hotel" : "store";
+
+const buildUnassignedSiteFilters = (siteKey) => {
+  const normalizedSiteKey = normalizeSiteKey(siteKey);
+  const siteLabel = SITE_LABELS[normalizedSiteKey] || "Store";
+  const siteKeyClauses = normalizedSiteKey === "store"
+    ? [
+      { siteKey: normalizedSiteKey },
+      { siteKey: { $exists: false } },
+      { siteKey: null },
+    ]
+    : [{ siteKey: normalizedSiteKey }];
+
+  return {
+    $and: [
+      {
+        $or: [
+          { locationId: null },
+          { locationId: { $exists: false } },
+          { locationName: "" },
+          { locationName: { $exists: false } },
+          { locationName: siteLabel },
+        ],
+      },
+      {
+        $or: siteKeyClauses,
+      },
+    ],
+  };
+};
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -26,6 +62,8 @@ export default async function handler(req, res) {
     const {
       locationId,
       locationName,
+      siteKey = "store",
+      includeUnassigned = "false",
       startDate,
       endDate,
       limit = 200,
@@ -40,13 +78,29 @@ export default async function handler(req, res) {
       },
     };
 
+    const locationClauses = [];
+
     if (locationId && mongoose.Types.ObjectId.isValid(String(locationId))) {
-      filters.locationId = locationId;
-    } else if (locationName) {
-      filters.locationName = {
-        $regex: `^${escapeRegex(locationName)}$`,
-        $options: "i",
-      };
+      locationClauses.push({ locationId });
+    }
+
+    if (locationName) {
+      locationClauses.push({
+        locationName: {
+          $regex: `^${escapeRegex(locationName)}$`,
+          $options: "i",
+        },
+      });
+    }
+
+    if (includeUnassigned === "true") {
+      locationClauses.push(buildUnassignedSiteFilters(siteKey));
+    }
+
+    if (locationClauses.length === 1) {
+      Object.assign(filters, locationClauses[0]);
+    } else if (locationClauses.length > 1) {
+      filters.$or = locationClauses;
     }
 
     if (startDate || endDate) {
@@ -71,8 +125,10 @@ export default async function handler(req, res) {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
       customerId: order.customer?.toString?.() || order.customer || null,
-      customerName: order.shippingDetails?.name || "Online Customer",
-      shippingDetails: order.shippingDetails || null,
+      siteKey: normalizeSiteKey(order.siteKey),
+      customerName: order.shippingDetails?.name || order.customerSnapshot?.name || "Online Customer",
+      customerSnapshot: order.customerSnapshot || null,
+      shippingDetails: order.shippingDetails || order.customerSnapshot || null,
       items: order.items || [],
       cartProducts: order.cartProducts || [],
       subtotal: order.subtotal || 0,
