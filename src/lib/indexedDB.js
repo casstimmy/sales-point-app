@@ -114,16 +114,20 @@ export async function initIndexedDB() {
 /**
  * Add/Update products in local DB
  */
-export async function syncProducts(products) {
+export async function syncProducts(products, options = {}) {
   if (!db) await initIndexedDB();
 
   return new Promise((resolve, reject) => {
     const transaction = db.transaction([STORES.PRODUCTS, STORES.SYNC_META], "readwrite");
     const productStore = transaction.objectStore(STORES.PRODUCTS);
     const metaStore = transaction.objectStore(STORES.SYNC_META);
+    const replace = options?.replace === true;
 
-    // Don't clear - instead upsert (add or update)
-    // This preserves products from other categories
+    if (replace) {
+      productStore.clear();
+    }
+
+    // Default behavior is upsert to preserve other cached products.
     products.forEach((product) => {
       productStore.put(product); // put() will update if exists, add if not
     });
@@ -136,7 +140,8 @@ export async function syncProducts(products) {
     });
 
     transaction.oncomplete = () => {
-      console.log(`✅ Synced ${products.length} products to local DB (merged)`);
+      const mode = replace ? "replaced" : "merged";
+      console.log(`✅ Synced ${products.length} products to local DB (${mode})`);
       resolve({ success: true, count: products.length });
     };
 

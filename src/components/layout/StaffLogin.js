@@ -193,6 +193,89 @@ export default function StaffLogin() {
     }
   }, []);
 
+  const preloadTendersForLocations = useCallback(async (locationsList = []) => {
+    if (!Array.isArray(locationsList) || locationsList.length === 0) return;
+
+    await Promise.all(
+      locationsList.map(async (loc) => {
+        if (!loc?._id) return;
+        try {
+          const tendersRes = await fetch('/api/location/tenders?locationId=' + loc._id);
+          if (!tendersRes.ok) return;
+          const tendersData = await tendersRes.json();
+          if (tendersData?.success) {
+            setCachedTenders(loc._id, tendersData.tenders || []);
+          }
+        } catch (err) {
+          // ignore tender preload errors
+        }
+      })
+    );
+  }, [setCachedTenders]);
+
+  const cacheCategoriesForOffline = useCallback(async () => {
+    const categoriesResponse = await fetch('/api/categories');
+    if (!categoriesResponse.ok) {
+      throw new Error(`Failed to sync categories: ${categoriesResponse.status}`);
+    }
+
+    const categoriesData = await categoriesResponse.json();
+    const categories = categoriesData.data || [];
+    await syncCategories(categories);
+    localStorage.setItem('cachedCategories', JSON.stringify(categories));
+    console.log(`✅ Cached ${categories.length} categories for offline`);
+    return categories;
+  }, []);
+
+  const cacheProductsForLocations = useCallback(async (locationsList = []) => {
+    if (!Array.isArray(locationsList) || locationsList.length === 0) {
+      await syncProducts([], { replace: true });
+      localStorage.removeItem('cachedProducts');
+      return [];
+    }
+
+    const productGroups = await Promise.all(
+      locationsList
+        .filter((loc) => loc?._id)
+        .map(async (loc) => {
+          try {
+            const productsResponse = await fetch(`/api/products?locationId=${encodeURIComponent(loc._id)}`);
+            if (!productsResponse.ok) {
+              console.warn(`⚠️ Could not sync products for ${loc.name}: ${productsResponse.status}`);
+              return [];
+            }
+
+            const productsData = await productsResponse.json();
+            const products = productsData.data || [];
+            console.log(`✅ Synced ${products.length} products for ${loc.name}`);
+            return products;
+          } catch (prodErr) {
+            console.warn(`⚠️ Could not sync products for ${loc?.name || loc?._id}:`, prodErr.message);
+            return [];
+          }
+        })
+    );
+
+    const productMap = new Map();
+    productGroups.flat().forEach((product) => {
+      if (product?._id) {
+        productMap.set(String(product._id), product);
+      }
+    });
+
+    const products = Array.from(productMap.values());
+    await syncProducts(products, { replace: true });
+
+    if (products.length > 0) {
+      localStorage.setItem('cachedProducts', JSON.stringify(products));
+    } else {
+      localStorage.removeItem('cachedProducts');
+    }
+
+    console.log(`✅ Cached ${products.length} location-scoped products for offline`);
+    return products;
+  }, []);
+
   // Get closed till IDs from IndexedDB
   // includeSynced=false: only unsynced (for banner display)
   // includeSynced=true: all closes (for resume-prevention check)
@@ -355,25 +438,6 @@ export default function StaffLogin() {
           return;
         }
         
-        const preloadTendersForLocations = async (locationsList = []) => {
-          if (!locationsList.length) return;
-          await Promise.all(
-            locationsList.map(async (loc) => {
-              if (!loc?._id) return;
-              try {
-                const tendersRes = await fetch('/api/location/tenders?locationId=' + loc._id);
-                if (!tendersRes.ok) return;
-                const tendersData = await tendersRes.json();
-                if (tendersData?.success) {
-                  setCachedTenders(loc._id, tendersData.tenders || []);
-                }
-              } catch (err) {
-                // ignore tender preload errors
-              }
-            })
-          );
-        };
-
         // Step 1: Fetch store and locations
         setLoadingProgress(15);
         setLoadingStep("Fetching stores and locations...");
@@ -455,38 +519,15 @@ export default function StaffLogin() {
         setLoadingStep("Pre-caching categories...");
         console.log("📦 Pre-caching categories for offline use...");
         try {
-          const categoriesResponse = await fetch("/api/categories");
-          if (categoriesResponse.ok) {
-            const categoriesData = await categoriesResponse.json();
-            const categories = categoriesData.data || [];
-            if (categories.length > 0) {
-              await syncCategories(categories);
-              localStorage.setItem('cachedCategories', JSON.stringify(categories));
-              console.log(`✅ Cached ${categories.length} categories for offline`);
-            }
-          }
+          await cacheCategoriesForOffline();
         } catch (catErr) {
           console.warn("⚠️ Could not pre-cache categories:", catErr.message);
         }
 
-        // Pre-cache products for offline use
-        setLoadingProgress(65);
-        setLoadingStep("Pre-caching products...");
-        console.log("📦 Pre-caching products for offline use...");
-        try {
-          const productsResponse = await fetch("/api/products");
-          if (productsResponse.ok) {
-            const productsData = await productsResponse.json();
-            const products = productsData.data || [];
-            if (products.length > 0) {
-              await syncProducts(products);
-              localStorage.setItem('cachedProducts', JSON.stringify(products));
-              console.log(`✅ Cached ${products.length} products for offline`);
-            }
-          }
-        } catch (prodErr) {
-          console.warn("⚠️ Could not pre-cache products:", prodErr.message);
-        }
+        // Keep initial login light. Products are synced per location when needed.
+        setLoadingProgress(60);
+        setLoadingStep("Preparing location data...");
+        console.log("📦 Skipping global product preload. Products will sync per location when needed.");
 
         // Try to sync any pending offline data before showing active tills
         setLoadingProgress(75);
@@ -536,7 +577,7 @@ export default function StaffLogin() {
     };
 
     fetchData();
-  }, [loadCachedData, refreshPendingTillCloseIds, setCachedTenders, getPendingTillCloseIds]);
+  }, [cacheCategoriesForOffline, loadCachedData, preloadTendersForLocations, refreshPendingTillCloseIds, getPendingTillCloseIds]);
 
   /* Refresh staff/locations data when coming online */
   useEffect(() => {
@@ -853,7 +894,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router, normalizeStaffMember, normalizeStaffList]);
+  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router]);
 
   const handleKeyPress = useCallback((e) => {
     if (e.key === "Enter" && pin.length === 4 && selectedStore && selectedLocation && selectedStaff) {
@@ -884,64 +925,89 @@ export default function StaffLogin() {
   // Handle refresh of store/location data
   const handleRefreshData = async () => {
     setLoadingData(true);
+    setLoadingProgress(0);
+    setLoadingStep(isOnline ? "Syncing system data..." : "Loading cached data...");
+    let shouldHardRefresh = false;
     try {
       // Try online first
       if (isOnline) {
+        setLoadingProgress(15);
+        setLoadingStep("Syncing stores and locations...");
         const storeResponse = await fetch("/api/store/init-locations");
-        if (storeResponse.ok) {
-          const storeData = await storeResponse.json();
-          if (storeData.store) {
-            const storeObj = {
-              _id: storeData.store._id,
-              name: storeData.store.storeName || storeData.store.companyName || storeData.store.name || "Default Store",
-            };
-            setStores([storeObj]);
-            setSelectedStore(storeObj._id);
-            localStorage.setItem('cachedStore', JSON.stringify(storeObj));
-            const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
-            setLocations(activeLocations);
-            if (activeLocations.length > 0) {
-              setSelectedLocation(activeLocations[0]._id);
-            }
-            // Cache locations for offline use
-            localStorage.setItem("cachedLocations", JSON.stringify(activeLocations));
-            localStorage.setItem("locations_metadata", JSON.stringify({
-              lastSynced: new Date().toISOString(),
-              count: activeLocations.length,
-              locationNames: activeLocations.map(l => l.name)
-            }));
-            console.log("✅ Refreshed locations from cloud and cached for offline");
-            if (activeLocations.length) {
-              await Promise.all(
-                activeLocations.map(async (loc) => {
-                  if (!loc?._id) return;
-                  try {
-                    const tendersRes = await fetch('/api/location/tenders?locationId=' + loc._id);
-                    if (!tendersRes.ok) return;
-                    const tendersData = await tendersRes.json();
-                    if (tendersData?.success) {
-                      setCachedTenders(loc._id, tendersData.tenders || []);
-                    }
-                  } catch (err) {
-                    // ignore tender preload errors
-                  }
-                })
-              );
-            }
-          }
+        if (!storeResponse.ok) {
+          throw new Error(`Failed to sync locations: ${storeResponse.status}`);
         }
+
+        const storeData = await storeResponse.json();
+        if (!storeData.store) {
+          throw new Error('Store data missing from cloud sync');
+        }
+
+        const storeObj = {
+          _id: storeData.store._id,
+          name: storeData.store.storeName || storeData.store.companyName || storeData.store.name || "Default Store",
+        };
+        setStores([storeObj]);
+        setSelectedStore(storeObj._id);
+        localStorage.setItem('cachedStore', JSON.stringify(storeObj));
+
+        const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
+        setLocations(activeLocations);
+        if (activeLocations.length > 0) {
+          setSelectedLocation(activeLocations[0]._id);
+        }
+        localStorage.setItem("cachedLocations", JSON.stringify(activeLocations));
+        localStorage.setItem("locations_metadata", JSON.stringify({
+          lastSynced: new Date().toISOString(),
+          count: activeLocations.length,
+          locationNames: activeLocations.map(l => l.name)
+        }));
+        await preloadTendersForLocations(activeLocations);
+        console.log("✅ Refreshed locations from cloud and cached for offline");
         
+        setLoadingProgress(40);
+        setLoadingStep("Syncing staff...");
         const staffResponse = await fetch("/api/staff/list");
-        if (staffResponse.ok) {
-          const staffData = await staffResponse.json();
-          const staffList = staffData.data || staffData || [];
-          const refreshedStaff = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
-          setStaff(refreshedStaff);
-          localStorage.setItem("cachedStaff", JSON.stringify(refreshedStaff));
-          console.log("✅ Refreshed staff from cloud");
+        if (!staffResponse.ok) {
+          throw new Error(`Failed to sync staff: ${staffResponse.status}`);
         }
+
+        const staffData = await staffResponse.json();
+        const staffList = staffData.data || staffData || [];
+        const refreshedStaff = normalizeStaffList(Array.isArray(staffList) ? staffList : []);
+        setStaff(refreshedStaff);
+        localStorage.setItem("cachedStaff", JSON.stringify(refreshedStaff));
+        console.log("✅ Refreshed staff from cloud");
+
+        setLoadingProgress(60);
+        setLoadingStep("Syncing categories...");
+        await cacheCategoriesForOffline();
+
+        setLoadingProgress(80);
+        setLoadingStep("Syncing products...");
+        await cacheProductsForLocations(activeLocations);
+
+        setLoadingProgress(92);
+        setLoadingStep("Syncing pending offline data...");
+        try {
+          await runWithTimeout(
+            (async () => {
+              await syncPendingTillOpens();
+              await syncPendingTransactions();
+              await syncPendingTillCloses();
+            })(),
+            12000
+          );
+        } catch (syncErr) {
+          console.warn('⚠️ Full sync pending-data step failed:', syncErr?.message || syncErr);
+        }
+
+        setLoadingProgress(100);
+        setLoadingStep("Reloading system...");
+        shouldHardRefresh = true;
       } else {
         // Offline - load from localStorage
+        setLoadingProgress(60);
         loadCachedData();
         console.log("📱 Refreshed data from local storage (offline)");
       }
@@ -949,6 +1015,10 @@ export default function StaffLogin() {
       console.error("Failed to refresh data:", error);
       loadCachedData();
     } finally {
+      if (shouldHardRefresh && typeof window !== 'undefined') {
+        window.location.reload();
+        return;
+      }
       setLoadingData(false);
     }
   };
@@ -1120,7 +1190,7 @@ export default function StaffLogin() {
                 </div>
 
                 {/* Loading Text */}
-                <p className="text-white font-bold text-lg mb-2">Loading Stores & Staff...</p>
+                <p className="text-white font-bold text-lg mb-2">Loading POS Data...</p>
                 <p className="text-cyan-100 text-sm mb-6 font-medium">{loadingStep || "Initializing..."}</p>
 
                 {/* Progress Bar */}
@@ -1137,7 +1207,7 @@ export default function StaffLogin() {
             </div>
           ) : (
             <>
-              {/* Sync Locations Button - Always Visible */}
+              {/* Sync Data Button - Always Visible */}
               <div className="mb-4 p-3 bg-cyan-800 rounded-lg border-2 border-cyan-600">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-white font-semibold text-xs">
@@ -1153,7 +1223,7 @@ export default function StaffLogin() {
                   className="w-full px-4 py-3 bg-yellow-500 hover:bg-yellow-400 text-cyan-900 font-bold rounded-lg transition flex items-center justify-center gap-2 disabled:opacity-50 text-sm shadow-md"
                 >
                   <FontAwesomeIcon icon={faSync} className={`w-4 h-4 flex-shrink-0 ${loadingData ? 'animate-spin' : ''}`} />
-                  <span>{loadingData ? 'Syncing...' : (isOnline ? 'Sync Data from Cloud' : 'Load Cached Data')}</span>
+                  <span>{loadingData ? 'Syncing...' : (isOnline ? 'Sync Data' : 'Load Cached Data')}</span>
                 </button>
                 {/* Sync Status */}
                 {(() => {

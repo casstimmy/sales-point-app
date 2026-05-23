@@ -6,34 +6,10 @@ import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
 import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
 import { getStoreLogo } from "../../lib/logoCache";
+import { addTenderAmount, getTenderAmount, normalizeTenderBreakdown } from "../../lib/tenderKey";
 import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
-
-const toNumber = (value) => {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const isCountableSale = (tx) => {
-  if (!tx) return false;
-  const status = String(tx.status || "").toUpperCase();
-  if (["UNPAID", "VOID", "CANCELLED", "REFUNDED"].includes(status)) {
-    return false;
-  }
-  return toNumber(tx.total) > 0;
-};
-
-const getTenderAmount = (tenderBreakdown, tenderName) => {
-  const breakdown = tenderBreakdown || {};
-  if (Object.prototype.hasOwnProperty.call(breakdown, tenderName)) {
-    return toNumber(breakdown[tenderName]);
-  }
-  const key = Object.keys(breakdown).find(
-    (k) => String(k).trim().toLowerCase() === String(tenderName || "").trim().toLowerCase()
-  );
-  return key ? toNumber(breakdown[key]) : 0;
-};
 
 // Generate and print End-of-Day report
 const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closingNotes, locationName) => {
@@ -53,7 +29,7 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
   // Build tender reconciliation rows
   const tenderRows = (tenders || []).map(tender => {
     const expected = getTenderAmount(summaryData?.tenderBreakdown, tender.name);
-    const physical = toNumber(tenderCounts?.[tender.id]);
+    const physical = parseFloat(tenderCounts?.[tender.id]) || 0;
     const variance = physical - expected;
     return `
       <tr>
@@ -66,8 +42,8 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       </tr>`;
   }).join('');
 
-  const totalPhysical = (tenders || []).reduce((sum, t) => sum + toNumber(tenderCounts?.[t.id]), 0);
-  const totalExpected = toNumber(summaryData?.openingBalance) + toNumber(summaryData?.totalSales);
+  const totalPhysical = (tenders || []).reduce((sum, t) => sum + (parseFloat(tenderCounts?.[t.id]) || 0), 0);
+  const totalExpected = (summaryData?.openingBalance || 0) + (summaryData?.totalSales || 0);
   const totalVariance = totalPhysical - totalExpected;
 
   const html = `<!DOCTYPE html>
@@ -250,9 +226,7 @@ const getOfflineTillData = async (tillId) => {
         allTxRequest.onsuccess = () => {
           const allTransactions = allTxRequest.result || [];
           // Filter transactions for this specific till using string comparison
-          const tillTransactions = allTransactions.filter(
-            (tx) => String(tx.tillId) === tillIdStr && isCountableSale(tx)
-          );
+          const tillTransactions = allTransactions.filter(tx => String(tx.tillId) === tillIdStr);
           
           // Calculate totals from offline transactions
           let totalSales = 0;
@@ -260,7 +234,7 @@ const getOfflineTillData = async (tillId) => {
           let unsyncedCount = 0;
           
           tillTransactions.forEach(tx => {
-            totalSales += toNumber(tx.total);
+            totalSales += tx.total || 0;
             if (tx.synced !== true) {
               unsyncedCount += 1;
             }
@@ -268,12 +242,10 @@ const getOfflineTillData = async (tillId) => {
             // Process tender payments
             if (tx.tenderPayments && Array.isArray(tx.tenderPayments)) {
               tx.tenderPayments.forEach(tp => {
-                const tenderName = (tp.tenderName || 'Cash').trim();
-                tenderBreakdown[tenderName] = toNumber(tenderBreakdown[tenderName]) + toNumber(tp.amount);
+                addTenderAmount(tenderBreakdown, tp.tenderName, tp.amount, 'Cash');
               });
             } else if (tx.tenderType) {
-              const tenderName = String(tx.tenderType).trim();
-              tenderBreakdown[tenderName] = toNumber(tenderBreakdown[tenderName]) + toNumber(tx.total);
+              addTenderAmount(tenderBreakdown, tx.tenderType, tx.total, 'Cash');
             }
           });
           
@@ -533,11 +505,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
   useEffect(() => {
     if (till && isOpen) {
       const expectedClosing = (till.openingBalance || 0) + (till.totalSales || 0);
-      
-      let tenderBreakdownObj = {};
-      if (till.tenderBreakdown && typeof till.tenderBreakdown === 'object') {
-        tenderBreakdownObj = { ...till.tenderBreakdown };
-      }
+      const tenderBreakdownObj = normalizeTenderBreakdown(till.tenderBreakdown);
       
       setSummary({
         openingBalance: till.openingBalance || 0,
@@ -921,7 +889,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Reconcile Payment Methods</h3>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {tenders && tenders.map((tender) => {
-                const processedAmount = summary?.tenderBreakdown?.[tender.name] || 0;
+                const processedAmount = getTenderAmount(summary?.tenderBreakdown, tender.name);
                 const physicalCount = parseFloat(tenderCounts[tender.id]) || 0;
                 const variance = physicalCount - processedAmount;
                 const hasValue = tenderCounts[tender.id] !== undefined && tenderCounts[tender.id] !== "";

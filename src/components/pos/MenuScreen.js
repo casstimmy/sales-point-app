@@ -84,6 +84,11 @@ const normalizeIconToken = (value) =>
     .replace(/[\s_-]+/g, '')
     .trim();
 
+const normalizeLocationToken = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
+
 const getCategoryPropertyValue = (category, keys = []) => {
   if (!Array.isArray(category?.properties)) return null;
   const normalizedKeys = keys.map((key) => normalizeIconToken(key));
@@ -268,7 +273,7 @@ export default function MenuScreen() {
           localProducts = await getLocalProductsByCategory(categoryId);
         }
         if (localProducts && localProducts.length > 0) {
-          setProducts(localProducts);
+          setProducts(filterProductsForLocation(localProducts));
         }
       }
     };
@@ -300,7 +305,7 @@ export default function MenuScreen() {
       window.removeEventListener('transactions:completed', handleTransactionCompleted);
       window.removeEventListener('online', handleBackOnline);
     };
-  }, [selectedCategory, location]);
+  }, [selectedCategory, location, filterProductsForLocation]);
 
   // Listen for sidebar cloud sync to refresh products/categories/images
   useEffect(() => {
@@ -330,6 +335,39 @@ export default function MenuScreen() {
     const idSet = new Set(locationCategoryIds.map(id => String(id)));
     return categoryList.filter(cat => idSet.has(String(cat?._id || cat?.id)));
   }, [location?.categories, location?.categoryIds]);
+
+  const filterProductsForLocation = useCallback((productList = []) => {
+    if (!Array.isArray(productList)) return [];
+
+    const locationTokens = new Set([
+      normalizeLocationToken(location?._id),
+      normalizeLocationToken(location?.id),
+      normalizeLocationToken(location?.name),
+      normalizeLocationToken(location?.code),
+    ].filter(Boolean));
+
+    if (locationTokens.size === 0) {
+      return [];
+    }
+
+    return productList.filter((product) => {
+      if (!Array.isArray(product?.locations) || product.locations.length === 0) {
+        return false;
+      }
+
+      return product.locations.some((locationEntry) => {
+        if (locationEntry && typeof locationEntry === 'object') {
+          return [locationEntry._id, locationEntry.id, locationEntry.name, locationEntry.code].some((candidate) => {
+            const token = normalizeLocationToken(candidate);
+            return token && locationTokens.has(token);
+          });
+        }
+
+        const token = normalizeLocationToken(locationEntry);
+        return token && locationTokens.has(token);
+      });
+    });
+  }, [location?._id, location?.id, location?.name, location?.code]);
 
   // Log when products change
   useEffect(() => {
@@ -491,9 +529,10 @@ export default function MenuScreen() {
       try {
         console.log("📦 Loading all local products for search...");
         const localProducts = await getAllLocalProducts();
-        if (localProducts && localProducts.length > 0) {
-          console.log(`✅ Loaded ${localProducts.length} products from local storage`);
-          setAllProducts(localProducts);
+        const locationScopedProducts = filterProductsForLocation(localProducts);
+        if (locationScopedProducts.length > 0) {
+          console.log(`✅ Loaded ${locationScopedProducts.length} location-scoped products from local storage`);
+          setAllProducts(locationScopedProducts);
         } else {
           console.log("📦 No local products found, will fetch on sync");
         }
@@ -503,7 +542,7 @@ export default function MenuScreen() {
     };
     
     loadAllLocalProducts();
-  }, []);
+  }, [filterProductsForLocation]);
 
   // Fetch products when category changes (from IndexedDB ONLY - API sync is manual)
   useEffect(() => {
@@ -520,15 +559,22 @@ export default function MenuScreen() {
         const categoryId = selectedCategory._id || selectedCategory.id;
         const categoryName = selectedCategory.name;
         console.log("🛍️ Loading products for category:", categoryName, "(ID:", categoryId, ")");
+
+        if (!location?._id) {
+          console.log("📍 Waiting for active location before loading products");
+          setProducts([]);
+          setLoadingProducts(false);
+          return;
+        }
         
         // ALWAYS try local storage first
         // Products in IndexedDB store category NAME (not ID) in the 'category' field
         // So search by name first, then fall back to ID
-        let localProducts = await getLocalProductsByCategory(categoryName);
+        let localProducts = filterProductsForLocation(await getLocalProductsByCategory(categoryName));
         
         if (!localProducts || localProducts.length === 0) {
           // Fallback: try by ID in case some products store category ID
-          localProducts = await getLocalProductsByCategory(categoryId);
+          localProducts = filterProductsForLocation(await getLocalProductsByCategory(categoryId));
         }
         
         if (localProducts && localProducts.length > 0) {
@@ -540,7 +586,7 @@ export default function MenuScreen() {
         
         // If no local products for this category, try all local products filtered
         console.log("📦 No products for this category locally, checking all products...");
-        const allLocal = await getAllLocalProducts();
+        const allLocal = filterProductsForLocation(await getAllLocalProducts());
         
         if (allLocal && allLocal.length > 0) {
           // Filter by category name OR ID
@@ -563,7 +609,7 @@ export default function MenuScreen() {
           ? localStorage.getItem('cachedProducts')
           : null;
         if (cachedProductsRaw) {
-          const cachedProducts = JSON.parse(cachedProductsRaw);
+          const cachedProducts = filterProductsForLocation(JSON.parse(cachedProductsRaw));
           if (cachedProducts && cachedProducts.length > 0) {
             console.log("✅ Using cached products from localStorage");
             await syncProducts(cachedProducts);
@@ -579,8 +625,8 @@ export default function MenuScreen() {
           }
         }
 
-        // No local data at all - only fetch from API if online AND user hasn't synced before
-        if (isOnline && allProducts.length === 0) {
+        // No local data at all - fetch the active location's products from the API when online.
+        if (isOnline) {
           console.log("📥 No local products found, fetching from API (first load)...");
           let url = `/api/products?category=${encodeURIComponent(categoryId)}`;
           if (location?._id) url += `&locationId=${encodeURIComponent(location._id)}`;
@@ -641,7 +687,7 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline, allProducts.length, location?._id]);
+  }, [selectedCategory, isOnline, location?._id, filterProductsForLocation]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
@@ -690,18 +736,23 @@ export default function MenuScreen() {
         }
         
         // Save all products to IndexedDB and localStorage
-        if (allFetchedProducts.length > 0) {
-          await syncProducts(allFetchedProducts);
-          setAllProducts(allFetchedProducts);
+        const uniqueProducts = Array.from(
+          new Map(allFetchedProducts.map((product) => [String(product._id), product])).values()
+        );
+
+        if (uniqueProducts.length > 0) {
+          await syncProducts(uniqueProducts);
+          const locationScopedProducts = filterProductsForLocation(uniqueProducts);
+          setAllProducts(locationScopedProducts);
           // Save to localStorage as backup cache for offline use
-          try { localStorage.setItem('cachedProducts', JSON.stringify(allFetchedProducts)); } catch (e) {}
-          console.log(`✅ Total products synced: ${allFetchedProducts.length}`);
+          try { localStorage.setItem('cachedProducts', JSON.stringify(uniqueProducts)); } catch (e) {}
+          console.log(`✅ Total products synced: ${uniqueProducts.length}`);
           
           // Reload current category products
           if (selectedCategory) {
             const categoryId = selectedCategory._id || selectedCategory.id;
             const categoryName = selectedCategory.name;
-            const categoryProducts = allFetchedProducts.filter(p => 
+            const categoryProducts = locationScopedProducts.filter(p => 
               p.category === categoryName ||
               p.category === categoryId || 
               p.categoryId === categoryId
