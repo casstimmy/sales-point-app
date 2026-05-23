@@ -1,9 +1,34 @@
 import mongoose from 'mongoose';
 import { mongooseConnect } from '@/src/lib/mongoose';
-import '@/src/models/Customer';
+import Customer from '@/src/models/Customer';
 import Order from '@/src/models/Order';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 import { sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
+
+const hydrateOrderCustomer = async (order) => {
+  if (!order) return null;
+
+  const customerRef = order.customer;
+  if (!customerRef) return order;
+
+  if (typeof customerRef === 'object' && customerRef !== null && customerRef.email) {
+    return order;
+  }
+
+  try {
+    const customer = await Customer.findById(customerRef).lean();
+    return {
+      ...order,
+      customer: customer || null,
+    };
+  } catch (error) {
+    console.warn('Unable to hydrate order customer in process-from-pos:', error?.message || error);
+    return {
+      ...order,
+      customer: null,
+    };
+  }
+};
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,7 +47,8 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, error: 'Invalid order id' });
     }
 
-    const order = await Order.findById(id).populate('customer').lean();
+    const baseOrder = await Order.findById(id).lean();
+    const order = await hydrateOrderCustomer(baseOrder);
     if (!order) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
@@ -46,13 +72,13 @@ export default async function handler(req, res) {
       updatePayload.status = 'Processing';
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(
+    const updatedOrderRaw = await Order.findByIdAndUpdate(
       id,
       { $set: updatePayload },
       { new: true, runValidators: true }
-    )
-      .populate('customer')
-      .lean();
+    ).lean();
+
+    const updatedOrder = await hydrateOrderCustomer(updatedOrderRaw);
 
     const emailState = shouldSendProcessingEmail
       ? await sendOrderProcessingEmail(updatedOrder)

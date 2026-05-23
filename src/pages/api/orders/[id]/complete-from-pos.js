@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import { mongooseConnect } from '@/src/lib/mongoose';
-import '@/src/models/Customer';
+import Customer from '@/src/models/Customer';
 import Order from '@/src/models/Order';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
@@ -28,6 +28,31 @@ const applyTenderEntries = (map, entries = [], sign = 1) => {
 
 const getOrderContactDetails = (order) =>
   order?.shippingDetails || order?.customerSnapshot || order?.customer || {};
+
+const hydrateOrderCustomer = async (order) => {
+  if (!order) return null;
+
+  const customerRef = order.customer;
+  if (!customerRef) return order;
+
+  if (typeof customerRef === 'object' && customerRef !== null && customerRef.email) {
+    return order;
+  }
+
+  try {
+    const customer = await Customer.findById(customerRef).lean();
+    return {
+      ...order,
+      customer: customer || null,
+    };
+  } catch (error) {
+    console.warn('Unable to hydrate order customer in complete-from-pos:', error?.message || error);
+    return {
+      ...order,
+      customer: null,
+    };
+  }
+};
 
 const getOrderItems = (order) => {
   if (Array.isArray(order?.cartProducts) && order.cartProducts.length > 0) {
@@ -95,10 +120,14 @@ const normalizePaymentDetails = ({ order, paymentDetails }) => {
         .filter((payment) => payment.tenderName && payment.amount > 0)
     : [];
 
+  const tenderLineTotal = tenderPayments.reduce((sum, payment) => sum + Number(payment?.amount || 0), 0);
+  const amountPaidRaw = Number(paymentDetails?.amountPaid || 0);
+  const amountPaid = amountPaidRaw > 0 ? amountPaidRaw : tenderLineTotal;
+
   return {
     tenderType: paymentDetails?.tenderType || tenderPayments[0]?.tenderName || '',
     tenderPayments,
-    amountPaid: Number(paymentDetails?.amountPaid || 0),
+    amountPaid,
     change: Number(paymentDetails?.change || 0),
     paymentChannel: 'pos',
   };
@@ -188,7 +217,8 @@ export default async function handler(req, res) {
       });
     }
 
-    const order = await Order.findById(id).populate('customer').lean();
+    const baseOrder = await Order.findById(id).lean();
+    const order = await hydrateOrderCustomer(baseOrder);
     if (!order) {
       return res.status(404).json({
         success: false,
@@ -219,7 +249,10 @@ export default async function handler(req, res) {
         (Array.isArray(normalizedPayment.tenderPayments) && normalizedPayment.tenderPayments.length > 0)
       );
 
-      if (!hasTender || normalizedPayment.amountPaid < Number(order.total || 0)) {
+      const orderTotal = Number(order.total || 0);
+      const meetsAmount = normalizedPayment.amountPaid + 0.0001 >= orderTotal;
+
+      if (!hasTender || !meetsAmount) {
         return res.status(400).json({
           success: false,
           error: 'A complete POS payment is required before recording this sale',
@@ -329,13 +362,13 @@ export default async function handler(req, res) {
       updatePayload.paymentReference = String(transaction._id);
     }
 
-    const updatedOrder = await Order.findByIdAndUpdate(
+    const updatedOrderRaw = await Order.findByIdAndUpdate(
       id,
       { $set: updatePayload },
       { new: true, runValidators: true }
-    )
-      .populate('customer')
-      .lean();
+    ).lean();
+
+    const updatedOrder = await hydrateOrderCustomer(updatedOrderRaw);
 
     const shouldSendProcessingEmail =
       order.status !== 'Processing' &&
