@@ -714,6 +714,7 @@ export function CartProvider({ children }) {
           id: order.id || order._id || null,
           status: order.status || 'Pending',
           paymentStatus: order.paymentStatus || 'Pending',
+          requestedFinalStatus: order.requestedFinalStatus || 'Processing',
           siteKey: order.siteKey || 'store',
           sourceLabel: order.sourceLabel || 'Store Website',
           shippingDetails: contactDetails,

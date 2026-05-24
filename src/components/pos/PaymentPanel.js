@@ -48,6 +48,7 @@ export default function PaymentPanel() {
   const isEmpty = activeCart.items.length === 0;
   const onlineOrderContext = activeCart.onlineOrder || null;
   const isOnlineOrderCheckout = Boolean(onlineOrderContext?.id);
+  const requestedFinalStatus = onlineOrderContext?.requestedFinalStatus === 'Delivered' ? 'Delivered' : 'Processing';
   const onlineOrderStatus = String(onlineOrderContext?.status || '').trim();
   const onlineOrderTotal = isOnlineOrderCheckout
     ? Number(activeCart.total || totals.total || 0)
@@ -118,6 +119,7 @@ export default function PaymentPanel() {
         staffName: staff?.name || staff?.fullName || 'POS Staff',
         locationId: location?._id || null,
         locationName: location?.name || '',
+        finalStatus: requestedFinalStatus,
         paymentDetails,
       }),
     });
@@ -148,6 +150,7 @@ export default function PaymentPanel() {
 
       if (isOnlineOrderCheckout) {
         const result = await completeOnlineOrderFromPos(paymentDetails);
+        const finalOrderStatus = result.order?.status || requestedFinalStatus;
         const transaction = result.transaction || {
           _id: `order-${onlineOrderContext.id}`,
           createdAt: new Date().toISOString(),
@@ -176,7 +179,7 @@ export default function PaymentPanel() {
         window.dispatchEvent(new CustomEvent('orders:online-updated', {
           detail: {
             orderId: onlineOrderContext.id,
-            status: 'Processing',
+            status: finalOrderStatus,
           },
         }));
 
@@ -192,6 +195,12 @@ export default function PaymentPanel() {
 
         if (result.alreadyProcessed) {
           showToast('Online sale was already recorded for this order.', 'warning');
+        } else if (finalOrderStatus === 'Delivered' && result.emailState === 'sent') {
+          showToast('Online sale recorded, order marked delivered, and customer notified.', 'success');
+        } else if (finalOrderStatus === 'Delivered' && result.emailState === 'failed') {
+          showToast('Online sale recorded and order marked delivered, but the delivery email failed to send.', 'warning');
+        } else if (finalOrderStatus === 'Delivered') {
+          showToast('Online sale recorded and order marked delivered, but customer notification was skipped.', 'warning');
         } else if (result.emailState === 'sent') {
           showToast('Online sale recorded and customer notified. Mark the order delivered after fulfilment is completed.', 'success');
         } else if (result.emailState === 'failed') {
@@ -310,7 +319,9 @@ export default function PaymentPanel() {
           <FontAwesomeIcon icon={faArrowLeft} className="w-4 h-4 text-neutral-700" />
         </button>
         <div className="text-sm sm:text-base font-semibold text-neutral-900">
-          {isPrepaidOnlineOrder ? 'Record Online Sale' : 'Complete Payment'}
+          {requestedFinalStatus === 'Delivered'
+            ? (isPrepaidOnlineOrder ? 'Record & Deliver' : 'Pay & Deliver')
+            : (isPrepaidOnlineOrder ? 'Record Online Sale' : 'Complete Payment')}
         </div>
       </div>
 
@@ -334,7 +345,9 @@ export default function PaymentPanel() {
             <div>
               <div className="text-base sm:text-lg font-semibold text-neutral-900">This order was already paid online</div>
               <div className="text-xs sm:text-sm text-neutral-600 mt-2 max-w-lg">
-                Recording this sale will attribute it to {location?.name || 'this location'} with an online-store tag. After fulfilment is complete, use the order panel to mark delivery and notify the customer.
+                {requestedFinalStatus === 'Delivered'
+                  ? `Recording this sale will attribute it to ${location?.name || 'this location'} and mark the order as delivered immediately.`
+                  : `Recording this sale will attribute it to ${location?.name || 'this location'} with an online-store tag. After fulfilment is complete, use the order panel to mark delivery and notify the customer.`}
               </div>
             </div>
 
@@ -356,7 +369,9 @@ export default function PaymentPanel() {
               disabled={isProcessingPayment}
               className="px-4 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition disabled:opacity-60"
             >
-              {isProcessingPayment ? 'Recording Sale...' : 'Record Sale'}
+              {isProcessingPayment
+                ? (requestedFinalStatus === 'Delivered' ? 'Recording & Delivering...' : 'Recording Sale...')
+                : (requestedFinalStatus === 'Delivered' ? 'Record & Deliver' : 'Record Sale')}
             </button>
           </div>
         ) : (

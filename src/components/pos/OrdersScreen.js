@@ -230,6 +230,30 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     return () => window.removeEventListener('orders:online-updated', handleOnlineOrderUpdated);
   }, [activeStatus, fetchOnlineOrders]);
 
+  useEffect(() => {
+    if (activeStatus !== 'ORDERED') {
+      return undefined;
+    }
+
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOnlineOrders();
+      }
+    };
+
+    const handleWindowFocus = () => {
+      fetchOnlineOrders();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityRefresh);
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityRefresh);
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [activeStatus, fetchOnlineOrders]);
+
   // Refresh completed transactions on external updates
   useEffect(() => {
     const handleCompletedUpdate = () => {
@@ -474,11 +498,13 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     }
   };
 
-  const handleProcessOnlineOrder = useCallback((order) => {
+  const handleProcessOnlineOrder = useCallback((order, options = {}) => {
     const run = async () => {
       if (!order) {
         return;
       }
+
+      const requestedFinalStatus = options?.finalStatus === 'Delivered' ? 'Delivered' : 'Processing';
 
       if (!isOnline) {
         showToast('Online orders can only be processed while the POS is online.', 'error');
@@ -488,9 +514,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
       setProcessingOrderId(order.id);
 
       try {
-        let nextOrder = order;
+        let nextOrder = {
+          ...order,
+          requestedFinalStatus,
+        };
 
-        if (order.status !== 'Processing') {
+        if (requestedFinalStatus === 'Processing' && order.status !== 'Processing') {
           const response = await fetch(`/api/orders/${order.id}/process-from-pos`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -509,6 +538,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             ...order,
             ...result.order,
             id: result.order?._id || order.id,
+            requestedFinalStatus,
             locationName: result.order?.locationName || order.location,
             locationId: result.order?.locationId || order.locationId,
             status: result.order?.status || 'Processing',
@@ -956,10 +986,10 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             </div>
 
             {/* Actions */}
-            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'}`}>
+            <div className={`p-3 bg-white border-t border-gray-200 grid gap-2 flex-shrink-0 ${detailOrder.source === 'E-Commerce' ? 'grid-cols-1 sm:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'}`}>
               {detailOrder.source === 'E-Commerce' && (
                 <button
-                  onClick={() => handleProcessOnlineOrder(detailOrder)}
+                  onClick={() => handleProcessOnlineOrder(detailOrder, { finalStatus: 'Processing' })}
                   disabled={processingOrderId === detailOrder.id || detailOrder.hasPosTransaction}
                   className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
                 >
@@ -970,6 +1000,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                     : detailOrder.status === 'Processing'
                     ? 'Resume POS Sale'
                     : 'Process in POS'}
+                </button>
+              )}
+              {detailOrder.source === 'E-Commerce' && !detailOrder.hasPosTransaction && detailOrder.status !== 'Delivered' && (
+                <button
+                  onClick={() => handleProcessOnlineOrder(detailOrder, { finalStatus: 'Delivered' })}
+                  disabled={processingOrderId === detailOrder.id}
+                  className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-sm font-semibold transition-colors active:scale-95 disabled:opacity-60"
+                >
+                  {processingOrderId === detailOrder.id ? 'Opening...' : 'Process as Delivered'}
                 </button>
               )}
               {detailOrder.source === 'E-Commerce' && detailOrder.hasPosTransaction && detailOrder.status !== 'Delivered' && (

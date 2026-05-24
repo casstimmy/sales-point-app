@@ -92,10 +92,29 @@ export default async function handler(req, res) {
           locationName: normalizedLocationName,
           paid: Boolean(order.paid || order.paymentStatus === 'Paid'),
           paymentStatus: order.paymentStatus || 'Paid',
+          reservationStatus: 'finalized',
+          reservationReleasedAt: order.reservationReleasedAt || new Date(),
+          finalizedAt: order.finalizedAt || new Date(),
+          inventoryFinalizedBy: order.inventoryFinalizedBy || 'pos',
         },
       },
       { new: true, runValidators: true }
     ).lean();
+
+    await Transaction.findOneAndUpdate(
+      {
+        $or: [
+          { externalId },
+          { sourceOrderId: String(order._id) },
+        ],
+      },
+      {
+        $set: {
+          location: normalizedLocationName || transaction.location || 'online',
+          locationId: resolvedLocationId || transaction.locationId || null,
+        },
+      }
+    );
 
     const updatedOrder = await hydrateOrderCustomer(updatedOrderRaw);
 

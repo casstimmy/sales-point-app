@@ -9,11 +9,12 @@ import { sanitizeBody } from '@/src/lib/apiValidation';
 import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
 import { ROOM_STATUSES } from '@/src/lib/roomReservations';
-import { sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
+import { sendOrderDeliveredEmail, sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
 
 const ONLINE_TENDER_NAME = 'ONLINE';
 const ONLINE_SALES_CHANNEL = 'ONLINE_STORE';
 const PAID_ORDER_STATUSES = new Set(['Processing', 'Shipped', 'Delivered']);
+const VALID_FINAL_STATUSES = new Set(['Processing', 'Delivered']);
 
 const normalizeTenderName = (value) => String(value || ONLINE_TENDER_NAME).trim() || ONLINE_TENDER_NAME;
 
@@ -220,8 +221,13 @@ export default async function handler(req, res) {
       staffName,
       locationId,
       locationName,
+      finalStatus,
       paymentDetails = {},
     } = req.body || {};
+
+    const requestedFinalStatus = VALID_FINAL_STATUSES.has(String(finalStatus || '').trim())
+      ? String(finalStatus).trim()
+      : 'Processing';
 
     if (!id || !mongoose.Types.ObjectId.isValid(String(id))) {
       return res.status(400).json({
@@ -379,7 +385,7 @@ export default async function handler(req, res) {
     }
 
     const updatePayload = {
-      status: 'Processing',
+      status: requestedFinalStatus,
       paid: true,
       paymentStatus: 'Paid',
       paymentChannel: isAlreadyPaid ? (order.paymentChannel || 'paystack') : 'pos',
@@ -404,10 +410,18 @@ export default async function handler(req, res) {
     const updatedOrder = await hydrateOrderCustomer(updatedOrderRaw);
 
     const shouldSendProcessingEmail =
+      requestedFinalStatus === 'Processing' &&
       order.status !== 'Processing' &&
       updatedOrder?.status === 'Processing';
 
-    const emailState = shouldSendProcessingEmail
+    const shouldSendDeliveredEmail =
+      requestedFinalStatus === 'Delivered' &&
+      order.status !== 'Delivered' &&
+      updatedOrder?.status === 'Delivered';
+
+    const emailState = shouldSendDeliveredEmail
+      ? await sendOrderDeliveredEmail(updatedOrder)
+      : shouldSendProcessingEmail
       ? await sendOrderProcessingEmail(updatedOrder)
       : 'skipped';
 
