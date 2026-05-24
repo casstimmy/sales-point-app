@@ -13,8 +13,15 @@ import { sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
 
 const ONLINE_TENDER_NAME = 'ONLINE';
 const ONLINE_SALES_CHANNEL = 'ONLINE_STORE';
+const PAID_ORDER_STATUSES = new Set(['Processing', 'Shipped', 'Delivered']);
 
 const normalizeTenderName = (value) => String(value || ONLINE_TENDER_NAME).trim() || ONLINE_TENDER_NAME;
+
+const isOrderConsideredPaid = (order) => Boolean(
+  order?.paid ||
+  order?.paymentStatus === 'Paid' ||
+  PAID_ORDER_STATUSES.has(String(order?.status || '').trim())
+);
 
 const ensureTenderBreakdownMap = (value) =>
   value instanceof Map ? value : new Map(Object.entries(value || {}));
@@ -105,7 +112,7 @@ const getTenderEntries = ({ tenderType, tenderPayments, total }) => {
 
 const normalizePaymentDetails = ({ order, paymentDetails }) => {
   const total = Number(order?.total || 0);
-  const isAlreadyPaid = Boolean(order?.paid || order?.paymentStatus === 'Paid');
+  const isAlreadyPaid = isOrderConsideredPaid(order);
 
   if (isAlreadyPaid) {
     return {
@@ -264,8 +271,9 @@ export default async function handler(req, res) {
     }
 
     const normalizedPayment = normalizePaymentDetails({ order, paymentDetails });
+    const isAlreadyPaid = isOrderConsideredPaid(order);
     const needsInventoryUpdate = !order.inventoryFinalizedBy;
-    if (!order.paid) {
+    if (!isAlreadyPaid) {
       const hasTender = Boolean(
         normalizedPayment.tenderType ||
         (Array.isArray(normalizedPayment.tenderPayments) && normalizedPayment.tenderPayments.length > 0)
@@ -292,7 +300,7 @@ export default async function handler(req, res) {
     const externalId = `order:${String(order._id)}`;
     let transaction = await Transaction.findOne({ externalId });
     const transactionExisted = Boolean(transaction);
-    const wasAlreadyRecorded = transactionExisted && Boolean(order?.paid || order?.paymentStatus === 'Paid');
+    const wasAlreadyRecorded = transactionExisted && isAlreadyPaid;
 
     if (transaction && order.status === 'Delivered') {
       return res.status(200).json({
@@ -374,7 +382,7 @@ export default async function handler(req, res) {
       status: 'Processing',
       paid: true,
       paymentStatus: 'Paid',
-      paymentChannel: order.paid ? (order.paymentChannel || 'paystack') : 'pos',
+      paymentChannel: isAlreadyPaid ? (order.paymentChannel || 'paystack') : 'pos',
       locationId: resolvedLocationId,
       locationName: resolvedLocationName,
       reservationStatus: 'finalized',

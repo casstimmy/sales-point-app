@@ -29,6 +29,7 @@ import OpenTillModal from "./OpenTillModal";
 import { showToast } from '../common/Toast';
 
 export default function PaymentPanel() {
+  const PAID_ORDER_STATUSES = new Set(['Processing', 'Shipped', 'Delivered']);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [showOpenTillModal, setShowOpenTillModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState(null);
@@ -47,7 +48,17 @@ export default function PaymentPanel() {
   const isEmpty = activeCart.items.length === 0;
   const onlineOrderContext = activeCart.onlineOrder || null;
   const isOnlineOrderCheckout = Boolean(onlineOrderContext?.id);
-  const isPrepaidOnlineOrder = isOnlineOrderCheckout && onlineOrderContext.paymentStatus === 'Paid';
+  const onlineOrderStatus = String(onlineOrderContext?.status || '').trim();
+  const onlineOrderTotal = isOnlineOrderCheckout
+    ? Number(activeCart.total || totals.total || 0)
+    : Number(totals.total || 0);
+  const onlineOrderSubtotal = isOnlineOrderCheckout
+    ? Number(activeCart.subtotal || totals.subtotal || onlineOrderTotal || 0)
+    : Number(totals.subtotal || 0);
+  const isPrepaidOnlineOrder = isOnlineOrderCheckout && (
+    onlineOrderContext?.paymentStatus === 'Paid' ||
+    PAID_ORDER_STATUSES.has(onlineOrderStatus)
+  );
   const [uiSettings, setUiSettings] = useState(getUiSettings());
 
   useEffect(() => {
@@ -71,11 +82,11 @@ export default function PaymentPanel() {
 
   const buildPrepaidOnlinePaymentDetails = () => ({
     tenderType: 'ONLINE',
-    tenderPayments: [{ tenderId: null, tenderName: 'ONLINE', amount: totals.total }],
-    tenders: { ONLINE: totals.total },
-    totalPaid: totals.total,
+    tenderPayments: [{ tenderId: null, tenderName: 'ONLINE', amount: onlineOrderTotal }],
+    tenders: { ONLINE: onlineOrderTotal },
+    totalPaid: onlineOrderTotal,
     change: 0,
-    amountPaid: totals.total,
+    amountPaid: onlineOrderTotal,
   });
 
   const completeOnlineOrderFromPos = async (paymentDetails) => {
@@ -146,11 +157,11 @@ export default function PaymentPanel() {
             quantity: item.quantity,
             price: item.price,
           })),
-          subtotal: totals.subtotal,
+          subtotal: onlineOrderSubtotal,
           tax: totals.tax,
-          total: totals.total,
+          total: onlineOrderTotal,
           discount: totals.discountAmount || 0,
-          amountPaid: paymentDetails.amountPaid,
+          amountPaid: paymentDetails.amountPaid || onlineOrderTotal,
           change: paymentDetails.change,
           tenderType: paymentDetails.tenderType,
           tenderPayments: paymentDetails.tenderPayments,
@@ -335,7 +346,7 @@ export default function PaymentPanel() {
               </div>
               <div className="rounded-xl border border-neutral-200 bg-white p-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500">Total</div>
-                <div className="mt-1 text-xl font-bold text-neutral-900">₦{Number(totals.total || 0).toLocaleString('en-NG')}</div>
+                <div className="mt-1 text-xl font-bold text-neutral-900">₦{Number(onlineOrderTotal || 0).toLocaleString('en-NG')}</div>
                 <div className="mt-2 text-sm text-emerald-700">Payment already received online</div>
               </div>
             </div>
@@ -351,7 +362,7 @@ export default function PaymentPanel() {
         ) : (
           <PaymentModal
             inline
-            total={totals.total}
+            total={isOnlineOrderCheckout ? onlineOrderTotal : totals.total}
             onConfirm={handlePaymentConfirm}
             onCancel={() => setShowPaymentPanel(false)}
           />
