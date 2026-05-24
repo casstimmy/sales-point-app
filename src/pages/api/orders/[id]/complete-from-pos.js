@@ -14,20 +14,33 @@ import { sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
 const ONLINE_TENDER_NAME = 'ONLINE';
 const ONLINE_SALES_CHANNEL = 'ONLINE_STORE';
 
+const normalizeTenderName = (value) => String(value || ONLINE_TENDER_NAME).trim() || ONLINE_TENDER_NAME;
+
 const ensureTenderBreakdownMap = (value) =>
   value instanceof Map ? value : new Map(Object.entries(value || {}));
 
 const applyTenderEntries = (map, entries = [], sign = 1) => {
   entries.forEach((entry) => {
-    const key = entry?.name || ONLINE_TENDER_NAME;
+    const key = normalizeTenderName(entry?.name);
     const current = Number(map.get(key) || 0);
     const next = Math.max(0, current + (sign * Number(entry?.amount || 0)));
     map.set(key, next);
   });
 };
 
-const getOrderContactDetails = (order) =>
-  order?.shippingDetails || order?.customerSnapshot || order?.customer || {};
+const getOrderContactDetails = (order) => {
+  const shippingDetails = order?.shippingDetails || {};
+  const customerSnapshot = order?.customerSnapshot || {};
+  const customer = order?.customer || {};
+
+  return {
+    name: shippingDetails.name || customerSnapshot.name || customer.name || '',
+    email: shippingDetails.email || customerSnapshot.email || customer.email || '',
+    phone: shippingDetails.phone || customerSnapshot.phone || customer.phone || '',
+    address: shippingDetails.address || customerSnapshot.address || customer.address || '',
+    city: shippingDetails.city || customerSnapshot.city || customer.city || '',
+  };
+};
 
 const hydrateOrderCustomer = async (order) => {
   if (!order) return null;
@@ -79,13 +92,13 @@ const buildTransactionItems = (items = []) =>
 const getTenderEntries = ({ tenderType, tenderPayments, total }) => {
   if (Array.isArray(tenderPayments) && tenderPayments.length > 0) {
     return tenderPayments.map((payment) => ({
-      name: payment?.tenderName || ONLINE_TENDER_NAME,
+      name: normalizeTenderName(payment?.tenderName),
       amount: Number(payment?.amount || 0),
     }));
   }
 
   return [{
-    name: tenderType || ONLINE_TENDER_NAME,
+    name: normalizeTenderName(tenderType),
     amount: Number(total || 0),
   }];
 };
@@ -114,7 +127,7 @@ const normalizePaymentDetails = ({ order, paymentDetails }) => {
     ? paymentDetails.tenderPayments
         .map((payment) => ({
           tenderId: payment?.tenderId || null,
-          tenderName: payment?.tenderName || '',
+          tenderName: normalizeTenderName(payment?.tenderName),
           amount: Number(payment?.amount || 0),
         }))
         .filter((payment) => payment.tenderName && payment.amount > 0)
@@ -125,7 +138,7 @@ const normalizePaymentDetails = ({ order, paymentDetails }) => {
   const amountPaid = amountPaidRaw > 0 ? amountPaidRaw : tenderLineTotal;
 
   return {
-    tenderType: paymentDetails?.tenderType || tenderPayments[0]?.tenderName || '',
+    tenderType: normalizeTenderName(paymentDetails?.tenderType || tenderPayments[0]?.tenderName),
     tenderPayments,
     amountPaid,
     change: Number(paymentDetails?.change || 0),
@@ -242,7 +255,16 @@ export default async function handler(req, res) {
       });
     }
 
+    const mappedItems = buildTransactionItems(orderItems);
+    if (mappedItems.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order items could not be mapped to POS products',
+      });
+    }
+
     const normalizedPayment = normalizePaymentDetails({ order, paymentDetails });
+    const needsInventoryUpdate = !order.inventoryFinalizedBy;
     if (!order.paid) {
       const hasTender = Boolean(
         normalizedPayment.tenderType ||
@@ -270,6 +292,7 @@ export default async function handler(req, res) {
     const externalId = `order:${String(order._id)}`;
     let transaction = await Transaction.findOne({ externalId });
     const transactionExisted = Boolean(transaction);
+    const wasAlreadyRecorded = transactionExisted && Boolean(order?.paid || order?.paymentStatus === 'Paid');
 
     if (transaction && order.status === 'Delivered') {
       return res.status(200).json({
@@ -282,8 +305,6 @@ export default async function handler(req, res) {
     }
 
     if (!transaction) {
-      const mappedItems = buildTransactionItems(orderItems);
-
       transaction = new Transaction({
         externalId,
         dedupeKey: externalId,
@@ -306,7 +327,7 @@ export default async function handler(req, res) {
         transactionType: 'pos',
         tillId: new mongoose.Types.ObjectId(String(tillId)),
         createdAt: new Date(),
-        inventoryUpdated: true,
+        inventoryUpdated: !needsInventoryUpdate,
         salesChannel: ONLINE_SALES_CHANNEL,
         sourceOrderId: String(order._id),
         sourceOrderType: 'online-order',
@@ -314,12 +335,14 @@ export default async function handler(req, res) {
       });
 
       await transaction.save();
+    }
 
-      if (!(till.transactions || []).some((transactionId) => String(transactionId) === String(transaction._id))) {
-        till.transactions.push(transaction._id);
-      }
+    till.transactions = Array.isArray(till.transactions) ? till.transactions : [];
+
+    if (!till.transactions.some((transactionId) => String(transactionId) === String(transaction._id))) {
+      till.transactions.push(transaction._id);
       till.totalSales = Number(till.totalSales || 0) + Number(order.total || 0);
-      till.transactionCount = (till.transactions || []).length;
+      till.transactionCount = till.transactions.length;
       till.tenderBreakdown = ensureTenderBreakdownMap(till.tenderBreakdown);
       applyTenderEntries(
         till.tenderBreakdown,
@@ -332,17 +355,19 @@ export default async function handler(req, res) {
       );
       till.markModified('tenderBreakdown');
       await till.save();
+    }
 
-      if (!order.inventoryFinalizedBy) {
-        await updateInventoryForSale(mappedItems);
-        await clearReservedInventory(orderItems);
-      }
+    if (needsInventoryUpdate && transaction.inventoryUpdated !== true) {
+      await updateInventoryForSale(mappedItems);
+      await clearReservedInventory(orderItems);
+      transaction.inventoryUpdated = true;
+      await transaction.save();
+    }
 
-      try {
-        await markRoomsFromTransaction(mappedItems, transaction, ROOM_STATUSES.OCCUPIED);
-      } catch (error) {
-        console.warn('Failed to update room occupancy for online POS order:', error.message);
-      }
+    try {
+      await markRoomsFromTransaction(mappedItems, transaction, ROOM_STATUSES.OCCUPIED);
+    } catch (error) {
+      console.warn('Failed to update room occupancy for online POS order:', error.message);
     }
 
     const updatePayload = {
@@ -380,7 +405,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({
       success: true,
-      alreadyProcessed: transactionExisted,
+      alreadyProcessed: wasAlreadyRecorded,
       emailState,
       order: updatedOrder,
       transaction: formatTransactionResponse(transaction),

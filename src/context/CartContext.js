@@ -22,6 +22,7 @@ import {
   getPendingTransactionsCount,
   saveTransactionOffline,
 } from '../lib/offlineSync';
+import { getSyncMeta } from '../lib/indexedDB';
 import { getRoomReservationDetails, isRoomProduct } from '../lib/roomReservations';
 
 // ============================================================================
@@ -63,6 +64,20 @@ const INITIAL_STATE = {
   error: null,
 };
 
+const getOrderContactDetails = (order = {}) => {
+  const shippingDetails = order?.shippingDetails || {};
+  const customerSnapshot = order?.customerSnapshot || {};
+  const customer = order?.customer || {};
+
+  return {
+    name: shippingDetails.name || customerSnapshot.name || customer.name || '',
+    email: shippingDetails.email || customerSnapshot.email || customer.email || '',
+    phone: shippingDetails.phone || customerSnapshot.phone || customer.phone || '',
+    address: shippingDetails.address || customerSnapshot.address || customer.address || '',
+    city: shippingDetails.city || customerSnapshot.city || customer.city || '',
+  };
+};
+
 // ============================================================================
 // PROVIDER COMPONENT
 // ============================================================================
@@ -73,19 +88,55 @@ export function CartProvider({ children }) {
   const [showPaymentPanel, setShowPaymentPanel] = useState(false);
   const lastAddRef = useRef({});
 
+  const resolvePersistedSyncTime = useCallback(async (explicitSyncTime = null) => {
+    const candidates = [];
+
+    if (explicitSyncTime) {
+      candidates.push(explicitSyncTime);
+    }
+
+    if (typeof window !== 'undefined') {
+      candidates.push(localStorage.getItem('pos_lastSyncTime'));
+    }
+
+    try {
+      const [productMeta, categoryMeta] = await Promise.all([
+        getSyncMeta('lastProductSync'),
+        getSyncMeta('lastCategorySync'),
+      ]);
+
+      candidates.push(productMeta?.timestamp, categoryMeta?.timestamp);
+    } catch (error) {
+      console.warn('Failed to resolve IndexedDB sync metadata:', error);
+    }
+
+    return candidates.reduce((latest, candidate) => {
+      if (!candidate) return latest;
+
+      const candidateDate = new Date(candidate);
+      if (Number.isNaN(candidateDate.getTime())) {
+        return latest;
+      }
+
+      if (!latest) {
+        return candidateDate.toISOString();
+      }
+
+      return candidateDate > new Date(latest) ? candidateDate.toISOString() : latest;
+    }, null);
+  }, []);
+
   const refreshSyncState = useCallback(async ({ syncedAt = null } = {}) => {
     try {
       const pendingCount = await getPendingTransactionsCount();
-      let persistedSyncTime =
-        syncedAt ||
-        (typeof window !== 'undefined' ? localStorage.getItem('pos_lastSyncTime') : null) ||
-        null;
+      let persistedSyncTime = await resolvePersistedSyncTime(syncedAt);
 
       if (!persistedSyncTime && pendingCount === 0 && getOnlineStatus()) {
         persistedSyncTime = new Date().toISOString();
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('pos_lastSyncTime', persistedSyncTime);
-        }
+      }
+
+      if (persistedSyncTime && typeof window !== 'undefined') {
+        localStorage.setItem('pos_lastSyncTime', persistedSyncTime);
       }
 
       setPendingSyncCount(pendingCount);
@@ -97,7 +148,7 @@ export function CartProvider({ children }) {
     } catch (err) {
       console.error('Failed to refresh sync state:', err);
     }
-  }, []);
+  }, [resolvePersistedSyncTime]);
 
   // Load persisted orders from localStorage on mount
   useEffect(() => {
@@ -625,7 +676,7 @@ export function CartProvider({ children }) {
     const orderItems = Array.isArray(order.cartProducts) && order.cartProducts.length > 0
       ? order.cartProducts
       : (order.items || []);
-    const contactDetails = order.shippingDetails || order.customerSnapshot || {};
+    const contactDetails = getOrderContactDetails(order);
 
     const mappedItems = orderItems.map((item) => ({
       id: item.productId || item.id,

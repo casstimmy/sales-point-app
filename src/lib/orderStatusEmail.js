@@ -3,8 +3,19 @@ import Store from '@/src/models/Store';
 
 const DEFAULT_BRAND_NAME = "St's Micheals";
 
-const getOrderContactDetails = (order) =>
-  order?.shippingDetails || order?.customerSnapshot || order?.customer || {};
+const getOrderContactDetails = (order) => {
+  const shippingDetails = order?.shippingDetails || {};
+  const customerSnapshot = order?.customerSnapshot || {};
+  const customer = order?.customer || {};
+
+  return {
+    name: shippingDetails.name || customerSnapshot.name || customer.name || '',
+    email: shippingDetails.email || customerSnapshot.email || customer.email || '',
+    phone: shippingDetails.phone || customerSnapshot.phone || customer.phone || '',
+    address: shippingDetails.address || customerSnapshot.address || customer.address || '',
+    city: shippingDetails.city || customerSnapshot.city || customer.city || '',
+  };
+};
 
 const getOrderItems = (order) => {
   if (Array.isArray(order?.cartProducts) && order.cartProducts.length > 0) {

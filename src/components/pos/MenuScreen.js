@@ -206,6 +206,23 @@ export default function MenuScreen() {
     });
   }, [location?._id, location?.id, location?.name, location?.code]);
 
+  const recordSyncTime = useCallback((value = new Date()) => {
+    const syncTime = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(syncTime.getTime())) {
+      return;
+    }
+
+    setLastSyncTime(syncTime);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('pos:sync-state-changed', {
+          detail: { syncedAt: syncTime.toISOString() },
+        })
+      );
+    }
+  }, []);
+
   // Initialize offline sync on mount ONLY (empty deps — runs once)
   useEffect(() => {
     initOfflineSync();
@@ -403,7 +420,7 @@ export default function MenuScreen() {
                 await syncCategories(filtered);
                 // Also save to localStorage as backup cache
                 try { localStorage.setItem('cachedCategories', JSON.stringify(filtered)); } catch (e) {}
-                setLastSyncTime(new Date());
+                recordSyncTime();
                 // Auto-select first category
                 setSelectedCategory(filtered[0] || null);
               } else {
@@ -487,7 +504,7 @@ export default function MenuScreen() {
                   await syncCategories(filtered);
                   // Also save to localStorage as backup cache
                   try { localStorage.setItem('cachedCategories', JSON.stringify(filtered)); } catch (e) {}
-                  setLastSyncTime(new Date());
+                  recordSyncTime();
                 }
                 // Auto-select first category
                 if (filtered.length > 0) {
@@ -521,7 +538,7 @@ export default function MenuScreen() {
     };
 
     fetchCategories();
-  }, [location, filterCategoriesForLocation]); // Re-fetch when location changes
+  }, [location, filterCategoriesForLocation, recordSyncTime]); // Re-fetch when location changes
 
   // Load ALL products from local DB on mount for global search
   useEffect(() => {
@@ -663,7 +680,7 @@ export default function MenuScreen() {
                   return merged;
                 });
               }
-              setLastSyncTime(new Date());
+              recordSyncTime();
             } else {
               console.warn("API returned", response.status);
               setProducts([]);
@@ -687,7 +704,7 @@ export default function MenuScreen() {
     };
 
     fetchProducts();
-  }, [selectedCategory, isOnline, location?._id, filterProductsForLocation]);
+  }, [selectedCategory, isOnline, location?._id, filterProductsForLocation, recordSyncTime]);
 
   // Manual sync button handler - syncs ALL products and categories
   const handleManualSync = async () => {
@@ -767,7 +784,7 @@ export default function MenuScreen() {
         throw new Error(`Failed to sync categories: ${catResponse.status}`);
       }
       
-      setLastSyncTime(new Date());
+      recordSyncTime();
       
       // Also sync pending transactions and till closes if online
       if (getOnlineStatus()) {

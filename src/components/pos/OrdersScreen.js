@@ -41,7 +41,19 @@ const inferSiteKeyFromLocation = (location) => {
   return haystack.includes('hotel') ? 'hotel' : 'store';
 };
 
-const getOrderContactDetails = (order) => order?.shippingDetails || order?.customerSnapshot || {};
+const getOrderContactDetails = (order) => {
+  const shippingDetails = order?.shippingDetails || {};
+  const customerSnapshot = order?.customerSnapshot || {};
+  const customer = order?.customer || {};
+
+  return {
+    name: shippingDetails.name || customerSnapshot.name || customer.name || '',
+    email: shippingDetails.email || customerSnapshot.email || customer.email || '',
+    phone: shippingDetails.phone || customerSnapshot.phone || customer.phone || '',
+    address: shippingDetails.address || customerSnapshot.address || customer.address || '',
+    city: shippingDetails.city || customerSnapshot.city || customer.city || '',
+  };
+};
 
 const getOrderSourceLabel = (siteKey) => (siteKey === 'hotel' ? 'Hotel Website' : 'Store Website');
 
@@ -506,10 +518,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             detail: { orderId: order.id, status: nextOrder.status },
           }));
 
-          if (result.emailState === 'failed') {
+          if (result.emailState === 'sent') {
+            showToast('Order moved to processing and customer notified.', 'success');
+          } else if (result.emailState === 'failed') {
             showToast('Order moved to processing, but the processing email could not be sent.', 'warning');
           } else {
-            showToast('Order moved to processing and customer notified.', 'success');
+            showToast('Order moved to processing, but customer notification was skipped.', 'warning');
           }
         }
 
@@ -563,10 +577,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           detail: { orderId: order.id, status: 'Delivered' },
         }));
 
-        if (result.emailState === 'failed') {
+        if (result.emailState === 'sent') {
+          showToast('Order marked delivered and customer notified.', 'success');
+        } else if (result.emailState === 'failed') {
           showToast('Order marked delivered, but the delivery email could not be sent.', 'warning');
         } else {
-          showToast('Order marked delivered and customer notified.', 'success');
+          showToast('Order marked delivered, but customer notification was skipped.', 'warning');
         }
 
         setShowDetailPanel(false);

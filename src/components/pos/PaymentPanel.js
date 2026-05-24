@@ -181,10 +181,12 @@ export default function PaymentPanel() {
 
         if (result.alreadyProcessed) {
           showToast('Online sale was already recorded for this order.', 'warning');
+        } else if (result.emailState === 'sent') {
+          showToast('Online sale recorded and customer notified. Mark the order delivered after fulfilment is completed.', 'success');
         } else if (result.emailState === 'failed') {
           showToast('Online sale recorded, but customer processing email failed to send.', 'warning');
         } else {
-          showToast('Online sale recorded and customer notified. Mark the order delivered after fulfilment is completed.', 'success');
+          showToast('Online sale recorded, but customer processing notification was skipped.', 'warning');
         }
 
         return;
