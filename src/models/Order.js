@@ -73,7 +73,7 @@ const OrderSchema = new mongoose.Schema(
     },
     paymentChannel: {
       type: String,
-      default: "paystack",
+      default: "manual-entry",
     },
     status: {
       type: String,

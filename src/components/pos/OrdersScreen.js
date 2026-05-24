@@ -517,45 +517,9 @@ export default function OrdersScreen({ onNavigateToMenu }) {
         let nextOrder = {
           ...order,
           requestedFinalStatus,
+          locationName: location?.name || order.locationName || order.location || '',
+          locationId: location?._id || order.locationId || null,
         };
-
-        if (requestedFinalStatus === 'Processing' && order.status !== 'Processing') {
-          const response = await fetch(`/api/orders/${order.id}/process-from-pos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              locationId: location?._id || null,
-              locationName: location?.name || '',
-            }),
-          });
-
-          const result = await response.json().catch(() => ({}));
-          if (!response.ok || !result?.success) {
-            throw new Error(result?.error || 'Failed to move order into POS processing.');
-          }
-
-          nextOrder = {
-            ...order,
-            ...result.order,
-            id: result.order?._id || order.id,
-            requestedFinalStatus,
-            locationName: result.order?.locationName || order.location,
-            locationId: result.order?.locationId || order.locationId,
-            status: result.order?.status || 'Processing',
-          };
-
-          window.dispatchEvent(new CustomEvent('orders:online-updated', {
-            detail: { orderId: order.id, status: nextOrder.status },
-          }));
-
-          if (result.emailState === 'sent') {
-            showToast('Order moved to processing and customer notified.', 'success');
-          } else if (result.emailState === 'failed') {
-            showToast('Order moved to processing, but the processing email could not be sent.', 'warning');
-          } else {
-            showToast('Order moved to processing, but customer notification was skipped.', 'warning');
-          }
-        }
 
         loadOnlineOrderToCart(nextOrder);
         setShowDetailPanel(false);

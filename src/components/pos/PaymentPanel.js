@@ -29,7 +29,7 @@ import OpenTillModal from "./OpenTillModal";
 import { showToast } from '../common/Toast';
 
 export default function PaymentPanel() {
-  const PAID_ORDER_STATUSES = new Set(['Processing', 'Shipped', 'Delivered']);
+  const ONLINE_PAYMENT_CHANNELS = new Set(['paystack', 'paystack-webhook', 'online']);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [showOpenTillModal, setShowOpenTillModal] = useState(false);
   const [receiptSettings, setReceiptSettings] = useState(null);
@@ -56,9 +56,11 @@ export default function PaymentPanel() {
   const onlineOrderSubtotal = isOnlineOrderCheckout
     ? Number(activeCart.subtotal || totals.subtotal || onlineOrderTotal || 0)
     : Number(totals.subtotal || 0);
+  const normalizedOnlinePaymentChannel = String(onlineOrderContext?.paymentChannel || '').trim().toLowerCase();
+  const prepaidTenderName = ONLINE_PAYMENT_CHANNELS.has(normalizedOnlinePaymentChannel) ? 'ONLINE' : 'MANUAL ENTRY';
   const isPrepaidOnlineOrder = isOnlineOrderCheckout && (
-    onlineOrderContext?.paymentStatus === 'Paid' ||
-    PAID_ORDER_STATUSES.has(onlineOrderStatus)
+    Boolean(onlineOrderContext?.paid) ||
+    onlineOrderContext?.paymentStatus === 'Paid'
   );
   const [uiSettings, setUiSettings] = useState(getUiSettings());
 
@@ -82,9 +84,9 @@ export default function PaymentPanel() {
   }, []);
 
   const buildPrepaidOnlinePaymentDetails = () => ({
-    tenderType: 'ONLINE',
-    tenderPayments: [{ tenderId: null, tenderName: 'ONLINE', amount: onlineOrderTotal }],
-    tenders: { ONLINE: onlineOrderTotal },
+    tenderType: prepaidTenderName,
+    tenderPayments: [{ tenderId: null, tenderName: prepaidTenderName, amount: onlineOrderTotal }],
+    tenders: { [prepaidTenderName]: onlineOrderTotal },
     totalPaid: onlineOrderTotal,
     change: 0,
     amountPaid: onlineOrderTotal,
@@ -343,11 +345,11 @@ export default function PaymentPanel() {
         ) : isPrepaidOnlineOrder ? (
           <div className="h-full flex flex-col justify-center gap-4 border border-emerald-200 bg-emerald-50/70 rounded-2xl p-4 sm:p-6">
             <div>
-              <div className="text-base sm:text-lg font-semibold text-neutral-900">This order was already paid online</div>
+              <div className="text-base sm:text-lg font-semibold text-neutral-900">Payment has already been confirmed for this order</div>
               <div className="text-xs sm:text-sm text-neutral-600 mt-2 max-w-lg">
                 {requestedFinalStatus === 'Delivered'
                   ? `Recording this sale will attribute it to ${location?.name || 'this location'} and mark the order as delivered immediately.`
-                  : `Recording this sale will attribute it to ${location?.name || 'this location'} with an online-store tag. After fulfilment is complete, use the order panel to mark delivery and notify the customer.`}
+                  : `Recording this sale will attribute it to ${location?.name || 'this location'}. After fulfilment is complete, use the order panel to mark delivery and notify the customer.`}
               </div>
             </div>
 
@@ -360,7 +362,7 @@ export default function PaymentPanel() {
               <div className="rounded-xl border border-neutral-200 bg-white p-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500">Total</div>
                 <div className="mt-1 text-xl font-bold text-neutral-900">₦{Number(onlineOrderTotal || 0).toLocaleString('en-NG')}</div>
-                <div className="mt-2 text-sm text-emerald-700">Payment already received online</div>
+                <div className="mt-2 text-sm text-emerald-700">Recorded tender: {prepaidTenderName}</div>
               </div>
             </div>
 

@@ -12,17 +12,22 @@ import { ROOM_STATUSES } from '@/src/lib/roomReservations';
 import { sendOrderDeliveredEmail, sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
 
 const ONLINE_TENDER_NAME = 'ONLINE';
+const MANUAL_ENTRY_TENDER_NAME = 'MANUAL ENTRY';
 const ONLINE_SALES_CHANNEL = 'ONLINE_STORE';
-const PAID_ORDER_STATUSES = new Set(['Processing', 'Shipped', 'Delivered']);
 const VALID_FINAL_STATUSES = new Set(['Processing', 'Delivered']);
 
-const normalizeTenderName = (value) => String(value || ONLINE_TENDER_NAME).trim() || ONLINE_TENDER_NAME;
+const ONLINE_PAYMENT_CHANNELS = new Set(['paystack', 'paystack-webhook', 'online']);
 
-const isOrderConsideredPaid = (order) => Boolean(
-  order?.paid ||
-  order?.paymentStatus === 'Paid' ||
-  PAID_ORDER_STATUSES.has(String(order?.status || '').trim())
-);
+const normalizePaymentChannel = (value) => String(value || '').trim().toLowerCase();
+
+const getRecordedTenderName = (order) =>
+  ONLINE_PAYMENT_CHANNELS.has(normalizePaymentChannel(order?.paymentChannel))
+    ? ONLINE_TENDER_NAME
+    : MANUAL_ENTRY_TENDER_NAME;
+
+const normalizeTenderName = (value) => String(value || MANUAL_ENTRY_TENDER_NAME).trim() || MANUAL_ENTRY_TENDER_NAME;
+
+const isOrderConsideredPaid = (order) => Boolean(order?.paid || order?.paymentStatus === 'Paid');
 
 const ensureTenderBreakdownMap = (value) =>
   value instanceof Map ? value : new Map(Object.entries(value || {}));
@@ -116,18 +121,19 @@ const normalizePaymentDetails = ({ order, paymentDetails }) => {
   const isAlreadyPaid = isOrderConsideredPaid(order);
 
   if (isAlreadyPaid) {
+    const tenderName = getRecordedTenderName(order);
     return {
-      tenderType: ONLINE_TENDER_NAME,
+      tenderType: tenderName,
       tenderPayments: [
         {
           tenderId: null,
-          tenderName: ONLINE_TENDER_NAME,
+          tenderName,
           amount: total,
         },
       ],
       amountPaid: total,
       change: 0,
-      paymentChannel: order?.paymentChannel || 'paystack',
+      paymentChannel: order?.paymentChannel || (tenderName === ONLINE_TENDER_NAME ? 'paystack' : 'manual-entry'),
     };
   }
 
