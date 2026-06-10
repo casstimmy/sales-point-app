@@ -1,8 +1,8 @@
 /**
  * Next.js Middleware — API Auth & Rate Limiting
  * 
- * Protects all POST/PUT/DELETE API routes with session cookie validation.
- * GET requests remain public (read-only product/category data needed before login).
+ * Protects API routes with session cookie validation.
+ * Only explicitly allowlisted GET endpoints remain public for login/offline bootstrap.
  * Rate limits the login endpoint to prevent PIN brute-force.
  * 
  * Uses Web Crypto API (Edge-compatible) for HMAC verification.
@@ -23,6 +23,19 @@ const PUBLIC_POST_PATHS = [
   '/api/staff/login',
   '/api/staff/logout',
 ];
+
+const PUBLIC_GET_PATHS = [
+  '/api/staff/list',
+  '/api/store/init-locations',
+  '/api/categories',
+  '/api/products',
+  '/api/location/tenders',
+  '/api/till/active',
+];
+
+function isPublicGetPath(pathname) {
+  return PUBLIC_GET_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
+}
 
 function getClientIp(request) {
   return (
@@ -93,12 +106,16 @@ async function verifyToken(token) {
     // Validate staffId looks like a MongoDB ObjectId (24 hex chars)
     if (!/^[a-f\d]{24}$/i.test(staffId)) return null;
 
-    const secret = process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET || 'pos-inhouse-default-key';
+    const secret = process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET;
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') return null;
+      console.warn('SESSION_SECRET/NEXTAUTH_SECRET is not set. Using development-only session secret.');
+    }
     const encoder = new TextEncoder();
 
     const key = await crypto.subtle.importKey(
       'raw',
-      encoder.encode(secret),
+      encoder.encode(secret || 'development-pos-session-secret'),
       { name: 'HMAC', hash: 'SHA-256' },
       false,
       ['verify']
@@ -147,8 +164,8 @@ export async function middleware(request) {
     }
   }
 
-  // GET requests are public (read-only data for login screen, product loading, etc.)
-  if (request.method === 'GET') {
+  // Public GETs are limited to login/offline bootstrap data only.
+  if (request.method === 'GET' && isPublicGetPath(pathname)) {
     return NextResponse.next();
   }
 

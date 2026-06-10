@@ -28,13 +28,13 @@ export default function ThankYouNote({
 }) {
   const logoSrc = companyLogo || getStoreLogo();
   const {
-    companyDisplayName = "St's Michael Hub",
+    companyDisplayName = 'Store',
     storePhone = '',
     email = '',
     website = '',
     qrUrl = '',
-    qrDescription = 'Visit us online',
-    receiptMessage = 'Thank you for shopping with us!',
+    qrDescription = '',
+    receiptMessage = '',
     refundDays = 0,
   } = receiptSettings;
 

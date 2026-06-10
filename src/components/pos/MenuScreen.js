@@ -127,6 +127,28 @@ const getCategoryImageUrl = (category) => {
   return valid ? valid.trim() : null;
 };
 
+const getProductImageUrl = (product) => {
+  const firstImage = Array.isArray(product?.images) && product.images.length > 0
+    ? product.images[0]
+    : null;
+
+  const candidates = [
+    firstImage?.thumb,
+    firstImage?.thumbnail,
+    firstImage?.small,
+    firstImage?.medium,
+    firstImage?.url,
+    firstImage?.secure_url,
+    product?.thumbnail,
+    product?.imageUrl,
+    product?.image,
+    firstImage?.full,
+  ];
+
+  const valid = candidates.find((url) => typeof url === 'string' && url.trim().length > 0);
+  return valid ? valid.trim() : null;
+};
+
 const getCategoryIcon = (category) => {
   const configuredIcon = category?.icon
     || category?.iconName
@@ -979,9 +1001,9 @@ export default function MenuScreen() {
                           src={categoryImage}
                           alt={category.name}
                           fill
-                          sizes="220px"
+                          sizes="(max-width: 640px) 50vw, (max-width: 1280px) 20vw, 180px"
+                          quality={68}
                           className="object-cover"
-                          unoptimized
                           onError={() => {
                             setFailedCategoryImages((prev) => new Set([...prev, categoryKey]));
                           }}
@@ -1021,9 +1043,14 @@ export default function MenuScreen() {
               
               return searchResults.length > 0 ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 auto-rows-max">
-                  {searchResults.map(product => (
+                  {searchResults.map(product => {
+                    const productKey = product._id || product.id;
+                    const productImage = getProductImageUrl(product);
+                    const showProductImage = isOnline && productImage && !failedImages.has(productKey);
+
+                    return (
                     <button
-                      key={product._id || product.id}
+                      key={productKey}
                       onClick={() => addItem({
                         id: product._id || product.id,
                         name: product.name,
@@ -1043,21 +1070,22 @@ export default function MenuScreen() {
                             </div>
                           )}
                           
-                          {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
+                          {isOnline && loadingImages[productKey] && !failedImages.has(productKey) && (
                             <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
                               <div className="animate-pulse text-lg">⏳</div>
                             </div>
                           )}
                           
-                          {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
+                          {showProductImage ? (
                             <Image
-                              src={product.images[0].full}
+                              src={productImage}
                               alt={product.name}
                               fill
                               sizes="64px"
+                              quality={62}
                               className="object-cover"
-                              onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
-                              onError={() => handleImageError(product._id || product.id)}
+                              onLoad={() => setLoadingImages(prev => ({ ...prev, [productKey]: false }))}
+                              onError={() => handleImageError(productKey)}
                             />
                           ) : (
                             <div className="text-xl">📦</div>
@@ -1096,7 +1124,8 @@ export default function MenuScreen() {
                         </div>
                       </div>
                     </button>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-xs text-neutral-400 py-2 text-center">
@@ -1134,9 +1163,14 @@ export default function MenuScreen() {
               
               return filteredProducts.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 auto-rows-max">
-                {filteredProducts.map(product => (
+                {filteredProducts.map(product => {
+                  const productKey = product._id || product.id;
+                  const productImage = getProductImageUrl(product);
+                  const showProductImage = isOnline && productImage && !failedImages.has(productKey);
+
+                  return (
                   <button
-                    key={product._id || product.id}
+                    key={productKey}
                     onClick={() => addItem({
                       id: product._id || product.id,
                       name: product.name,
@@ -1156,21 +1190,22 @@ export default function MenuScreen() {
                           </div>
                         )}
                         
-                        {isOnline && loadingImages[product._id || product.id] && !failedImages.has(product._id || product.id) && (
+                        {isOnline && loadingImages[productKey] && !failedImages.has(productKey) && (
                           <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
                             <div className="animate-pulse text-lg">⏳</div>
                           </div>
                         )}
                         
-                        {isOnline && !failedImages.has(product._id || product.id) && product.images && product.images.length > 0 && product.images[0].full ? (
+                        {showProductImage ? (
                           <Image
-                            src={product.images[0].full}
+                            src={productImage}
                             alt={product.name}
                             fill
                             sizes="64px"
+                            quality={62}
                             className="object-cover"
-                            onLoad={() => setLoadingImages(prev => ({ ...prev, [product._id || product.id]: false }))}
-                            onError={() => handleImageError(product._id || product.id)}
+                            onLoad={() => setLoadingImages(prev => ({ ...prev, [productKey]: false }))}
+                            onError={() => handleImageError(productKey)}
                           />
                         ) : (
                           <div className="text-xl">📦</div>
@@ -1204,7 +1239,8 @@ export default function MenuScreen() {
                       </div>
                     </div>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="text-xs text-gray-400 py-2 text-center">

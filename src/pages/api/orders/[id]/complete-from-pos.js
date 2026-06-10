@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import { mongooseConnect } from '@/src/lib/mongoose';
 import Customer from '@/src/models/Customer';
 import Order from '@/src/models/Order';
+import { Staff } from '@/src/models/Staff';
 import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
@@ -195,6 +196,10 @@ const formatTransactionResponse = (transaction) => ({
   tax: Number(transaction?.tax || 0),
   total: Number(transaction?.total || 0),
   discount: Number(transaction?.discount || 0),
+  discountName: transaction?.discountName || transaction?.discountReason || '',
+  shippingCost: Number(transaction?.shippingCost || transaction?.deliveryFee || 0),
+  deliveryFee: Number(transaction?.deliveryFee || 0),
+  deliveryFeeName: transaction?.deliveryFeeName || 'Delivery Fee',
   amountPaid: Number(transaction?.amountPaid || 0),
   change: Number(transaction?.change || 0),
   tenderType: transaction?.tenderType || null,
@@ -223,13 +228,32 @@ export default async function handler(req, res) {
     const { id } = req.query;
     const {
       tillId,
-      staffId,
-      staffName,
       locationId,
       locationName,
       finalStatus,
       paymentDetails = {},
     } = req.body || {};
+
+    const authenticatedStaffId = String(req.headers['x-auth-staff-id'] || '').trim();
+    if (!authenticatedStaffId || !mongoose.Types.ObjectId.isValid(authenticatedStaffId)) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authenticated staff session is required',
+      });
+    }
+
+    const authenticatedStaff = await Staff.findById(authenticatedStaffId)
+      .select('_id name')
+      .lean();
+
+    if (!authenticatedStaff) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authenticated staff was not found',
+      });
+    }
+
+    const authenticatedStaffName = String(authenticatedStaff.name || 'POS Staff').trim() || 'POS Staff';
 
     const requestedFinalStatus = VALID_FINAL_STATUSES.has(String(finalStatus || '').trim())
       ? String(finalStatus).trim()
@@ -335,9 +359,12 @@ export default async function handler(req, res) {
         tax: 0,
         total: Number(order.total || 0),
         change: normalizedPayment.change || 0,
-        discount: 0,
-        staff: staffId || null,
-        staffName: staffName || 'POS Staff',
+        discount: Number(order.discount || order.discountAmount || 0),
+        discountName: order.discountName || order.discountReason || '',
+        shippingCost: Number(order.shippingCost || order.deliveryFee || 0),
+        deliveryFeeName: order.deliveryFeeName || order.shippingName || 'Delivery Fee',
+        staff: authenticatedStaff._id,
+        staffName: authenticatedStaffName,
         location: resolvedLocationName,
         locationId: resolvedLocationId,
         device: 'POS',
@@ -395,6 +422,8 @@ export default async function handler(req, res) {
       paid: true,
       paymentStatus: 'Paid',
       paymentChannel: isAlreadyPaid ? (order.paymentChannel || 'paystack') : 'pos',
+      completedByStaffId: String(authenticatedStaff._id),
+      completedByStaffName: authenticatedStaffName,
       locationId: resolvedLocationId,
       locationName: resolvedLocationName,
       reservationStatus: 'finalized',

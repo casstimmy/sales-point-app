@@ -1,6 +1,5 @@
 import { mongooseConnect } from "@/src/lib/mongoose";
 import { Staff } from "@/src/models/Staff";
-import { normalizePosPermissions } from "@/src/lib/posPermissions";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -11,12 +10,16 @@ export default async function handler(req, res) {
     await mongooseConnect();
 
     const staff = await Staff.find({})
-      .select("_id name username role locationName locationId isActive posPermissions")
+      .select("_id name role locationName locationId isActive")
       .lean();
 
     const normalized = staff.map((member) => ({
-      ...member,
-      posPermissions: normalizePosPermissions(member.role, member.posPermissions),
+      _id: member._id,
+      name: member.name,
+      role: member.role,
+      locationName: member.locationName || "",
+      locationId: member.locationId || null,
+      isActive: member.isActive !== false,
     }));
 
     return res.status(200).json({

@@ -19,6 +19,10 @@
 /* eslint-disable @next/next/no-img-element */
 import React, { useRef, useEffect } from 'react';
 import Image from 'next/image';
+import {
+  buildReceiptViewModel,
+  formatReceiptNaira,
+} from '../../lib/receiptViewModel';
 
 export default function ReceiptPrinter({ 
   transaction, 
@@ -28,28 +32,6 @@ export default function ReceiptPrinter({
 }) {
   const receiptRef = useRef(null);
   
-  // Format Nigerian Naira
-  const formatNaira = (amount) => {
-    return `₦${(amount || 0).toLocaleString('en-NG', { 
-      minimumFractionDigits: 2, 
-      maximumFractionDigits: 2 
-    })}`;
-  };
-
-  // Format date/time for receipt
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-NG', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false,
-    });
-  };
-
   // Handle print
   const handlePrint = () => {
     if (receiptRef.current) {
@@ -308,41 +290,12 @@ export default function ReceiptPrinter({
 
   if (!transaction || !isVisible) return null;
 
-  const {
-    items = [],
-    total = 0,
-    subtotal = 0,
-    tax = 0,
-    discount = 0,
-    incrementAmount = 0,
-    promotionValueType = null,
-    customerType = null,
-    change = 0,
-    staffName = 'Unknown Staff',
-    location = 'Default Location',
-    locationAddress = '',
-    createdAt = new Date().toISOString(),
-    tenderPayments = [],
-    _id = '',
-  } = transaction;
-
-  const {
-    companyDisplayName = "St's Michael Hub",
-    companyLogo: rawReceiptLogo = '',
-    storePhone = '',
-    email = '',
-    website = '',
-    businessAddress = '',
-    taxNumber = '',
-    refundDays = 0,
-    receiptMessage = '',
-    qrUrl = '',
-    qrDescription = '',
-    paymentStatus = 'paid',
-  } = receiptSettings;
+  const model = buildReceiptViewModel(transaction, receiptSettings);
 
   // Ensure logo is an absolute URL for printing contexts
-  const companyLogo = rawReceiptLogo || '/images/placeholder.jpg';
+  const companyLogo = model.companyLogo && model.companyLogo !== '/images/placeholder.jpg'
+    ? model.companyLogo
+    : '';
 
   return (
     <div>
@@ -374,41 +327,33 @@ export default function ReceiptPrinter({
 
           {/* Company Name */}
           <div className="company-name">
-            {companyDisplayName}
+            {model.companyName}
           </div>
 
           {/* Store Info */}
           <div className="company-info">
-            {location && <div>{location}</div>}
-            {(locationAddress || businessAddress) && <div>{locationAddress || businessAddress}</div>}
-            {storePhone && <div>Tel: {storePhone}</div>}
-            {email && <div>{email}</div>}
-            {website && <div>{website}</div>}
-            {taxNumber && <div>Tax ID: {taxNumber}</div>}
+            {model.locationName && <div>{model.locationName}</div>}
+            {model.address && <div>{model.address}</div>}
+            {model.contactLine && <div>{model.contactLine}</div>}
+            {model.taxNumber && <div>Tax ID: {model.taxNumber}</div>}
           </div>
         </div>
 
         {/* Receipt Details */}
         <div className="receipt-details">
           <div style={{ fontWeight: 'bold', marginBottom: '2mm' }}>
-            Receipt of Purchase (Inc Tax)
+            {model.title}
           </div>
           
           <div className="detail-row">
-            <span>{formatDateTime(createdAt)}</span>
-            <span style={{ textAlign: 'right' }}>{_id.substring(0, 8).toUpperCase()}</span>
+            <span>{model.dateTime}</span>
+            <span style={{ textAlign: 'right' }}>{model.receiptId}</span>
           </div>
           
           <div className="detail-row">
-            <span>Staff: {staffName}</span>
-            <span style={{ textAlign: 'right' }}>Till #1</span>
+            <span>Staff: {model.staffName}</span>
+            <span style={{ textAlign: 'right' }}>{model.status}</span>
           </div>
-          
-          {customerType && (
-            <div className="detail-row">
-              <span>Customer Type: {customerType}</span>
-            </div>
-          )}
         </div>
 
         {/* Separator */}
@@ -423,12 +368,12 @@ export default function ReceiptPrinter({
           </div>
 
           {/* Items */}
-          {items.map((item, idx) => (
+          {model.items.map((item, idx) => (
             <div key={idx} className="item-row">
               <div className="item-name">{item.name}</div>
               <div className="item-qty">{item.quantity}</div>
               <div className="item-total">
-                {formatNaira(item.price * item.quantity)}
+                {formatReceiptNaira(item.lineTotal)}
               </div>
             </div>
           ))}
@@ -437,7 +382,7 @@ export default function ReceiptPrinter({
           <div className="detail-row" style={{ marginTop: '3mm', paddingTop: '2mm', borderTop: '1px solid #ccc' }}>
             <span></span>
             <span style={{ fontWeight: 'bold' }}>
-              Total: {items.reduce((sum, item) => sum + item.quantity, 0)} Items
+              Total: {model.totalQuantity} Items
             </span>
             <span></span>
           </div>
@@ -450,34 +395,27 @@ export default function ReceiptPrinter({
         <div className="totals-section">
           <div className="total-row">
             <span>Subtotal:</span>
-            <span style={{ textAlign: 'right' }}>{formatNaira(subtotal)}</span>
+            <span style={{ textAlign: 'right' }}>{formatReceiptNaira(model.subtotal)}</span>
           </div>
           
-          {tax > 0 && (
+          {model.tax > 0 && (
             <div className="total-row">
               <span>Tax:</span>
-              <span style={{ textAlign: 'right' }}>{formatNaira(tax)}</span>
+              <span style={{ textAlign: 'right' }}>{formatReceiptNaira(model.tax)}</span>
             </div>
           )}
 
-          {discount > 0 && promotionValueType !== 'INCREMENT' && (
-            <div className="total-row">
-              <span>Discount:</span>
-              <span style={{ textAlign: 'right' }}>-{formatNaira(discount)}</span>
+          {model.adjustmentLines.map((line, idx) => (
+            <div key={`${line.label}-${idx}`} className="total-row">
+              <span>{line.label}:</span>
+              <span style={{ textAlign: 'right' }}>{line.type === 'subtract' ? '-' : ''}{formatReceiptNaira(line.amount)}</span>
             </div>
-          )}
-
-          {(incrementAmount > 0 || promotionValueType === 'INCREMENT') && (
-            <div className="total-row">
-              <span>{customerType || 'Service Fee'}:</span>
-              <span style={{ textAlign: 'right' }}>{formatNaira(incrementAmount || discount)}</span>
-            </div>
-          )}
+          ))}
 
           <div className="final-total">
             <div className="total-row">
               <span>TOTAL:</span>
-              <span style={{ textAlign: 'right' }}>{formatNaira(total)}</span>
+              <span style={{ textAlign: 'right' }}>{formatReceiptNaira(model.total)}</span>
             </div>
           </div>
         </div>
@@ -489,74 +427,58 @@ export default function ReceiptPrinter({
         <div className="payment-section">
           <div className="payment-title">PAYMENT BY TENDER</div>
           
-          {tenderPayments && tenderPayments.length > 0 ? (
-            tenderPayments.map((payment, idx) => (
+          {model.tenderPayments.map((payment, idx) => (
               <div key={idx} className="payment-row">
-                <span>{payment.tenderName || 'Unknown'}</span>
+                <span>{payment.name}</span>
                 <span style={{ textAlign: 'right' }}>
-                  {formatNaira(payment.amount)}
+                  {formatReceiptNaira(payment.amount)}
                 </span>
               </div>
-            ))
-          ) : (
-            <div className="payment-row">
-              <span>CASH</span>
-              <span style={{ textAlign: 'right' }}>{formatNaira(total)}</span>
-            </div>
-          )}
+            ))}
         </div>
 
         {/* Change (if applicable) */}
-        {change > 0 && (
+        {model.change > 0 && (
           <>
             <div className="separator">━━━━━━━━━━━━━━━━━━</div>
             <div className="detail-row">
               <span style={{ fontWeight: 'bold' }}>CHANGE:</span>
               <span style={{ textAlign: 'right', fontWeight: 'bold' }}>
-                {formatNaira(change)}
+                {formatReceiptNaira(model.change)}
               </span>
             </div>
           </>
         )}
 
         {/* QR Code */}
-        {qrUrl && (
+        {(model.qrImageSrc || model.qrUrl) && (
           <div className="qr-section">
-            <div className="qr-description">{qrDescription || 'Scan & Follow'}</div>
-            <div className="qr-box">[QR CODE]</div>
+            {model.qrDescription && <div className="qr-description">{model.qrDescription}</div>}
+            {model.qrImageSrc ? (
+              <img src={model.qrImageSrc} alt="QR Code" className="qr-box" />
+            ) : (
+              <div className="qr-description">{model.qrUrl}</div>
+            )}
           </div>
         )}
 
         {/* Message */}
-        {receiptMessage && (
+        {model.receiptMessage && (
           <div className="message-section">
-            {receiptMessage}
+            {model.receiptMessage}
           </div>
         )}
 
-        {/* Thank You Section */}
-        <div className="thank-you">
-          🙏 THANK YOU! 🙏
-        </div>
-
         {/* Additional Info */}
-        {refundDays > 0 && (
+        {model.refundDays > 0 && (
           <div style={{ textAlign: 'center', fontSize: '8pt', marginTop: '3mm' }}>
-            Refund within {refundDays} days with receipt
+            Refund within {model.refundDays} days with receipt
           </div>
         )}
 
         {/* Status */}
         <div className="status-box">
-          {paymentStatus.toUpperCase()}
-        </div>
-
-        {/* Footer */}
-        <div className="footer">
-          ━━━━━━━━━━━━━━━━━━
-          <div style={{ marginTop: '2mm' }}>
-            Thank you for shopping with us!
-          </div>
+          {model.status}
         </div>
       </div>
 

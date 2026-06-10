@@ -11,7 +11,14 @@ const SESSION_COOKIE = 'pos-session';
 const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
 function getSecret() {
-  return process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET || 'pos-inhouse-default-key';
+  const secret = process.env.SESSION_SECRET || process.env.NEXTAUTH_SECRET;
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('SESSION_SECRET or NEXTAUTH_SECRET must be configured in production.');
+  }
+
+  return 'development-pos-session-secret';
 }
 
 /**

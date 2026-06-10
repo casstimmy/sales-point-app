@@ -8,13 +8,12 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
-import Till from '@/src/models/Till';
-import Product from '@/src/models/Product';
-import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
-import { ROOM_STATUSES } from '@/src/lib/roomReservations';
-import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
+import {
+  applyCompletedTransactionEffects,
+  linkCompletedTransactionToTill,
+} from '@/src/lib/transactionEffects';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -53,6 +52,19 @@ export default async function handler(req, res) {
       staffName = 'Unknown',
       staffId,
       discount = 0,
+      discountName = '',
+      discountReason = '',
+      shippingCost = 0,
+      deliveryFee = 0,
+      deliveryFeeName = '',
+      serviceCharge = 0,
+      handlingFee = 0,
+      additionalCharges = [],
+      fees = [],
+      adjustments = [],
+      incrementAmount = 0,
+      incrementName = '',
+      promotionValueType = null,
       location = 'Default Location',
       device,
       tableName,
@@ -137,11 +149,30 @@ export default async function handler(req, res) {
 
     const dedupeKey = externalId || buildDedupeKey();
 
+    // Map items to schema format before duplicate checks so retries can finish pending effects.
+    const mappedItems = items.map(item => ({
+      ...item,
+      productId: item.productId || item.id,
+      name: item.name,
+      salePriceIncTax: item.price || item.salePriceIncTax,
+      qty: item.quantity || item.qty,
+    }));
+
     // DUPLICATE PREVENTION: Check if this transaction already exists
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
         console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - externalId ${externalId}`);
+        await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
+        await linkCompletedTransactionToTill({
+          transaction: existingTransaction,
+          tillId,
+          total,
+          tenderType,
+          tenderPayments,
+          hasMultiplePayments,
+          isCompletedTransaction,
+        });
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -153,6 +184,16 @@ export default async function handler(req, res) {
       const existingByKey = await Transaction.findOne({ dedupeKey });
       if (existingByKey) {
         console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - dedupeKey ${dedupeKey}`);
+        await applyCompletedTransactionEffects(existingByKey, mappedItems, isCompletedTransaction);
+        await linkCompletedTransactionToTill({
+          transaction: existingByKey,
+          tillId,
+          total,
+          tenderType,
+          tenderPayments,
+          hasMultiplePayments,
+          isCompletedTransaction,
+        });
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -173,6 +214,16 @@ export default async function handler(req, res) {
       
       if (existingTransaction) {
         console.log(`âš ï¸ Duplicate transaction detected - already exists as ${existingTransaction._id}`);
+        await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
+        await linkCompletedTransactionToTill({
+          transaction: existingTransaction,
+          tillId,
+          total,
+          tenderType,
+          tenderPayments,
+          hasMultiplePayments,
+          isCompletedTransaction,
+        });
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -181,15 +232,6 @@ export default async function handler(req, res) {
         });
       }
     }
-
-    // Map items to schema format
-    const mappedItems = items.map(item => ({
-      ...item,
-      productId: item.productId || item.id,
-      name: item.name,
-      salePriceIncTax: item.price || item.salePriceIncTax,
-      qty: item.quantity || item.qty,
-    }));
 
     // Create transaction record
     const transaction = new Transaction({
@@ -203,6 +245,19 @@ export default async function handler(req, res) {
       subtotal: subtotal || total - tax,
       tax: tax,
       discount: discount || 0,
+      discountName,
+      discountReason,
+      shippingCost: Number(shippingCost || 0),
+      deliveryFee: Number(deliveryFee || 0),
+      deliveryFeeName,
+      serviceCharge: Number(serviceCharge || 0),
+      handlingFee: Number(handlingFee || 0),
+      additionalCharges: Array.isArray(additionalCharges) ? additionalCharges : [],
+      fees: Array.isArray(fees) ? fees : [],
+      adjustments: Array.isArray(adjustments) ? adjustments : [],
+      incrementAmount: Number(incrementAmount || 0),
+      incrementName,
+      promotionValueType,
       
       items: mappedItems,
       
@@ -227,78 +282,21 @@ export default async function handler(req, res) {
     
     console.log(`âœ… Transaction saved successfully - ID: ${savedTransaction._id}, Amount: ${total}`);
 
-    // Link transaction to till only for completed sales
-    if (tillId && isCompletedTransaction) {
-      try {
-        console.log(`ðŸ”— Linking transaction to till: ${tillId}`);
-        
-        // First, get the current till to update tenderBreakdown
-        const currentTill = await Till.findById(tillId);
-        
-        if (currentTill) {
-          // Initialize tenderBreakdown if needed
-          if (!(currentTill.tenderBreakdown instanceof Map)) {
-            currentTill.tenderBreakdown = new Map(Object.entries(currentTill.tenderBreakdown || {}));
-          }
-          
-          // Update tender breakdown based on payment method
-          if (hasMultiplePayments) {
-            // Handle split payments - add amount to each tender
-            console.log(`   Processing ${tenderPayments.length} split payments for tender breakdown`);
-            tenderPayments.forEach(payment => {
-              const currentAmount = currentTill.tenderBreakdown.get(payment.tenderName) || 0;
-              currentTill.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
-              console.log(`   ðŸ’³ ${payment.tenderName}: +â‚¦${payment.amount} (now â‚¦${currentAmount + Number(payment.amount || 0)})`);
-            });
-          } else if (hasSingleTender) {
-            // Handle single tender (legacy)
-            const tenderKey = tenderType || 'CASH';
-            const currentAmount = currentTill.tenderBreakdown.get(tenderKey) || 0;
-            currentTill.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
-            console.log(`   ðŸ’³ ${tenderKey}: +â‚¦${total} (now â‚¦${currentAmount + Number(total || 0)})`);
-          }
-          
-          // Add transaction to array and update counts
-          if (!currentTill.transactions.includes(savedTransaction._id)) {
-            currentTill.transactions.push(savedTransaction._id);
-          }
-          currentTill.totalSales = (currentTill.totalSales || 0) + Number(total || 0);
-          // DO NOT manually increment transactionCount - it should always equal transactions.length
-          currentTill.transactionCount = currentTill.transactions.length;
-          
-          // Mark tenderBreakdown as modified so Mongoose saves it
-          currentTill.markModified('tenderBreakdown');
-          
-          await currentTill.save();
-          console.log(`âœ… Till updated - Total sales: â‚¦${currentTill.totalSales}, Transactions: ${currentTill.transactions.length}`);
-        } else {
-          console.warn(`âš ï¸ Till ${tillId} not found - transaction not linked`);
-        }
-      } catch (linkError) {
-        console.error(`âŒ Error linking transaction to till:`, linkError);
-        // Don't fail the whole request if linking fails - transaction is still saved
-      }
-    } else if (tillId && !isCompletedTransaction) {
+    if (isCompletedTransaction) {
+      await applyCompletedTransactionEffects(savedTransaction, mappedItems, true);
+      await linkCompletedTransactionToTill({
+        transaction: savedTransaction,
+        tillId,
+        total,
+        tenderType,
+        tenderPayments,
+        hasMultiplePayments,
+        isCompletedTransaction,
+      });
+    } else if (tillId) {
       console.log(`â„¹ï¸ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     } else {
       console.warn(`âš ï¸ No tillId provided - transaction will not be linked to till`);
-    }
-    // Update product quantities after successful transaction save (idempotent)
-    if (!savedTransaction.inventoryUpdated && isCompletedTransaction) {
-      try {
-        console.log('Updating product quantities for items:', mappedItems);
-        await updateInventoryForSale(mappedItems);
-        savedTransaction.inventoryUpdated = true;
-        await savedTransaction.save();
-      } catch (quantityErr) {
-        console.warn('Warning: Failed to update product quantities:', quantityErr.message);
-      }
-
-      try {
-        await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.OCCUPIED);
-      } catch (roomOccupancyErr) {
-        console.warn('Warning: Failed to update room occupancy:', roomOccupancyErr.message);
-      }
     }
     return res.status(200).json({
       success: true,

@@ -42,15 +42,15 @@ const StoreSchema = new mongoose.Schema(
     locations: [LocationSchema],
 
     // 📋 Receipt Settings
-    companyDisplayName: { type: String, default: "St's Michael Hub" },
+    companyDisplayName: { type: String, default: "" },
     taxNumber: { type: String, default: "" },
     website: { type: String, default: "" },
     refundDays: { type: Number, default: 0 },
-    receiptMessage: { type: String, default: "Thank you for shopping with us!" },
+    receiptMessage: { type: String, default: "" },
     fontSize: { type: String, default: "8.0" },
     barcodeType: { type: String, default: "Default - Code 39" },
     qrUrl: { type: String, default: "" },
-    qrDescription: { type: String, default: "Please scan and leave us a review" },
+    qrDescription: { type: String, default: "" },
     qrDataUrl: { type: String, default: "" },
     paymentStatus: { type: String, default: "paid" },
 

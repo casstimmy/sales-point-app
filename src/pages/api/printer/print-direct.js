@@ -15,172 +15,124 @@
  */
 
 import ESCPOSPrinter from '@/src/lib/escpos';
+import {
+  buildReceiptViewModel,
+  formatReceiptNaira,
+} from '@/src/lib/receiptViewModel';
 
-// Format Nigerian Naira
-function formatNaira(amount) {
-  return `₦${(amount || 0).toLocaleString('en-NG', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
+const RECEIPT_WIDTH = 42;
 
-// Format date
-function formatDateTime(dateString) {
-  const date = new Date(dateString);
-  return date.toLocaleString('en-NG', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-}
+const cleanText = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+
+const truncateText = (value, width) => {
+  const text = cleanText(value);
+  return text.length > width ? text.slice(0, Math.max(0, width - 1)) + '…' : text;
+};
+
+const line = (label, amount) => {
+  const left = truncateText(label, 24);
+  const right = formatReceiptNaira(amount);
+  return `${left}${right.padStart(Math.max(1, RECEIPT_WIDTH - left.length))}`;
+};
+
+const itemLine = (item) => {
+  const name = truncateText(item.name, 14).padEnd(14);
+  const price = formatReceiptNaira(item.unitPrice).replace('.00', '').padStart(8);
+  const qty = String(item.quantity).slice(0, 4).padStart(4);
+  const total = formatReceiptNaira(item.lineTotal).replace('.00', '').padStart(12);
+  return `${name}${price}${qty}${total}`;
+};
+
+const centerText = (value) => {
+  const text = truncateText(value, RECEIPT_WIDTH);
+  const pad = Math.max(0, Math.floor((RECEIPT_WIDTH - text.length) / 2));
+  return `${' '.repeat(pad)}${text}`;
+};
 
 // Generate receipt ESC/POS commands
 function generateReceiptCommands(transaction, settings) {
   const printer = new ESCPOSPrinter();
   printer.init();
-
-  const {
-    items = [],
-    total = 0,
-    subtotal = 0,
-    tax = 0,
-    discount = 0,
-    change = 0,
-    staffName = 'Unknown Staff',
-    location = 'Default Location',
-    locationAddress = '',
-    createdAt = new Date().toISOString(),
-    tenderPayments = [],
-    _id = '',
-  } = transaction;
-
-  const {
-    companyDisplayName = "St's Michael Hub",
-    storePhone = '',
-    email = '',
-    website = '',
-    businessAddress = '',
-    taxNumber = '',
-    refundDays = 0,
-    qrUrl = '',
-    qrDescription = 'Scan and leave feedback',
-    paymentStatus = 'paid',
-  } = settings;
+  const model = buildReceiptViewModel(transaction, settings);
 
   // Header
-  printer.setSize(1, 2).setAlignment(1).setBold(true);
-  printer.text(companyDisplayName);
+  printer.setSize(1, 1).setAlignment(1).setBold(true);
+  printer.text(model.companyName);
 
   // Store Info
-  printer.setAlignment(1);
-  printer.text(location);
-  if (locationAddress || businessAddress) printer.text(locationAddress || businessAddress);
-  if (storePhone) printer.text(`Tel: ${storePhone}`);
-  if (email) printer.text(email);
-  if (website) printer.text(website);
-  if (taxNumber) printer.text(`Tax ID: ${taxNumber}`);
+  printer.setAlignment(1).setBold(false);
+  printer.text(model.locationName);
+  if (model.address) printer.text(model.address);
+  if (model.contactLine) printer.text(model.contactLine);
+  if (model.taxNumber) printer.text(`Tax ID: ${model.taxNumber}`);
 
   // Separator
   printer.setAlignment(0);
+  printer.text('-'.repeat(RECEIPT_WIDTH));
 
   // Receipt Details
   printer.setAlignment(0).setBold(false);
-  printer.text('Receipt of Purchase (Inc Tax)');
-  printer.text(`${formatDateTime(createdAt)} ${_id.substring(0, 8)}`);
-  printer.text(`Staff: ${staffName}                 Till #1`);
+  printer.setBold(true).text(model.title.toUpperCase()).setBold(false);
+  printer.text(`${model.dateTime} ${model.receiptId}`);
+  printer.text(`Staff: ${truncateText(model.staffName, 20)}  ${model.status}`);
+  printer.text('-'.repeat(RECEIPT_WIDTH));
 
   // Items Header
   printer.setBold(true);
-  printer.text('PRODUCT              QTY    PRICE');
+  printer.text('PRODUCT          PRICE  QTY       TOTAL');
   printer.setBold(false);
 
   // Items
-  items.forEach((item) => {
-    const itemName = item.name.substring(0, 20).padEnd(20);
-    const qty = String(item.quantity).padStart(3);
-    const price = formatNaira(item.price * item.quantity).padStart(8);
-    printer.text(`${itemName}${qty}${price}`);
-  });
+  model.items.forEach((item) => printer.text(itemLine(item)));
 
   // Total items
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  printer.text(`Total Items: ${totalItems}`.padStart(32));
+  printer.text(`Total Qty: ${model.totalQuantity}`.padStart(RECEIPT_WIDTH));
+  printer.text('-'.repeat(RECEIPT_WIDTH));
 
   // Totals
-  printer.text(`Subtotal:${formatNaira(subtotal).padStart(24)}`);
-  if (tax > 0) {
-    printer.text(`Tax:${formatNaira(tax).padStart(28)}`);
-  }
-  if (discount > 0) {
-    printer.text(`Discount:${formatNaira(discount).padStart(23)}`);
-  }
+  printer.text(line('Subtotal', model.subtotal));
+  if (model.tax > 0) printer.text(line('Tax', model.tax));
+  model.adjustmentLines.forEach((adjustment) => {
+    const label = adjustment.type === 'subtract' ? `${adjustment.label} (-)` : adjustment.label;
+    printer.text(line(label, adjustment.amount));
+  });
 
   printer.setBold(true);
-  printer.text(`TOTAL:${formatNaira(total).padStart(26)}`);
+  printer.text(line('TOTAL', model.total));
   printer.setBold(false);
+  printer.text('-'.repeat(RECEIPT_WIDTH));
 
   // Payment
   printer.setBold(true);
-  printer.text('PAYMENT BY TENDER');
+  printer.text('PAYMENT');
   printer.setBold(false);
 
-  if (tenderPayments && tenderPayments.length > 0) {
-    tenderPayments.forEach((payment) => {
-      const name = (payment.tenderName || 'Unknown').padEnd(20);
-      const amount = formatNaira(payment.amount).padStart(12);
-      printer.text(`${name}${amount}`);
-    });
-  } else {
-    const name = 'CASH'.padEnd(20);
-    const amount = formatNaira(total).padStart(12);
-    printer.text(`${name}${amount}`);
-  }
+  model.tenderPayments.forEach((payment) => printer.text(line(payment.name, payment.amount)));
 
   // Change
-  if (change > 0) {
-
-    const name = 'CHANGE'.padEnd(20);
-    const amount = formatNaira(change).padStart(12);
+  if (model.change > 0) {
     printer.setBold(true);
-    printer.text(`${name}${amount}`);
+    printer.text(line('CHANGE', model.change));
     printer.setBold(false);
   }
 
-
-
-  // Thank you
+  // Status and optional notes
   printer.setAlignment(1).setBold(true);
-  printer.text('THANK YOU!');
+  printer.text(model.status);
   printer.setBold(false);
 
-  // Refund policy
-  if (refundDays > 0) {
-    printer.setAlignment(1);
-    printer.text(`Refund within ${refundDays} days with receipt`);
+  if (model.refundDays > 0) {
+    printer.text(`Refund within ${model.refundDays} days with receipt`);
   }
-
-  // Status
-  printer.setAlignment(1).setBold(true);
-  printer.text(`   ${paymentStatus.toUpperCase()}   `);
-  printer.setBold(false);
+  if (model.receiptMessage) printer.text(model.receiptMessage);
 
   // QR Code
-  if (qrUrl) {
+  if (model.qrUrl) {
     printer.setAlignment(1);
     printer.newLine();
-    printer.text(qrDescription);
-    printer.qrcode(qrUrl, 3);
+    if (model.qrDescription) printer.text(model.qrDescription);
+    printer.qrcode(model.qrUrl, 3);
   }
-
-  // Footer
-  printer.setAlignment(1);
-  printer.newLine();
-  printer.text('Thank you for shopping with us!');
- ;
 
   // Cut paper
   printer.partialCut();

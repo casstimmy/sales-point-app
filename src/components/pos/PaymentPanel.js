@@ -56,6 +56,8 @@ export default function PaymentPanel() {
   const onlineOrderSubtotal = isOnlineOrderCheckout
     ? Number(activeCart.subtotal || totals.subtotal || onlineOrderTotal || 0)
     : Number(totals.subtotal || 0);
+  const onlineOrderShippingCost = Number(onlineOrderContext?.shippingCost || onlineOrderContext?.deliveryFee || 0);
+  const onlineOrderDiscount = Number(onlineOrderContext?.discount || onlineOrderContext?.discountAmount || 0);
   const normalizedOnlinePaymentChannel = String(onlineOrderContext?.paymentChannel || '').trim().toLowerCase();
   const prepaidTenderName = ONLINE_PAYMENT_CHANNELS.has(normalizedOnlinePaymentChannel) ? 'ONLINE' : 'MANUAL ENTRY';
   const isPrepaidOnlineOrder = isOnlineOrderCheckout && (
@@ -165,7 +167,10 @@ export default function PaymentPanel() {
           subtotal: onlineOrderSubtotal,
           tax: totals.tax,
           total: onlineOrderTotal,
-          discount: totals.discountAmount || 0,
+          discount: onlineOrderDiscount || totals.discountAmount || 0,
+          discountName: onlineOrderContext?.discountName || 'Discount',
+          shippingCost: onlineOrderShippingCost,
+          deliveryFeeName: onlineOrderContext?.deliveryFeeName || 'Delivery Fee',
           amountPaid: paymentDetails.amountPaid || onlineOrderTotal,
           change: paymentDetails.change,
           tenderType: paymentDetails.tenderType,
@@ -230,7 +235,9 @@ export default function PaymentPanel() {
         subtotal: totals.subtotal,
         tax: totals.tax,
         discount: totals.discountAmount || 0,
+        discountName: totals.discountName || 'Discount',
         incrementAmount: totals.incrementAmount || 0,
+        incrementName: totals.incrementName || 'Additional Charge',
         promotionValueType: totals.promotionValueType || null,
         customerType: activeCart.customer?.type || null,
         amountPaid: paymentDetails.amountPaid,

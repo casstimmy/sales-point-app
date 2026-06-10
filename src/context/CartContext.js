@@ -718,6 +718,10 @@ export function CartProvider({ children }) {
           siteKey: order.siteKey || 'store',
           sourceLabel: order.sourceLabel || 'Store Website',
           shippingDetails: contactDetails,
+          shippingCost: Number(order.shippingCost || order.deliveryFee || 0),
+          deliveryFeeName: order.deliveryFeeName || order.shippingName || 'Delivery Fee',
+          discount: Number(order.discount || order.discountAmount || 0),
+          discountName: order.discountName || order.discountReason || 'Discount',
           locationName: order.locationName || order.location || '',
           locationId: order.locationId || null,
         },
@@ -855,6 +859,12 @@ export function CartProvider({ children }) {
       subtotal: rawSubtotal,
       discountAmount,
       incrementAmount,
+      discountName: appliedPromotion?.active && appliedPromotion.valueType === 'DISCOUNT'
+        ? (appliedPromotion.name || 'Discount')
+        : (fixedDiscountAmount > 0 ? 'Discount' : ''),
+      incrementName: appliedPromotion?.active && appliedPromotion.valueType === 'INCREMENT'
+        ? (appliedPromotion.name || 'Additional Charge')
+        : '',
       promotionValueType: appliedPromotion?.active ? appliedPromotion.valueType : null,
       discountedSubtotal,
       tax,

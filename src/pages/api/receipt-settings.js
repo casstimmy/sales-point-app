@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 
     // Default settings (always return 200 with defaults if no store)
     const defaultSettings = {
-      companyDisplayName: "St's Michael Hub",
+      companyDisplayName: store?.storeName || "Store",
       companyLogo: "/images/placeholder.jpg",
       storePhone: "",
       email: "",
@@ -29,10 +29,10 @@ export default async function handler(req, res) {
       businessAddress: "",
       taxNumber: "",
       refundDays: 0,
-      receiptMessage: "Thank you for shopping with us!",
+      receiptMessage: "",
       qrUrl: "",
       qrDataUrl: "",
-      qrDescription: "Please scan and leave us a review",
+      qrDescription: "",
       paymentStatus: "paid",
       fontSize: "8.0",
     };
@@ -80,7 +80,7 @@ export default async function handler(req, res) {
     return res.status(200).json({
       success: true,
       settings: {
-        companyDisplayName: "St's Michael Hub",
+        companyDisplayName: "Store",
         companyLogo: "/images/placeholder.jpg",
         storePhone: "",
         email: "",
@@ -88,10 +88,10 @@ export default async function handler(req, res) {
         businessAddress: "",
         taxNumber: "",
         refundDays: 0,
-        receiptMessage: "Thank you for shopping with us!",
+        receiptMessage: "",
         qrUrl: "",
         qrDataUrl: "",
-        qrDescription: "Please scan and leave us a review",
+        qrDescription: "",
         paymentStatus: "paid",
         fontSize: "8.0",
       },

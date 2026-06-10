@@ -7,12 +7,11 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
-import Till from '@/src/models/Till';
-import Product from '@/src/models/Product';
-import { updateInventoryForSale } from '@/src/lib/syncPackQty';
 import { sanitizeBody } from '@/src/lib/apiValidation';
-import { ROOM_STATUSES } from '@/src/lib/roomReservations';
-import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
+import {
+  applyCompletedTransactionEffects,
+  linkCompletedTransactionToTill,
+} from '@/src/lib/transactionEffects';
 
 const normalizeLocationName = (location) => {
   if (typeof location === 'string' && location.trim()) return location.trim();
@@ -43,6 +42,19 @@ export default async function handler(req, res) {
       tenderType,           // Legacy: single tender
       tenderPayments,       // New: split payments [{tenderId, tenderName, amount}]
       discount = 0,
+      discountName = '',
+      discountReason = '',
+      shippingCost = 0,
+      deliveryFee = 0,
+      deliveryFeeName = '',
+      serviceCharge = 0,
+      handlingFee = 0,
+      additionalCharges = [],
+      fees = [],
+      adjustments = [],
+      incrementAmount = 0,
+      incrementName = '',
+      promotionValueType = null,
       amountPaid,
       change,
       staffName, 
@@ -79,12 +91,30 @@ export default async function handler(req, res) {
       });
     }
 
+    const mappedItems = (items || []).map(item => ({
+      ...item,
+      productId: item.productId || item.id,
+      name: item.name,
+      salePriceIncTax: item.price || item.salePriceIncTax || 0,
+      qty: item.quantity || item.qty || 0,
+    }));
+
     // DUPLICATE PREVENTION: Check if this transaction already exists
     // Based on createdAt timestamp, total, tillId, and staffName
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
         console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate sync transaction detected - externalId ${externalId}`);
+        await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
+        await linkCompletedTransactionToTill({
+          transaction: existingTransaction,
+          tillId,
+          total,
+          tenderType,
+          tenderPayments,
+          hasMultiplePayments,
+          isCompletedTransaction,
+        });
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -103,6 +133,16 @@ export default async function handler(req, res) {
       
       if (existingTransaction) {
         console.log(`âš ï¸ Duplicate sync transaction detected - already exists as ${existingTransaction._id}`);
+        await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
+        await linkCompletedTransactionToTill({
+          transaction: existingTransaction,
+          tillId,
+          total,
+          tenderType,
+          tenderPayments,
+          hasMultiplePayments,
+          isCompletedTransaction,
+        });
         return res.status(200).json({
           success: true,
           message: 'Transaction already exists (duplicate prevented)',
@@ -112,14 +152,6 @@ export default async function handler(req, res) {
       }
     }
 
-    const mappedItems = (items || []).map(item => ({
-      ...item,
-      productId: item.productId || item.id,
-      name: item.name,
-      salePriceIncTax: item.price || item.salePriceIncTax || 0,
-      qty: item.quantity || item.qty || 0,
-    }));
-
     // Create transaction record - support both payment methods
     const transaction = new Transaction({
       externalId: externalId || id,
@@ -127,6 +159,19 @@ export default async function handler(req, res) {
       subtotal: subtotal || 0,
       tax: tax || 0,
       discount: discount || 0,
+      discountName,
+      discountReason,
+      shippingCost: Number(shippingCost || 0),
+      deliveryFee: Number(deliveryFee || 0),
+      deliveryFeeName,
+      serviceCharge: Number(serviceCharge || 0),
+      handlingFee: Number(handlingFee || 0),
+      additionalCharges: Array.isArray(additionalCharges) ? additionalCharges : [],
+      fees: Array.isArray(fees) ? fees : [],
+      adjustments: Array.isArray(adjustments) ? adjustments : [],
+      incrementAmount: Number(incrementAmount || 0),
+      incrementName,
+      promotionValueType,
       total,
       ...(hasSingleTender && { tenderType }),
       ...(hasMultiplePayments && { tenderPayments }),
@@ -146,60 +191,19 @@ export default async function handler(req, res) {
     await transaction.save();
     console.log('âœ… Transaction synced successfully:', transaction._id);
 
-    // Link transaction to till only for completed sales
-    if (tillId && isCompletedTransaction) {
-      try {
-        console.log(`ðŸ”— Linking synced transaction to till: ${tillId}`);
-        const till = await Till.findById(tillId);
-
-        if (till) {
-          if (!till.transactions.some((txId) => String(txId) === String(transaction._id))) {
-            till.transactions.push(transaction._id);
-          }
-          till.totalSales = (till.totalSales || 0) + Number(total || 0);
-          till.transactionCount = till.transactions.length;
-
-          if (!(till.tenderBreakdown instanceof Map)) {
-            till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
-          }
-
-          if (hasMultiplePayments) {
-            tenderPayments.forEach((payment) => {
-              const currentAmount = till.tenderBreakdown.get(payment.tenderName) || 0;
-              till.tenderBreakdown.set(payment.tenderName, currentAmount + Number(payment.amount || 0));
-            });
-          } else {
-            const tenderKey = tenderType || 'CASH';
-            const currentAmount = till.tenderBreakdown.get(tenderKey) || 0;
-            till.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
-          }
-          till.markModified('tenderBreakdown');
-          await till.save();
-          console.log(`âœ… Synced transaction linked to till - Till now has ${till.transactions.length} transactions, total sales: ${till.totalSales}`);
-        } else {
-          console.warn(`âš ï¸ Till ${tillId} not found - synced transaction not linked`);
-        }
-      } catch (linkError) {
-        console.error(`âŒ Error linking synced transaction to till:`, linkError);
-      }
-    } else if (tillId && !isCompletedTransaction) {
+    if (isCompletedTransaction) {
+      await applyCompletedTransactionEffects(transaction, mappedItems, true);
+      await linkCompletedTransactionToTill({
+        transaction,
+        tillId,
+        total,
+        tenderType,
+        tenderPayments,
+        hasMultiplePayments,
+        isCompletedTransaction,
+      });
+    } else if (tillId) {
       console.log(`â„¹ï¸ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
-    }
-    // Update product quantities after successful transaction sync (idempotent)
-    if (!transaction.inventoryUpdated && isCompletedTransaction) {
-      try {
-        await updateInventoryForSale(mappedItems);
-        transaction.inventoryUpdated = true;
-        await transaction.save();
-      } catch (quantityErr) {
-        console.warn('Warning: Failed to update product quantities from sync:', quantityErr.message);
-      }
-
-      try {
-        await markRoomsFromTransaction(mappedItems, transaction, ROOM_STATUSES.OCCUPIED);
-      } catch (roomOccupancyErr) {
-        console.warn('Warning: Failed to update room occupancy from sync:', roomOccupancyErr.message);
-      }
     }
     return res.status(200).json({
       success: true,

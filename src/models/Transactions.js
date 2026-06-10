@@ -46,8 +46,18 @@ const TransactionSchema = new mongoose.Schema({
   total: Number,
   change: Number,
   discount: Number,
+  discountName: String,
   discountReason: String,
+  shippingCost: Number,
+  deliveryFee: Number,
+  deliveryFeeName: String,
+  serviceCharge: Number,
+  handlingFee: Number,
+  additionalCharges: [{ name: String, label: String, amount: Number }],
+  fees: [{ name: String, label: String, amount: Number }],
+  adjustments: [{ name: String, label: String, amount: Number, type: String }],
   incrementAmount: Number, // Amount added by INCREMENT promotions (not a discount)
+  incrementName: String,
   promotionValueType: String, // "DISCOUNT" or "INCREMENT" - tracks promotion type
   customerType: String, // Customer type / promotion name for display
   

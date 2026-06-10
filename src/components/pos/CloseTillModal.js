@@ -6,6 +6,7 @@ import { useStaff } from "../../context/StaffContext";
 import { useLocationTenders } from "../../hooks/useLocationTenders";
 import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
 import { getStoreLogo } from "../../lib/logoCache";
+import { escapeHtml } from "../../lib/receiptViewModel";
 import { addTenderAmount, getTenderAmount, normalizeTenderBreakdown } from "../../lib/tenderKey";
 import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
@@ -33,7 +34,7 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
     const variance = physical - expected;
     return `
       <tr>
-        <td style="padding: 2px 0; text-align: left;">${tender.name}</td>
+        <td style="padding: 2px 0; text-align: left;">${escapeHtml(tender.name)}</td>
         <td style="padding: 2px 0; text-align: right;">${formatNaira(expected)}</td>
         <td style="padding: 2px 0; text-align: right;">${formatNaira(physical)}</td>
         <td style="padding: 2px 0; text-align: right; color: ${variance === 0 ? '#000' : variance > 0 ? '#065f46' : '#991b1b'};">
@@ -119,17 +120,17 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
   <div class="report-page">
   <div class="report">
     <div class="header">
-      ${logoAbsolute ? `<img src="${logoAbsolute}" class="logo" alt="Logo" onerror="this.style.display='none'">` : ''}
+      ${logoAbsolute ? `<img src="${escapeHtml(logoAbsolute)}" class="logo" alt="Logo" onerror="this.style.display='none'">` : ''}
       <div class="title">END OF DAY REPORT</div>
-      <div class="subtitle">${locationName || 'Store Location'}</div>
-      <div class="subtitle">${dateStr} ${timeStr}</div>
+      <div class="subtitle">${escapeHtml(locationName || 'Store Location')}</div>
+      <div class="subtitle">${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</div>
     </div>
 
     <div class="section">
       <div class="section-title">Till Session</div>
-      <div class="row"><span>Opened:</span><span>${openedAt}</span></div>
-      <div class="row"><span>Closed:</span><span>${timeStr}</span></div>
-      <div class="row"><span>Staff:</span><span>${tillData?.staffName || 'N/A'}</span></div>
+      <div class="row"><span>Opened:</span><span>${escapeHtml(openedAt)}</span></div>
+      <div class="row"><span>Closed:</span><span>${escapeHtml(timeStr)}</span></div>
+      <div class="row"><span>Staff:</span><span>${escapeHtml(tillData?.staffName || 'N/A')}</span></div>
       <div class="row"><span>Transactions:</span><span>${tillData?.transactionCount || 0}</span></div>
     </div>
 
@@ -162,11 +163,11 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
       <div class="row-bold"><span>Total Variance:</span><span style="color: ${totalVariance === 0 ? '#000' : totalVariance > 0 ? '#065f46' : '#991b1b'};">${formatNaira(totalVariance)} ${totalVariance === 0 ? '✓ OK' : totalVariance > 0 ? 'OVER' : 'SHORT'}</span></div>
     </div>
 
-    ${closingNotes ? `<div class="section"><div class="section-title">Notes</div><div class="notes">${closingNotes}</div></div>` : ''}
+    ${closingNotes ? `<div class="section"><div class="section-title">Notes</div><div class="notes">${escapeHtml(closingNotes)}</div></div>` : ''}
 
     <div class="footer">
       <div style="font-weight: bold;">— End of Report —</div>
-      <div style="margin-top: 1mm;">Printed: ${dateStr} ${timeStr}</div>
+      <div style="margin-top: 1mm;">Printed: ${escapeHtml(dateStr)} ${escapeHtml(timeStr)}</div>
     </div>
   </div>
   </div>

@@ -93,6 +93,14 @@ const OrderSchema = new mongoose.Schema(
       name: { type: String, default: "" },
       phone: { type: String, default: "" },
     },
+    completedByStaffId: {
+      type: String,
+      default: "",
+    },
+    completedByStaffName: {
+      type: String,
+      default: "",
+    },
     paid: { type: Boolean, default: false },
     reservationStatus: {
       type: String,

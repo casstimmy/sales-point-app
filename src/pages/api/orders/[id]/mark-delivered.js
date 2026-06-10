@@ -82,6 +82,12 @@ export default async function handler(req, res) {
     const resolvedLocationId = mongoose.Types.ObjectId.isValid(String(locationId || ''))
       ? new mongoose.Types.ObjectId(String(locationId))
       : order.locationId || null;
+    const completedByStaffId = String(
+      transaction?.staff?._id || transaction?.staff || order.completedByStaffId || ''
+    ).trim();
+    const completedByStaffName = String(
+      transaction?.staff?.name || transaction?.staffName || order.completedByStaffName || 'POS Staff'
+    ).trim();
 
     const updatedOrderRaw = await Order.findByIdAndUpdate(
       id,
@@ -90,6 +96,8 @@ export default async function handler(req, res) {
           status: 'Delivered',
           locationId: resolvedLocationId,
           locationName: normalizedLocationName,
+          completedByStaffId,
+          completedByStaffName,
           paid: Boolean(order.paid || order.paymentStatus === 'Paid'),
           paymentStatus: order.paymentStatus || 'Paid',
           reservationStatus: 'finalized',
