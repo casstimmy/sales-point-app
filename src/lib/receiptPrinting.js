@@ -406,9 +406,9 @@ function generateReceiptHTML(transaction, settings) {
   const itemsHTML = model.items.map((item) => `
     <tr>
       <td class="item-name">${escapeHtml(item.name)}</td>
-      <td class="num">${formatReceiptNaira(item.unitPrice)}</td>
+      <td class="price-col">${formatReceiptNaira(item.unitPrice)}</td>
       <td class="qty">${escapeHtml(String(item.quantity))}</td>
-      <td class="num">${formatReceiptNaira(item.lineTotal)}</td>
+      <td class="total-col">${formatReceiptNaira(item.lineTotal)}</td>
     </tr>
   `).join('');
 
@@ -517,14 +517,16 @@ function generateReceiptHTML(transaction, settings) {
           }
           .items-table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0.6mm 0;
             table-layout: fixed;
-            font-size: 0.9em;
+            font-size: 0.86em;
             text-align: left;
+            font-variant-numeric: tabular-nums;
           }
           .items-table th,
           .items-table td {
-            padding: 0.35mm 0.4mm;
+            padding: 0.35mm 0;
             vertical-align: top;
           }
           .items-table th {
@@ -533,12 +535,28 @@ function generateReceiptHTML(transaction, settings) {
             border-bottom: 1px dotted #555;
           }
           .item-name {
-            width: 42%;
+            width: 36%;
             overflow-wrap: anywhere;
+            padding-right: 0.6mm !important;
+          }
+          .price-col {
+            width: 24%;
+            text-align: right;
+            white-space: nowrap;
+            padding-right: 0.9mm !important;
           }
           .qty {
-            width: 11%;
+            width: 10%;
             text-align: center;
+            white-space: nowrap;
+            padding-left: 0.4mm !important;
+            padding-right: 0.4mm !important;
+          }
+          .total-col {
+            width: 30%;
+            text-align: right;
+            white-space: nowrap;
+            padding-left: 0.9mm !important;
           }
           .num {
             text-align: right;
@@ -678,12 +696,18 @@ function generateReceiptHTML(transaction, settings) {
 
           <div class="items-section">
             <table class="items-table">
+              <colgroup>
+                <col style="width: 36%;">
+                <col style="width: 24%;">
+                <col style="width: 10%;">
+                <col style="width: 30%;">
+              </colgroup>
               <thead>
                 <tr>
                   <th class="item-name">Product</th>
-                  <th class="num">Price</th>
+                  <th class="price-col">Price</th>
                   <th class="qty">Qty</th>
-                  <th class="num">Total</th>
+                  <th class="total-col">Total</th>
                 </tr>
               </thead>
               <tbody>

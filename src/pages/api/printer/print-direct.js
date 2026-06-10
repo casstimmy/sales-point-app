@@ -36,11 +36,11 @@ const line = (label, amount) => {
 };
 
 const itemLine = (item) => {
-  const name = truncateText(item.name, 14).padEnd(14);
+  const name = truncateText(item.name, 13).padEnd(13);
   const price = formatReceiptNaira(item.unitPrice).replace('.00', '').padStart(8);
-  const qty = String(item.quantity).slice(0, 4).padStart(4);
-  const total = formatReceiptNaira(item.lineTotal).replace('.00', '').padStart(12);
-  return `${name}${price}${qty}${total}`;
+  const qty = String(item.quantity).slice(0, 3).padStart(3);
+  const total = formatReceiptNaira(item.lineTotal).replace('.00', '').padStart(13);
+  return `${name} ${price} ${qty} ${total}`;
 };
 
 const centerText = (value) => {
@@ -79,7 +79,7 @@ function generateReceiptCommands(transaction, settings) {
 
   // Items Header
   printer.setBold(true);
-  printer.text('PRODUCT          PRICE  QTY       TOTAL');
+  printer.text('PRODUCT        PRICE QTY         TOTAL');
   printer.setBold(false);
 
   // Items
