@@ -23,6 +23,17 @@ function createDefaultReservation() {
   };
 }
 
+function normalizePhoneDigits(value) {
+  return String(value || "").replace(/[^0-9]/g, "").slice(0, 11);
+}
+
+function formatMobileNumber(value) {
+  const digits = normalizePhoneDigits(value);
+  return [digits.slice(0, 4), digits.slice(4, 7), digits.slice(7, 11)]
+    .filter(Boolean)
+    .join(" ");
+}
+
 export default function RoomReservationModal({ product, initialReservation, onClose, onConfirm }) {
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -56,7 +67,7 @@ export default function RoomReservationModal({ product, initialReservation, onCl
     if (!product) return;
 
     setGuestName(initialReservation?.guestName || defaults.guestName);
-    setGuestPhone(initialReservation?.guestPhone || defaults.guestPhone);
+    setGuestPhone(normalizePhoneDigits(initialReservation?.guestPhone || defaults.guestPhone));
     setCheckInDate(toDateInputValue(initialReservation?.checkInAt) || defaults.checkInDate);
     setCheckOutDate(toDateInputValue(initialReservation?.checkOutAt) || defaults.checkOutDate);
     setNotes(initialReservation?.notes || defaults.notes);
@@ -79,7 +90,7 @@ export default function RoomReservationModal({ product, initialReservation, onCl
   };
 
   const handlePhoneChange = (value) => {
-    setGuestPhone(String(value || "").replace(/[^0-9]/g, ""));
+    setGuestPhone(normalizePhoneDigits(value));
     if (error) setError("");
   };
 
@@ -145,7 +156,7 @@ export default function RoomReservationModal({ product, initialReservation, onCl
               <input
                 type="text"
                 readOnly
-                value={guestPhone}
+                value={formatMobileNumber(guestPhone)}
                 onClick={() => {
                   setShowPhoneKeypad(true);
                   setError("");
@@ -243,6 +254,7 @@ export default function RoomReservationModal({ product, initialReservation, onCl
             <div className="p-4 space-y-4">
               <NumKeypad
                 value={guestPhone}
+                displayValue={formatMobileNumber(guestPhone)}
                 onChange={handlePhoneChange}
                 placeholder="Phone Number"
               />

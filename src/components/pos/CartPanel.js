@@ -55,6 +55,19 @@ import { getUiSettings } from "../../lib/uiSettings";
 import AdjustFloatModal from "./AdjustFloatModal";
 import NumKeypad from "../common/NumKeypad";
 import { showToast } from "../common/Toast";
+import {
+  getRoomReservationDateRange,
+  getRoomReservationDetails,
+  isRoomProduct,
+} from "../../lib/roomReservations";
+
+const formatRoomPhone = (value) => {
+  const digits = String(value || "").replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  return [digits.slice(0, 4), digits.slice(4, 7), digits.slice(7, 11)]
+    .filter(Boolean)
+    .join(" ");
+};
 
 export default function CartPanel() {
   const [selectedItemId, setSelectedItemId] = useState(null);
@@ -780,6 +793,15 @@ export default function CartPanel() {
               const itemTotal =
                 adjustedPrice * item.quantity - (item.discount || 0);
               const hasPromoAdjustment = adjustedPrice !== item.price;
+              const isRoomItem = isRoomProduct(item);
+              const roomReservation = isRoomItem ? getRoomReservationDetails(item) : null;
+              const roomDateRange = isRoomItem ? getRoomReservationDateRange(item) : "";
+              const hasRoomReservation = Boolean(
+                roomReservation?.guestName ||
+                  roomReservation?.guestPhone ||
+                  roomDateRange ||
+                  roomReservation?.notes
+              );
 
               return (
                 <div key={item.id}>
@@ -809,6 +831,11 @@ export default function CartPanel() {
                                 -₦{item.discount.toLocaleString()}
                               </span>
                             )}
+                          </div>
+                        )}
+                        {hasRoomReservation && (
+                          <div className="mt-0.5 text-[10px] font-semibold text-cyan-700 line-clamp-1">
+                            {roomReservation?.guestName || "Room booking"}{roomDateRange ? ` · ${roomDateRange}` : ""}
                           </div>
                         )}
                       </div>
@@ -892,6 +919,20 @@ export default function CartPanel() {
                             )
                           </div>
                         )}
+                        {hasRoomReservation && (
+                          <div className="mt-2 rounded-lg border border-white/20 bg-white/10 p-2 text-[11px] leading-relaxed text-white">
+                            <div className="font-bold">Guest: {roomReservation?.guestName || "Not set"}</div>
+                            <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-2">
+                              {roomReservation?.guestPhone && (
+                                <div>Phone: {formatRoomPhone(roomReservation.guestPhone)}</div>
+                              )}
+                              {roomDateRange && <div>Stay: {roomDateRange}</div>}
+                            </div>
+                            {roomReservation?.notes && (
+                              <div className="mt-1 border-t border-white/20 pt-1">Notes: {roomReservation.notes}</div>
+                            )}
+                          </div>
+                        )}
                       </div>
 
                       {/* Expanded Controls */}
@@ -900,51 +941,59 @@ export default function CartPanel() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         {/* Quantity Control - Center */}
-                        <div className="flex items-center justify-center gap-3">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateQuantity(
-                                item.id,
-                                Math.max(1, item.quantity - 1),
-                              );
-                            }}
-                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
-                          >
-                            <FontAwesomeIcon
-                              icon={faMinus}
-                              className="w-4 h-4"
-                            />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openQtyEditor(item);
-                            }}
-                            className="text-center w-14 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition py-1"
-                          >
-                            <div className="text-2xl font-bold">
-                              {item.quantity}
+                        {isRoomItem ? (
+                          <div className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-center text-xs font-bold">
+                            ROOM BOOKING · QTY FIXED AT 1
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex items-center justify-center gap-3">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateQuantity(
+                                    item.id,
+                                    Math.max(1, item.quantity - 1),
+                                  );
+                                }}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
+                              >
+                                <FontAwesomeIcon
+                                  icon={faMinus}
+                                  className="w-4 h-4"
+                                />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openQtyEditor(item);
+                                }}
+                                className="text-center w-14 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition py-1"
+                              >
+                                <div className="text-2xl font-bold">
+                                  {item.quantity}
+                                </div>
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  updateQuantity(item.id, item.quantity + 1);
+                                }}
+                                className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
+                              >
+                                <FontAwesomeIcon
+                                  icon={faPlus}
+                                  className="w-4 h-4"
+                                />
+                              </button>
                             </div>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              updateQuantity(item.id, item.quantity + 1);
-                            }}
-                            className="w-9 h-9 flex items-center justify-center rounded-lg bg-white text-primary-600 font-bold transition-colors duration-base hover:bg-neutral-100"
-                          >
-                            <FontAwesomeIcon
-                              icon={faPlus}
-                              className="w-4 h-4"
-                            />
-                          </button>
-                        </div>
 
-                        {/* Quantity Label */}
-                        <div className="text-center text-xs font-semibold tracking-wider">
-                          QTY
-                        </div>
+                            {/* Quantity Label */}
+                            <div className="text-center text-xs font-semibold tracking-wider">
+                              QTY
+                            </div>
+                          </>
+                        )}
 
                         {/* Action Buttons */}
                         <div className="flex gap-1.5 pt-1 justify-center">

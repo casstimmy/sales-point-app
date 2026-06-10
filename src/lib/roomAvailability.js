@@ -16,7 +16,7 @@ function toDateOrNull(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-export async function markRoomsFromTransaction(items = [], transaction = {}, nextStatus = ROOM_STATUSES.OCCUPIED) {
+export async function markRoomsFromTransaction(items = [], transaction = {}, nextStatus = ROOM_STATUSES.RESERVED) {
   const roomItems = (Array.isArray(items) ? items : []).filter((item) => isRoomProduct(item));
   if (roomItems.length === 0) return;
 
@@ -75,4 +75,25 @@ export async function releaseRoomsFromTransaction(items = [], transaction = {}) 
       },
     });
   }));
+}
+
+export async function releaseExpiredRoomBookings(now = new Date()) {
+  const currentTime = toDateOrNull(now) || new Date();
+
+  const result = await Product.updateMany(
+    {
+      productType: ROOM_PRODUCT_TYPE,
+      roomStatus: { $in: [ROOM_STATUSES.RESERVED, ROOM_STATUSES.OCCUPIED] },
+      'currentBooking.checkOutAt': { $lte: currentTime },
+    },
+    {
+      $set: {
+        roomStatus: ROOM_STATUSES.AVAILABLE,
+        quantity: 0,
+        currentBooking: null,
+      },
+    }
+  );
+
+  return result?.modifiedCount || 0;
 }

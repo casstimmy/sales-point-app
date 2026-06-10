@@ -9,7 +9,7 @@ import React from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBackspace, faTimes } from '@fortawesome/free-solid-svg-icons';
 
-export default function NumKeypad({ value, onChange, placeholder = "0.00", disabled = false }) {
+export default function NumKeypad({ value, onChange, placeholder = "0.00", disabled = false, displayValue }) {
   const handleKeyPress = (key) => {
     if (disabled) return;
 
@@ -36,7 +36,7 @@ export default function NumKeypad({ value, onChange, placeholder = "0.00", disab
       <div className="bg-gray-100 border-2 border-gray-300 rounded-lg p-3 text-right shadow-sm">
         <div className="text-xs text-gray-500 mb-2">{placeholder}</div>
         <div className="text-3xl font-bold text-gray-800 truncate">
-          {value || '0'}
+          {displayValue || value || '0'}
         </div>
       </div>
 

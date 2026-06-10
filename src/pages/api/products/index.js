@@ -11,6 +11,7 @@
 import { mongooseConnect } from "@/src/lib/mongoose";
 import Product from "@/src/models/Product";
 import Store from "@/src/models/Store";
+import { releaseExpiredRoomBookings } from "@/src/lib/roomAvailability";
 
 const normalizeLocationToken = (value) => String(value || "").trim().toLowerCase();
 
@@ -23,6 +24,7 @@ export default async function handler(req, res) {
     await mongooseConnect();
 
     const { category, search, locationId } = req.query;
+    await releaseExpiredRoomBookings();
     
     let query = {};
 

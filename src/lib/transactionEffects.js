@@ -8,7 +8,7 @@ export async function applyCompletedTransactionEffects(transaction, items, isCom
     return { applied: false };
   }
 
-  await markRoomsFromTransaction(items, transaction, ROOM_STATUSES.OCCUPIED);
+  await markRoomsFromTransaction(items, transaction, ROOM_STATUSES.RESERVED);
 
   if (transaction.inventoryUpdated) {
     return { applied: false, roomsApplied: true };

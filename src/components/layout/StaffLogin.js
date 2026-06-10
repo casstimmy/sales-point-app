@@ -19,6 +19,48 @@ import {
 import { normalizeStaffList, normalizeStaffMember } from "@/src/lib/posPermissions";
 import { getUiSettings } from "@/src/lib/uiSettings";
 
+const normalizeLocationToken = (value) => String(value || "").trim().toLowerCase();
+
+const getLocationId = (location) => String(location?._id || location?.id || "").trim();
+
+const getLocationTokens = (location) => [
+  location?._id,
+  location?.id,
+  location?.name,
+  location?.code,
+].map(normalizeLocationToken).filter(Boolean);
+
+const getVisibleLocations = (locationList = [], visibleLocationIds = []) => {
+  if (!Array.isArray(locationList) || locationList.length === 0) return [];
+  if (!Array.isArray(visibleLocationIds) || visibleLocationIds.length === 0) return locationList;
+
+  const visibleTokens = new Set(
+    visibleLocationIds
+      .flatMap((item) => (item && typeof item === "object" ? getLocationTokens(item) : [normalizeLocationToken(item)]))
+      .filter(Boolean)
+  );
+
+  if (visibleTokens.size === 0) return locationList;
+
+  const filteredLocations = locationList.filter((location) =>
+    getLocationTokens(location).some((token) => visibleTokens.has(token))
+  );
+
+  return filteredLocations.length > 0 ? filteredLocations : locationList;
+};
+
+const pickLocationId = (locationList = [], preferredId = "") => {
+  if (!Array.isArray(locationList) || locationList.length === 0) return "";
+
+  const preferredToken = normalizeLocationToken(preferredId);
+  if (preferredToken) {
+    const preferredLocation = locationList.find((location) => getLocationTokens(location).includes(preferredToken));
+    if (preferredLocation) return getLocationId(preferredLocation);
+  }
+
+  return getLocationId(locationList[0]);
+};
+
 /**
  * Professional POS Login Page
  * Matches modern POS system design with:
@@ -72,8 +114,11 @@ export default function StaffLogin() {
   const resolveStaffLocationId = useCallback((member) => {
     if (!member) return "";
     const directId = member.locationId?.toString?.() || member.locationId || "";
-    if (directId && locations.some((loc) => String(loc._id) === String(directId))) {
-      return String(directId);
+    const directLocation = directId
+      ? locations.find((loc) => getLocationTokens(loc).includes(normalizeLocationToken(directId)))
+      : null;
+    if (directLocation) {
+      return getLocationId(directLocation);
     }
 
     if (member.locationName) {
@@ -171,7 +216,7 @@ export default function StaffLogin() {
         const locationsArray = JSON.parse(cachedLocations);
         setLocations(locationsArray);
         if (locationsArray.length > 0) {
-          setSelectedLocation(locationsArray[0]._id);
+          setSelectedLocation((currentLocation) => pickLocationId(locationsArray, currentLocation));
         }
         console.log(`✅ Loaded ${locationsArray.length} locations from cache`);
         console.log(`📍 Locations available offline: ${locationsArray.map(l => l.name).join(', ')}`);
@@ -482,7 +527,7 @@ export default function StaffLogin() {
               preloadTendersForLocations(activeLocations);
               // Auto-select first location
               if (activeLocations.length > 0) {
-                setSelectedLocation(activeLocations[0]._id);
+                setSelectedLocation((currentLocation) => pickLocationId(activeLocations, currentLocation));
               }
             }
           }
@@ -600,9 +645,10 @@ export default function StaffLogin() {
           if (locResponse.ok) {
             const locData = await locResponse.json();
             if (locData.store && Array.isArray(locData.store.locations)) {
-              setLocations(
-                locData.store.locations.filter(loc => loc.isActive !== false)
-              );
+              const refreshedLocations = locData.store.locations.filter(loc => loc.isActive !== false);
+              setLocations(refreshedLocations);
+              setSelectedLocation((currentLocation) => pickLocationId(refreshedLocations, currentLocation));
+              localStorage.setItem('cachedLocations', JSON.stringify(refreshedLocations));
               console.log(`✅ Refreshed locations data: ${locData.store.locations.length} locations`);
             }
           }
@@ -986,7 +1032,7 @@ export default function StaffLogin() {
         const activeLocations = storeData.store.locations?.filter(loc => loc.isActive !== false) || [];
         setLocations(activeLocations);
         if (activeLocations.length > 0) {
-          setSelectedLocation(activeLocations[0]._id);
+          setSelectedLocation((currentLocation) => pickLocationId(activeLocations, currentLocation));
         }
         localStorage.setItem("cachedLocations", JSON.stringify(activeLocations));
         localStorage.setItem("locations_metadata", JSON.stringify({
@@ -1289,7 +1335,7 @@ export default function StaffLogin() {
                         key={store._id}
                         onClick={() => {
                           setSelectedStore(store._id);
-                          setSelectedLocation("");
+                          setSelectedLocation((currentLocation) => pickLocationId(locations, currentLocation));
                           setSelectedStaff("");
                         }}
                         className={`py-2 px-2 rounded-lg font-bold text-xs transition transform hover:scale-105 ${
@@ -1325,23 +1371,21 @@ export default function StaffLogin() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
                     {(() => {
                       const visibleIds = loginSettings.visibleLocationIds || [];
-                      const filteredLocations = visibleIds.length > 0
-                        ? locations.filter((loc) => visibleIds.includes(loc._id))
-                        : locations;
+                      const filteredLocations = getVisibleLocations(locations, visibleIds);
                       return filteredLocations.map((loc) => (
                         <button
-                          key={loc._id}
+                          key={getLocationId(loc) || loc.name}
                           onClick={() => {
-                            setSelectedLocation(loc._id);
+                            setSelectedLocation(getLocationId(loc));
                             setSelectedStaff("");
                           }}
                           className={`px-3 py-2.5 rounded-lg font-bold text-xs transition-all ${
-                            selectedLocation === loc._id
+                            getLocationTokens(loc).includes(normalizeLocationToken(selectedLocation))
                               ? "bg-yellow-400 text-cyan-900 ring-2 ring-yellow-300 shadow-md"
                               : "bg-cyan-700 text-white hover:bg-cyan-600 border border-cyan-600"
                           }`}
                         >
-                          {loc.name}
+                          {loc.name || "Location"}
                         </button>
                       ));
                     })()}

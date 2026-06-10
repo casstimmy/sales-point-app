@@ -285,7 +285,7 @@ export default async function handler(req, res) {
         await existingTransaction.save();
 
         try {
-          await markRoomsFromTransaction(mappedItems, existingTransaction, ROOM_STATUSES.OCCUPIED);
+          await markRoomsFromTransaction(mappedItems, existingTransaction, ROOM_STATUSES.RESERVED);
         } catch (roomOccupancyErr) {
           console.warn('⚠️ Failed to update room occupancy for edited transaction:', roomOccupancyErr.message);
         }
@@ -533,7 +533,7 @@ export default async function handler(req, res) {
       }
 
       try {
-        await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.OCCUPIED);
+        await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.RESERVED);
       } catch (roomOccupancyErr) {
         console.warn('⚠️ Failed to update room occupancy:', roomOccupancyErr.message);
       }

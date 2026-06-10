@@ -412,7 +412,7 @@ export default async function handler(req, res) {
     }
 
     try {
-      await markRoomsFromTransaction(mappedItems, transaction, ROOM_STATUSES.OCCUPIED);
+      await markRoomsFromTransaction(mappedItems, transaction, ROOM_STATUSES.RESERVED);
     } catch (error) {
       console.warn('Failed to update room occupancy for online POS order:', error.message);
     }

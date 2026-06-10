@@ -227,6 +227,7 @@ export default function MenuScreen() {
         setError(`${product.name || 'Room'} is ${getRoomStatusLabel(product.roomStatus).toLowerCase()} and cannot be booked.`);
         return;
       }
+      setError(null);
       setRoomToBook(product);
       return;
     }
@@ -242,6 +243,7 @@ export default function MenuScreen() {
       roomStatus: ROOM_STATUSES.RESERVED,
       reservationDetails,
     }));
+    setError(null);
     setRoomToBook(null);
   }, [addItem, buildCartPayload, roomToBook]);
 
