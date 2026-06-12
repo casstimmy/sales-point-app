@@ -25,7 +25,7 @@ import {
 import { useCart } from '../../context/CartContext';
 import { showToast } from '../common/Toast';
 
-const CUSTOMER_TYPES = ['REGULAR', 'VIP', 'NEW', 'INACTIVE', 'BULK_BUYER', 'ONLINE'];
+const CUSTOMER_TYPES = ['REGULAR', 'VIP', 'NEW', 'INACTIVE', 'BULK_BUYER', 'ONLINE', 'CREDIT'];
 
 const CUSTOMER_TYPE_COLORS = {
   VIP: 'bg-purple-100 text-purple-800 border-purple-300',
@@ -34,6 +34,7 @@ const CUSTOMER_TYPE_COLORS = {
   INACTIVE: 'bg-gray-100 text-gray-800 border-gray-300',
   BULK_BUYER: 'bg-orange-100 text-orange-800 border-orange-300',
   ONLINE: 'bg-cyan-100 text-cyan-800 border-cyan-300',
+  CREDIT: 'bg-amber-100 text-amber-800 border-amber-300',
 };
 
 export default function CustomersScreen({ onNavigateToMenu }) {
@@ -50,6 +51,9 @@ export default function CustomersScreen({ onNavigateToMenu }) {
     email: '',
     address: '',
     type: 'REGULAR',
+    isCreditCustomer: false,
+    creditLimit: '',
+    creditNotes: '',
   });
   const [adding, setAdding] = useState(false);
 
@@ -167,6 +171,9 @@ export default function CustomersScreen({ onNavigateToMenu }) {
           email: '',
           address: '',
           type: 'REGULAR',
+          isCreditCustomer: false,
+          creditLimit: '',
+          creditNotes: '',
         });
         setShowAddForm(false);
         showToast('Customer added successfully!', 'success');
@@ -284,7 +291,11 @@ export default function CustomersScreen({ onNavigateToMenu }) {
             />
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              onChange={(e) => setFormData({
+                ...formData,
+                type: e.target.value,
+                isCreditCustomer: e.target.value === 'CREDIT' ? true : formData.isCreditCustomer,
+              })}
               className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {CUSTOMER_TYPES.map(type => (
@@ -293,6 +304,33 @@ export default function CustomersScreen({ onNavigateToMenu }) {
                 </option>
               ))}
             </select>
+            <input
+              type="number"
+              min="0"
+              placeholder="Credit limit"
+              value={formData.creditLimit}
+              onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+              className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <label className="flex items-center gap-2 px-3 py-2 border border-blue-300 rounded-lg text-sm bg-white">
+              <input
+                type="checkbox"
+                checked={formData.isCreditCustomer || formData.type === 'CREDIT'}
+                onChange={(e) => setFormData({
+                  ...formData,
+                  isCreditCustomer: e.target.checked,
+                  type: e.target.checked ? 'CREDIT' : formData.type === 'CREDIT' ? 'REGULAR' : formData.type,
+                })}
+              />
+              Credit customer
+            </label>
+            <input
+              type="text"
+              placeholder="Credit notes"
+              value={formData.creditNotes}
+              onChange={(e) => setFormData({ ...formData, creditNotes: e.target.value })}
+              className="px-3 py-2 border border-blue-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 sm:col-span-2"
+            />
           </div>
 
           <div className="flex gap-2 justify-end">
@@ -321,6 +359,11 @@ export default function CustomersScreen({ onNavigateToMenu }) {
             <div>
               <span className="font-bold">{activeCart.customer.name}</span>
               <span className="ml-2 text-green-100">({activeCart.customer.type})</span>
+              {(activeCart.customer.isCreditCustomer || activeCart.customer.type === 'CREDIT') && (
+                <span className="ml-3 bg-amber-100 text-amber-800 px-2 py-1 rounded text-sm font-bold">
+                  Credit balance: ₦{Number(activeCart.customer.creditBalance || 0).toLocaleString('en-NG')}
+                </span>
+              )}
               {activeCart.appliedPromotion && (
                 <span className="ml-3 bg-white/20 px-2 py-1 rounded text-sm">
                   <FontAwesomeIcon icon={faPercent} className="w-3 h-3 mr-1" />
@@ -422,6 +465,15 @@ export default function CustomersScreen({ onNavigateToMenu }) {
                           ? ` ${applicablePromo.discountValue}%`
                           : ` ₦${applicablePromo.discountValue}`
                         } {applicablePromo.valueType === 'DISCOUNT' ? 'discount' : 'INCREMENT'}
+                      </div>
+                    </div>
+                  )}
+
+                  {(customer.isCreditCustomer || customer.type === 'CREDIT') && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3 text-sm">
+                      <div className="font-semibold text-amber-800">Credit customer</div>
+                      <div className="text-xs text-amber-700 mt-1">
+                        Balance: ₦{Number(customer.creditBalance || 0).toLocaleString('en-NG')} · Limit: {Number(customer.creditLimit || 0) > 0 ? `₦${Number(customer.creditLimit || 0).toLocaleString('en-NG')}` : 'No limit'}
                       </div>
                     </div>
                   )}

@@ -77,6 +77,31 @@ const TransactionSchema = new mongoose.Schema({
   
   // Customer info
   customerName: String,
+  customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
+  creditStatus: {
+    type: String,
+    enum: ["none", "open", "partly_paid", "paid", "written_off"],
+    default: "none",
+  },
+  creditCustomerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
+  creditCustomerName: { type: String, default: "" },
+  creditOriginalTotal: { type: Number, default: 0 },
+  creditPaidAmount: { type: Number, default: 0 },
+  creditBalance: { type: Number, default: 0 },
+  creditDueDate: { type: Date, default: null },
+  creditPaidAt: { type: Date, default: null },
+  creditNotes: { type: String, default: "" },
+  creditPayments: [{
+    amount: { type: Number, default: 0 },
+    tenderType: { type: String, default: "CASH" },
+    tenderName: { type: String, default: "CASH" },
+    reference: { type: String, default: "" },
+    notes: { type: String, default: "" },
+    paidAt: { type: Date, default: Date.now },
+    recordedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null },
+    recordedByName: { type: String, default: "" },
+    sequence: { type: Number, default: 1 },
+  }],
 
   // Attribution for sales influenced by external channels such as the online store
   salesChannel: { type: String, trim: true, default: "POS" },
@@ -93,7 +118,7 @@ const TransactionSchema = new mongoose.Schema({
   
   status: { 
     type: String, 
-    enum: ["held", "completed", "refunded"], 
+    enum: ["held", "completed", "refunded", "credit"],
     default: "completed" 
   },
   subStatus: {
@@ -138,6 +163,8 @@ TransactionSchema.index({ locationId: 1, createdAt: -1 });
 TransactionSchema.index({ staff: 1, createdAt: -1 });
 TransactionSchema.index({ salesChannel: 1, createdAt: -1 });
 TransactionSchema.index({ sourceOrderId: 1 }, { sparse: true });
+TransactionSchema.index({ status: 1, creditStatus: 1, createdAt: -1 });
+TransactionSchema.index({ creditCustomerId: 1, creditStatus: 1 });
 
 // Avoid re-registering the model in development
 delete mongoose.models.Transaction;

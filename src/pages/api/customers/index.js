@@ -32,7 +32,17 @@ export default async function handler(req, res) {
     try {
       await mongooseConnect();
       
-      const { name, email, phone, address, type = "REGULAR" } = req.body;
+      const {
+        name,
+        email,
+        phone,
+        address,
+        type = "REGULAR",
+        isCreditCustomer,
+        creditLimit,
+        creditBalance,
+        creditNotes,
+      } = req.body;
       
       if (!name) {
         return res.status(400).json({ 
@@ -52,12 +62,18 @@ export default async function handler(req, res) {
         }
       }
       
+      const creditEnabled = Boolean(isCreditCustomer || type === "CREDIT");
+
       const customer = new Customer({
         name,
-        email,
+        email: email || undefined,
         phone,
         address,
-        type,
+        type: creditEnabled ? "CREDIT" : type,
+        isCreditCustomer: creditEnabled,
+        creditLimit: Number(creditLimit || 0),
+        creditBalance: Number(creditBalance || 0),
+        creditNotes: creditNotes || "",
         createdAt: new Date(),
         updatedAt: new Date(),
       });

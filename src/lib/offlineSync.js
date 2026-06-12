@@ -73,7 +73,7 @@ let isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
 const normalizeTransactionStatus = (status) => {
   const raw = String(status || 'completed').toLowerCase();
   if (raw === 'complete') return 'completed';
-  if (['completed', 'held', 'refunded'].includes(raw)) return raw;
+  if (['completed', 'held', 'refunded', 'credit'].includes(raw)) return raw;
   return 'completed';
 };
 
@@ -248,7 +248,7 @@ export async function saveTransactionOffline(transaction) {
       addRequest.onsuccess = () => {
         console.log('💾 Transaction saved offline with ID:', addRequest.result);
         // Update till in localStorage with new sales totals
-        updateTillInLocalStorage(transaction.tillId, transaction.total || 0);
+        updateTillInLocalStorage(transaction.tillId, transaction.total || 0, txData.status);
         emitSyncStateChange({ reason: 'transaction-queued' });
         resolve(addRequest.result);
       };
@@ -268,8 +268,9 @@ export async function saveTransactionOffline(transaction) {
  * Update the till stored in localStorage with new transaction totals
  * Called after each offline transaction is saved
  */
-function updateTillInLocalStorage(tillId, transactionTotal) {
+function updateTillInLocalStorage(tillId, transactionTotal, status = 'completed') {
   try {
+    if (status !== 'completed') return;
     if (typeof window === 'undefined') return;
     const savedTill = localStorage.getItem('till');
     if (!savedTill) return;
@@ -304,7 +305,9 @@ export async function getOfflineTillSales(tillId) {
         const all = getAllReq.result || [];
         const tillTx = all.filter(tx => String(tx.tillId) === String(tillId));
         let totalSales = 0;
-        tillTx.forEach(tx => { totalSales += (tx.total || 0); });
+        tillTx.forEach(tx => {
+          if (tx.status === 'completed') totalSales += (tx.total || 0);
+        });
         resolve({ totalSales, transactionCount: tillTx.length });
       };
       getAllReq.onerror = () => reject(getAllReq.error);

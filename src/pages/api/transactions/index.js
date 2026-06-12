@@ -7,6 +7,7 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
+import Customer from '@/src/models/Customer';
 import Till from '@/src/models/Till';
 import mongoose from 'mongoose';
 import { updateInventoryForSale, reverseInventoryForRefund } from '@/src/lib/syncPackQty';
@@ -58,6 +59,37 @@ const applyTenderEntries = (till, entries = [], sign = 1) => {
   till.markModified('tenderBreakdown');
 };
 
+const getCreditPaidTotal = (transaction = {}) => {
+  const payments = Array.isArray(transaction.creditPayments) ? transaction.creditPayments : [];
+  if (payments.length > 0) {
+    return payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  }
+  return Number(transaction.creditPaidAmount || 0);
+};
+
+const getCreditBalance = (transaction = {}) => {
+  const total = Number(transaction.creditOriginalTotal || transaction.total || 0);
+  return Math.max(0, total - getCreditPaidTotal(transaction));
+};
+
+const recalculateCustomerCreditBalance = async (customerId) => {
+  if (!customerId || !mongoose.Types.ObjectId.isValid(String(customerId))) return;
+
+  const openCredits = await Transaction.find({
+    status: 'credit',
+    creditCustomerId: new mongoose.Types.ObjectId(String(customerId)),
+    creditStatus: { $nin: ['paid', 'written_off'] },
+  }).select('creditBalance total creditOriginalTotal creditPaidAmount creditPayments');
+
+  const creditBalance = openCredits.reduce((sum, transaction) => sum + getCreditBalance(transaction), 0);
+  await Customer.findByIdAndUpdate(customerId, {
+    type: 'CREDIT',
+    isCreditCustomer: true,
+    creditBalance,
+    updatedAt: new Date(),
+  });
+};
+
 export default async function handler(req, res) {
   // Support GET for health check and POST for creating transactions
   if (req.method === 'GET') {
@@ -98,6 +130,7 @@ export default async function handler(req, res) {
       device,
       tableName,
       customerName,
+      customerId,
       createdAt,
       status = 'completed',
       tillId, // Till session ID
@@ -109,6 +142,8 @@ export default async function handler(req, res) {
       incrementAmount,
       promotionValueType,
       customerType,
+      creditDueDate,
+      creditNotes,
       salesChannel,
       sourceOrderId,
       sourceOrderType,
@@ -123,9 +158,14 @@ export default async function handler(req, res) {
     const hasMultiplePayments = tenderPayments && Array.isArray(tenderPayments) && tenderPayments.length > 0;
     const hasSingleTender = tenderType && !hasMultiplePayments;
     const rawStatus = String(status || 'completed').trim().toLowerCase();
-    const normalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
+    const requestedNormalizedStatus = rawStatus === 'complete' ? 'completed' : rawStatus;
+    const normalizedStatus = ['completed', 'held', 'refunded', 'credit'].includes(requestedNormalizedStatus)
+      ? requestedNormalizedStatus
+      : 'completed';
     const isHeldTransaction = normalizedStatus === 'held'; // Held transactions don't require payment info
     const isCompletedTransaction = normalizedStatus === 'completed';
+    const isCreditTransaction = normalizedStatus === 'credit';
+    const isStockAffectingTransaction = isCompletedTransaction || isCreditTransaction;
     
     console.log(`ðŸ“¦ Processing transaction - till: ${tillId}, amount: ${total}, status: ${status}`);
     if (hasMultiplePayments) {
@@ -146,7 +186,7 @@ export default async function handler(req, res) {
     }
 
     // For held transactions, payment info is not required. For other statuses, it is.
-    if (total === undefined || (!isHeldTransaction && !hasSingleTender && !hasMultiplePayments)) {
+    if (total === undefined || (!isHeldTransaction && !isCreditTransaction && !hasSingleTender && !hasMultiplePayments)) {
       console.error('âŒ Invalid transaction: total and (tenderType or tenderPayments) required');
       return res.status(400).json({
         success: false,
@@ -175,10 +215,12 @@ export default async function handler(req, res) {
       }));
 
       const oldWasCompleted = existingTransaction.status === 'completed';
+      const oldAffectedStock = existingTransaction.status === 'completed' || existingTransaction.status === 'credit';
       const newIsCompleted = normalizedStatus === 'completed';
+      const newAffectsStock = normalizedStatus === 'completed' || normalizedStatus === 'credit';
       const previousRoomItems = existingTransaction.items || [];
 
-      if (existingTransaction.inventoryUpdated && oldWasCompleted) {
+      if (existingTransaction.inventoryUpdated && oldAffectedStock) {
         await reverseInventoryForRefund(existingTransaction.items || []);
       }
 
@@ -245,7 +287,22 @@ export default async function handler(req, res) {
       existingTransaction.device = device || existingTransaction.device;
       existingTransaction.tableName = tableName || existingTransaction.tableName;
       existingTransaction.customerName = customerName || existingTransaction.customerName;
+      existingTransaction.customerId = mongoose.Types.ObjectId.isValid(String(customerId || ''))
+        ? new mongoose.Types.ObjectId(String(customerId))
+        : existingTransaction.customerId || null;
       existingTransaction.status = normalizedStatus;
+      existingTransaction.creditStatus = isCreditTransaction
+        ? existingTransaction.creditStatus === 'paid' ? 'paid' : 'open'
+        : existingTransaction.creditStatus || 'none';
+      existingTransaction.creditCustomerId = mongoose.Types.ObjectId.isValid(String(customerId || ''))
+        ? new mongoose.Types.ObjectId(String(customerId))
+        : existingTransaction.creditCustomerId || null;
+      existingTransaction.creditCustomerName = customerName || existingTransaction.creditCustomerName || '';
+      existingTransaction.creditOriginalTotal = isCreditTransaction ? newTotal : existingTransaction.creditOriginalTotal || 0;
+      existingTransaction.creditPaidAmount = isCreditTransaction ? Number(amountPaid || 0) : existingTransaction.creditPaidAmount || 0;
+      existingTransaction.creditBalance = isCreditTransaction ? Math.max(0, newTotal - Number(amountPaid || 0)) : existingTransaction.creditBalance || 0;
+      existingTransaction.creditDueDate = creditDueDate ? new Date(creditDueDate) : existingTransaction.creditDueDate || null;
+      existingTransaction.creditNotes = creditNotes || existingTransaction.creditNotes || '';
       existingTransaction.subStatus = subStatus || 'edited';
       existingTransaction.tillId = newTillId ? new mongoose.Types.ObjectId(newTillId) : existingTransaction.tillId;
       existingTransaction.incrementAmount = Number(incrementAmount || 0);
@@ -279,15 +336,17 @@ export default async function handler(req, res) {
         }
       }
 
-      if (newIsCompleted) {
+      if (newAffectsStock) {
         await updateInventoryForSale(mappedItems);
         existingTransaction.inventoryUpdated = true;
         await existingTransaction.save();
 
-        try {
-          await markRoomsFromTransaction(mappedItems, existingTransaction, ROOM_STATUSES.RESERVED);
-        } catch (roomOccupancyErr) {
-          console.warn('⚠️ Failed to update room occupancy for edited transaction:', roomOccupancyErr.message);
+        if (newIsCompleted) {
+          try {
+            await markRoomsFromTransaction(mappedItems, existingTransaction, ROOM_STATUSES.RESERVED);
+          } catch (roomOccupancyErr) {
+            console.warn('⚠️ Failed to update room occupancy for edited transaction:', roomOccupancyErr.message);
+          }
         }
       }
 
@@ -304,6 +363,15 @@ export default async function handler(req, res) {
         },
       });
     }
+
+    // Map items to schema format (qty, salePriceIncTax) before duplicate checks so missed inventory retries can reuse them.
+    const mappedItems = items.map(item => ({
+      ...item,
+      productId: item.productId || item.id,
+      name: item.name,
+      salePriceIncTax: item.price || item.salePriceIncTax || 0,
+      qty: item.quantity || item.qty || 0,
+    }));
 
     const buildDedupeKey = () => {
       const createdAtStamp = createdAt ? new Date(createdAt) : new Date();
@@ -345,7 +413,7 @@ export default async function handler(req, res) {
       if (existingTransaction) {
         console.log(`⚠️ Duplicate transaction detected - externalId ${externalId}`);
         // Retry inventory update if it was missed on original save
-        if (!existingTransaction.inventoryUpdated && existingTransaction.status === 'completed') {
+        if (!existingTransaction.inventoryUpdated && (existingTransaction.status === 'completed' || existingTransaction.status === 'credit')) {
           try {
             await updateInventoryForSale(mappedItems);
             existingTransaction.inventoryUpdated = true;
@@ -367,7 +435,7 @@ export default async function handler(req, res) {
       if (existingByKey) {
         console.log(`⚠️ Duplicate transaction detected - dedupeKey ${dedupeKey}`);
         // Retry inventory update if it was missed on original save
-        if (!existingByKey.inventoryUpdated && existingByKey.status === 'completed') {
+        if (!existingByKey.inventoryUpdated && (existingByKey.status === 'completed' || existingByKey.status === 'credit')) {
           try {
             await updateInventoryForSale(mappedItems);
             existingByKey.inventoryUpdated = true;
@@ -405,15 +473,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // Map items to schema format (qty, salePriceIncTax)
-    const mappedItems = items.map(item => ({
-      ...item,
-      productId: item.productId || item.id,
-      name: item.name,
-      salePriceIncTax: item.price || item.salePriceIncTax || 0,
-      qty: item.quantity || item.qty || 0,
-    }));
-
     // Create transaction record in database
     const transaction = new Transaction({
       ...(externalId && { externalId }),
@@ -435,7 +494,20 @@ export default async function handler(req, res) {
       device: device,
       tableName: tableName,
       discount: discount || 0,
+      customerId: mongoose.Types.ObjectId.isValid(String(customerId || ''))
+        ? new mongoose.Types.ObjectId(String(customerId))
+        : null,
       customerName: customerName,
+      creditStatus: isCreditTransaction ? 'open' : 'none',
+      creditCustomerId: mongoose.Types.ObjectId.isValid(String(customerId || ''))
+        ? new mongoose.Types.ObjectId(String(customerId))
+        : null,
+      creditCustomerName: customerName || '',
+      creditOriginalTotal: isCreditTransaction ? Number(total || 0) : 0,
+      creditPaidAmount: isCreditTransaction ? Number(amountPaid || 0) : 0,
+      creditBalance: isCreditTransaction ? Math.max(0, Number(total || 0) - Number(amountPaid || 0)) : 0,
+      creditDueDate: creditDueDate ? new Date(creditDueDate) : null,
+      creditNotes: creditNotes || '',
       status: normalizedStatus,
       subStatus: subStatus || null,
       change: change || 0,
@@ -521,7 +593,7 @@ export default async function handler(req, res) {
       console.log('â„¹ï¸ No till ID provided, transaction not linked to any till');
     }
     // Update product quantities after successful transaction save (idempotent)
-    if (!savedTransaction.inventoryUpdated && isCompletedTransaction) {
+    if (!savedTransaction.inventoryUpdated && isStockAffectingTransaction) {
       try {
         console.log('📦 Updating inventory for items:', JSON.stringify(mappedItems.map(i => ({ productId: i.productId, qty: i.qty, name: i.name }))));
         await updateInventoryForSale(mappedItems);
@@ -532,12 +604,19 @@ export default async function handler(req, res) {
         console.error('❌ Failed to update product quantities:', updateErr.message, updateErr.stack);
       }
 
-      try {
-        await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.RESERVED);
-      } catch (roomOccupancyErr) {
-        console.warn('⚠️ Failed to update room occupancy:', roomOccupancyErr.message);
+      if (isCompletedTransaction) {
+        try {
+          await markRoomsFromTransaction(mappedItems, savedTransaction, ROOM_STATUSES.RESERVED);
+        } catch (roomOccupancyErr) {
+          console.warn('⚠️ Failed to update room occupancy:', roomOccupancyErr.message);
+        }
       }
     }
+
+    if (isCreditTransaction && savedTransaction.creditCustomerId) {
+      await recalculateCustomerCreditBalance(savedTransaction.creditCustomerId);
+    }
+
     return res.status(201).json({
       success: true,
       message: 'Transaction saved successfully',

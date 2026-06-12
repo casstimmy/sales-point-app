@@ -44,7 +44,9 @@ import {
   getPendingTransactions,
   getResolvedPendingTransactionsHistory,
   resolvePendingTransaction,
+  saveTransactionOffline,
   syncPendingTransactionById,
+  syncPendingTransactions,
 } from "../../lib/offlineSync";
 import { hasPosPermission } from "../../lib/posPermissions";
 import {
@@ -88,6 +90,7 @@ export default function CartPanel() {
   const [pendingActionId, setPendingActionId] = useState(null);
   const [pendingIsOnline, setPendingIsOnline] = useState(getOnlineStatus());
   const [pendingOverlayTab, setPendingOverlayTab] = useState("pending");
+  const [isProcessingCredit, setIsProcessingCredit] = useState(false);
   const { staff, location, till } = useStaff(); // Get logged-in staff, location, and till
   const {
     activeCart,
@@ -341,6 +344,114 @@ export default function CartPanel() {
       return;
     }
     setShowPaymentPanel(true);
+  };
+
+  const handleCreditSale = async () => {
+    if (isProcessingCredit) return;
+
+    if (isEmpty) {
+      showToast("Cart is empty. Add items before recording credit.", "warning");
+      return;
+    }
+
+    if (!staff?._id || !staff?.name || !location?._id || !location?.name) {
+      showToast("Staff or location missing. Please log in again.", "error");
+      return;
+    }
+
+    if (!till?._id) {
+      showToast("Open a till before recording a credit sale.", "warning");
+      return;
+    }
+
+    const customer = activeCart.customer;
+    const isCreditCustomer = Boolean(customer?.isCreditCustomer || customer?.type === "CREDIT");
+    if (!customer?._id || !isCreditCustomer) {
+      showToast("Select a credit customer before using Credit.", "warning");
+      return;
+    }
+
+    const creditLimit = Number(customer.creditLimit || 0);
+    const existingBalance = Number(customer.creditBalance || 0);
+    if (creditLimit > 0 && existingBalance + Number(totals.total || 0) > creditLimit) {
+      showToast("This sale exceeds the customer's credit limit.", "error");
+      return;
+    }
+
+    setIsProcessingCredit(true);
+    try {
+      const clientId = `pos-credit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const transaction = {
+        items: activeCart.items.map((item) => ({
+          productId: item.id,
+          name: item.name,
+          quantity: isRoomProduct(item) ? 1 : item.quantity,
+          price: item.price,
+          qty: isRoomProduct(item) ? 1 : item.quantity,
+          salePriceIncTax: item.price,
+          discount: item.discount || 0,
+          notes: item.notes || "",
+          reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : undefined,
+        })),
+        externalId: clientId,
+        clientId,
+        total: totals.total,
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        discount: totals.discountAmount || 0,
+        discountName: totals.discountName || "Discount",
+        incrementAmount: totals.incrementAmount || 0,
+        incrementName: totals.incrementName || "Additional Charge",
+        promotionValueType: totals.promotionValueType || null,
+        customerType: customer.type || null,
+        customerId: customer._id,
+        customerName: customer.name,
+        amountPaid: 0,
+        change: 0,
+        tenderType: "CREDIT",
+        tenderPayments: [],
+        tenders: { CREDIT: 0 },
+        staffName: staff?.name || staff?.fullName || "POS Staff",
+        staffId: staff?._id,
+        storeId: staff?.storeId || "default-store",
+        location: location?.name || "Default Location",
+        locationId: location?._id,
+        locationName: location?.name,
+        locationAddress: location?.address || "",
+        device: "POS",
+        tableName: null,
+        status: "credit",
+        creditStatus: "open",
+        creditCustomerId: customer._id,
+        creditCustomerName: customer.name,
+        creditOriginalTotal: totals.total,
+        creditPaidAmount: 0,
+        creditBalance: totals.total,
+        creditNotes: "POS credit sale",
+        transactionType: "pos",
+        createdAt: new Date().toISOString(),
+        tillId: till._id,
+      };
+
+      await saveTransactionOffline(transaction);
+      if (getOnlineStatus()) {
+        syncPendingTransactions().catch(() => {});
+      }
+
+      completeOrder("CREDIT");
+      window.dispatchEvent(new CustomEvent("transactions:completed", { detail: { transaction } }));
+
+      const settings = receiptSettings || (await getReceiptSettings());
+      setReceiptSettings(settings);
+      printTransactionReceipt({ ...transaction, _id: transaction._id || Date.now().toString() }, settings).catch(() => {});
+
+      showToast("Credit sale recorded. Stock will reduce and payment is tracked in admin.", "success");
+    } catch (error) {
+      console.error("Failed to record credit sale:", error);
+      showToast("Failed to record credit sale. Please try again.", "error");
+    } finally {
+      setIsProcessingCredit(false);
+    }
   };
 
   const handlePrintCart = async () => {
@@ -1185,6 +1296,14 @@ export default function CartPanel() {
                 <span>HOLD</span>
               </button>
               )}
+              <button
+                onClick={handleCreditSale}
+                disabled={isProcessingCredit}
+                className="flex-1 px-2 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold bg-amber-500 hover:bg-amber-600 disabled:bg-neutral-300 disabled:text-neutral-500 text-white rounded-lg transition-colors duration-base flex flex-col items-center gap-1 min-h-12 sm:min-h-18"
+              >
+                <FontAwesomeIcon icon={faFileAlt} className="w-5 h-5" />
+                <span>{isProcessingCredit ? "SAVING" : "CREDIT"}</span>
+              </button>
               {cartBtnSettings.pay !== false && (
               <button
                 onClick={handlePayment}
