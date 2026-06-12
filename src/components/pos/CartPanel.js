@@ -108,6 +108,9 @@ export default function CartPanel() {
 
   const totals = calculateTotals();
   const isEmpty = activeCart.items.length === 0;
+  const selectedCustomerCanUseCredit = Boolean(
+    activeCart.customer?.isCreditCustomer || activeCart.customer?.type === "CREDIT"
+  );
   const canViewResolvedHistory = hasPosPermission(staff, "viewAdvancedOrders");
 
   const loadPendingTransactions = useCallback(async () => {
@@ -365,8 +368,7 @@ export default function CartPanel() {
     }
 
     const customer = activeCart.customer;
-    const isCreditCustomer = Boolean(customer?.isCreditCustomer || customer?.type === "CREDIT");
-    if (!customer?._id || !isCreditCustomer) {
+    if (!customer?._id || !selectedCustomerCanUseCredit) {
       showToast("Select a credit customer before using Credit.", "warning");
       return;
     }
@@ -1296,6 +1298,7 @@ export default function CartPanel() {
                 <span>HOLD</span>
               </button>
               )}
+              {selectedCustomerCanUseCredit && (
               <button
                 onClick={handleCreditSale}
                 disabled={isProcessingCredit}
@@ -1304,6 +1307,7 @@ export default function CartPanel() {
                 <FontAwesomeIcon icon={faFileAlt} className="w-5 h-5" />
                 <span>{isProcessingCredit ? "SAVING" : "CREDIT"}</span>
               </button>
+              )}
               {cartBtnSettings.pay !== false && (
               <button
                 onClick={handlePayment}
