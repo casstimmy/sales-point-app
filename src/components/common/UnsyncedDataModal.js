@@ -17,7 +17,14 @@ import {
   faWifi,
   faCheckCircle,
 } from "@fortawesome/free-solid-svg-icons";
-import { getAllPendingData, syncPendingTransactions, syncPendingTillOpens, syncPendingTillCloses } from "@/src/lib/offlineSync";
+import {
+  getAllPendingData,
+  syncPendingTransactions,
+  syncPendingTillOpens,
+  syncPendingTillCloses,
+  syncPendingTransactionById,
+  resolvePendingTransaction,
+} from "@/src/lib/offlineSync";
 
 export default function UnsyncedDataModal({ isOpen, onClose }) {
   const [loading, setLoading] = useState(true);
@@ -27,6 +34,8 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
   const [isOnline, setIsOnline] = useState(typeof navigator !== "undefined" ? navigator.onLine : true);
   const [tenderMap, setTenderMap] = useState({});
   const [locationMap, setLocationMap] = useState({});
+  const [activeTransactionId, setActiveTransactionId] = useState(null);
+  const [actionError, setActionError] = useState("");
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -93,15 +102,85 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
   const handleSyncNow = async () => {
     if (!isOnline) return;
     setSyncing(true);
+    setActionError("");
     try {
       await syncPendingTillOpens();
-      await syncPendingTransactions();
+      await syncPendingTransactions({ forceRetry: true });
       await syncPendingTillCloses();
       await loadData();
     } catch (e) {
       console.error("Sync failed:", e);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const getSessionSnapshot = () => {
+    try {
+      return {
+        staff: JSON.parse(localStorage.getItem("staff") || "null"),
+        till: JSON.parse(localStorage.getItem("till") || "null"),
+      };
+    } catch {
+      return { staff: null, till: null };
+    }
+  };
+
+  const handleSyncTransaction = async (tx) => {
+    const transactionId = tx?.id;
+    if (!transactionId || !isOnline) return;
+
+    setActionError("");
+    setActiveTransactionId(String(transactionId));
+    try {
+      await syncPendingTillOpens();
+      const result = await syncPendingTransactionById(transactionId);
+      await syncPendingTillCloses();
+
+      if (!result?.success) {
+        setActionError(
+          result?.reason === "till-not-mapped"
+            ? "Till mapping is still not recoverable for that transaction. Use Resolve only if the sale was already handled."
+            : "That transaction could not be synced yet. Check the connection and try again."
+        );
+      }
+
+      await loadData();
+    } catch (e) {
+      console.error("Transaction sync failed:", e);
+      setActionError("That transaction could not be synced yet. Check the connection and try again.");
+    } finally {
+      setActiveTransactionId(null);
+    }
+  };
+
+  const handleResolveTransaction = async (tx) => {
+    const transactionId = tx?.id;
+    if (!transactionId) return;
+
+    const { staff, till } = getSessionSnapshot();
+    setActionError("");
+    setActiveTransactionId(String(transactionId));
+    try {
+      const result = await resolvePendingTransaction(transactionId, {
+        type: "previous-till",
+        note: "Resolved from Help/Chat Unsynced Data after offline till recovery was reviewed.",
+        tillId: till?._id || null,
+        staffId: staff?._id || null,
+        staffName: staff?.name || staff?.fullName || null,
+        staffRole: staff?.role || null,
+      });
+
+      if (!result?.success) {
+        setActionError("That transaction could not be resolved. Reload the panel and try again.");
+      }
+
+      await loadData();
+    } catch (e) {
+      console.error("Transaction resolve failed:", e);
+      setActionError("That transaction could not be resolved. Reload the panel and try again.");
+    } finally {
+      setActiveTransactionId(null);
     }
   };
 
@@ -170,6 +249,11 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
             <FontAwesomeIcon icon={faSync} className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
             {syncing ? "Syncing..." : !isOnline ? "Offline — Sync unavailable" : "Sync Now"}
           </button>
+          {actionError && (
+            <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1.5 text-[10px] font-medium text-amber-200">
+              {actionError}
+            </p>
+          )}
         </div>
 
         {/* Tabs */}
@@ -215,8 +299,14 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
                 data.transactions.length === 0 ? (
                   <p className="text-center text-slate-500 text-xs py-6">No pending transactions</p>
                 ) : (
-                  data.transactions.map((tx, idx) => (
-                    <div key={tx.id || tx.externalId || idx} className="bg-slate-800/80 border border-slate-700 rounded-lg p-3 space-y-1.5">
+                  data.transactions.map((tx, idx) => {
+                    const transactionId = String(tx.id || tx.externalId || tx.clientId || idx);
+                    const isActing = activeTransactionId === String(tx.id);
+                    const tillLabel = tx.originalOfflineTillId || tx.tillId || "—";
+                    const hasOfflineTill = String(tillLabel).startsWith("offline-till-");
+
+                    return (
+                    <div key={transactionId} className="bg-slate-800/80 border border-slate-700 rounded-lg p-3 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-slate-400 font-mono">{tx.externalId || tx.clientId || `#${tx.id}`}</span>
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
@@ -261,8 +351,33 @@ export default function UnsyncedDataModal({ isOpen, onClose }) {
                       {tx.attempts > 0 && (
                         <span className="text-[9px] text-amber-400">⚠ {tx.attempts} sync attempt{tx.attempts !== 1 ? "s" : ""} failed</span>
                       )}
+                      <div className="text-[10px] text-slate-400">
+                        Till: <span className="font-mono text-slate-300">{tillLabel}</span>
+                      </div>
+                      {hasOfflineTill && (
+                        <div className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1.5 text-[10px] font-medium text-amber-200">
+                          Offline till is not mapped yet. Sync Sale will recover the sale even if the old till cannot be registered.
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <button
+                          onClick={() => handleSyncTransaction(tx)}
+                          disabled={!isOnline || syncing || isActing || !tx.id}
+                          className="rounded-md bg-primary-600 px-2 py-1.5 text-[11px] font-bold text-white transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-400"
+                        >
+                          {isActing ? "Working..." : isOnline ? "Sync Sale" : "Offline"}
+                        </button>
+                        <button
+                          onClick={() => handleResolveTransaction(tx)}
+                          disabled={syncing || isActing || !tx.id}
+                          className="rounded-md bg-amber-500 px-2 py-1.5 text-[11px] font-bold text-white transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:bg-slate-600 disabled:text-slate-400"
+                        >
+                          {isActing ? "Working..." : "Resolve"}
+                        </button>
+                      </div>
                     </div>
-                  ))
+                    );
+                  })
                 )
               )}
 

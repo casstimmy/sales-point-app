@@ -518,6 +518,22 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     }
   }, [till, isOpen, pendingLocalTransactions]);
 
+  const syncPendingForTill = async () => {
+    const {
+      syncPendingTillOpens,
+      syncPendingTransactions,
+      syncPendingTillCloses,
+    } = await import('../../lib/offlineSync');
+
+    await syncPendingTillOpens();
+    await syncPendingTransactions({ forceRetry: true });
+    await syncPendingTillCloses();
+
+    const pendingAfterSync = await getPendingTransactionsForTill(till?._id);
+    setPendingLocalTransactions(pendingAfterSync || 0);
+    return pendingAfterSync || 0;
+  };
+
   const handleCloseTill = async () => {
     if (!tenders || tenders.length === 0) {
       setError("No payment methods available");
@@ -525,8 +541,21 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     }
 
     if (isOnline && pendingLocalTransactions > 0) {
-      setError("Pending transactions have not synced. Please sync before closing the till.");
-      return;
+      setSyncing(true);
+      setError(null);
+      try {
+        const pendingAfterSync = await syncPendingForTill();
+        if (pendingAfterSync > 0) {
+          setError("Pending transactions are still unsynced. Open Help/Chat > Unsynced Data, then use Sync Sale or Resolve for old offline-till records.");
+          return;
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not recover pending transactions before close:', err?.message || err);
+        setError("Could not sync pending transactions. Check the connection, then try again.");
+        return;
+      } finally {
+        setSyncing(false);
+      }
     }
 
     const hasEmptyTenders = tenders.some(t => 
@@ -576,18 +605,24 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
         // Ensure all local transactions are synced before closing till
         setLoadingProgress(15);
         setLoadingStep("Syncing pending transactions...");
+        let pendingAfterSync = 0;
         try {
-          const { syncPendingTransactions } = await import('../../lib/offlineSync');
-          await syncPendingTransactions();
+          pendingAfterSync = await syncPendingForTill();
         } catch (err) {
           console.warn('⚠️ Could not sync pending transactions before closing till:', err?.message || err);
+          try {
+            pendingAfterSync = await getPendingTransactionsForTill(till?._id);
+            setPendingLocalTransactions(pendingAfterSync || 0);
+          } catch (countErr) {
+            console.warn('⚠️ Could not re-count pending transactions before closing till:', countErr?.message || countErr);
+            pendingAfterSync = 1;
+          }
         }
 
         setLoadingProgress(35);
         setLoadingStep("Checking final pending transactions...");
-        const pendingAfterSync = await getPendingTransactionsForTill(till._id);
         if (pendingAfterSync > 0) {
-          setError("Pending transactions are still unsynced. Please sync and try again.");
+          setError("Pending transactions are still unsynced. Open Help/Chat > Unsynced Data, then use Sync Sale or Resolve for old offline-till records.");
           setLoading(false);
           setLoadingProgress(0);
           setLoadingStep("");
@@ -694,13 +729,9 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
     setSyncing(true);
     setError(null);
     try {
-      const { syncPendingTillOpens, syncPendingTransactions } = await import('../../lib/offlineSync');
-      await syncPendingTillOpens();
-      await syncPendingTransactions();
-      const pendingAfterSync = await getPendingTransactionsForTill(till?._id);
-      setPendingLocalTransactions(pendingAfterSync || 0);
+      const pendingAfterSync = await syncPendingForTill();
       if (pendingAfterSync > 0) {
-        setError("Some transactions are still pending. Please try again.");
+        setError("Some transactions are still pending. Open Help/Chat > Unsynced Data, then use Sync Sale or Resolve for old offline-till records.");
       }
     } catch (err) {
       console.warn('⚠️ Sync failed:', err?.message || err);

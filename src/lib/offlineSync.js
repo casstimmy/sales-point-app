@@ -111,6 +111,15 @@ const normalizeStaffName = (transaction = {}) => {
   return 'POS Staff';
 };
 
+const isOfflineTillId = (value) => String(value || '').startsWith('offline-till-');
+
+const canSyncWithoutTill = (transaction = {}) => {
+  const items = Array.isArray(transaction.items) ? transaction.items : [];
+  const total = Number(transaction.total || 0);
+  const status = normalizeTransactionStatus(transaction.status);
+  return items.length > 0 && total >= 0 && ['completed', 'held', 'refunded', 'credit'].includes(status);
+};
+
 const emitSyncStateChange = (detail = {}) => {
   if (typeof window === 'undefined') return;
 
@@ -339,45 +348,58 @@ async function syncTransactionRecord(transaction, { forceRetry = false } = {}) {
   }
 
   try {
-    if (tx.tillId && String(tx.tillId).startsWith('offline-till-')) {
+    let payloadTillId = tx.tillId || null;
+    let originalOfflineTillId = tx.originalOfflineTillId || null;
+
+    if (tx.tillId && isOfflineTillId(tx.tillId)) {
       const resolved = await resolveTillId(tx.tillId, tx);
       if (!resolved) {
-        console.warn(`⚠️ Skipping transaction ${tx.id} - till not mapped yet`);
-        return { synced: false, failed: true, reason: 'till-not-mapped' };
-      }
+        if (!canSyncWithoutTill(tx)) {
+          console.warn(`⚠️ Skipping transaction ${tx.id} - till not mapped yet`);
+          return { synced: false, failed: true, reason: 'till-not-mapped' };
+        }
 
-      const origOfflineTillId = tx.tillId;
-      tx.tillId = resolved;
+        originalOfflineTillId = tx.tillId;
+        payloadTillId = null;
+        console.warn(`⚠️ Transaction ${tx.id} has an unmapped offline till. Syncing sale without till link to clear the local queue.`);
+      } else {
+        const origOfflineTillId = tx.tillId;
+        tx.tillId = resolved;
+        payloadTillId = resolved;
+        originalOfflineTillId = origOfflineTillId;
 
-      try {
-        const updateDb = await openSalesPosDb();
-        await new Promise((resolve, reject) => {
-          const updateStore = updateDb.transaction(['transactions'], 'readwrite')
-            .objectStore('transactions');
-          const getReq = updateStore.get(tx.id);
+        try {
+          const updateDb = await openSalesPosDb();
+          await new Promise((resolve, reject) => {
+            const updateStore = updateDb.transaction(['transactions'], 'readwrite')
+              .objectStore('transactions');
+            const getReq = updateStore.get(tx.id);
 
-          getReq.onsuccess = () => {
-            const record = getReq.result;
-            if (record) {
-              record.tillId = resolved;
-              record.originalOfflineTillId = origOfflineTillId;
-              const putReq = updateStore.put(record);
-              putReq.onsuccess = () => resolve();
-              putReq.onerror = () => reject(putReq.error);
-            } else {
-              resolve();
-            }
-          };
+            getReq.onsuccess = () => {
+              const record = getReq.result;
+              if (record) {
+                record.tillId = resolved;
+                record.originalOfflineTillId = origOfflineTillId;
+                const putReq = updateStore.put(record);
+                putReq.onsuccess = () => resolve();
+                putReq.onerror = () => reject(putReq.error);
+              } else {
+                resolve();
+              }
+            };
 
-          getReq.onerror = () => reject(getReq.error);
-        });
-      } catch (err) {
-        console.warn('⚠️ Could not persist resolved tillId:', err);
+            getReq.onerror = () => reject(getReq.error);
+          });
+        } catch (err) {
+          console.warn('⚠️ Could not persist resolved tillId:', err);
+        }
       }
     }
 
     const payload = {
       ...tx,
+      tillId: payloadTillId,
+      originalOfflineTillId,
       externalId: tx.externalId || tx.clientId || String(tx.id),
       staffName: normalizeStaffName(tx),
       location: normalizeLocationName(tx?.location),
@@ -396,7 +418,12 @@ async function syncTransactionRecord(transaction, { forceRetry = false } = {}) {
       await markTransactionSynced(tx.id);
       _retryMap.delete(tx.id);
       console.log(`✅ Transaction ${tx.id} synced`);
-      return { synced: true, failed: false };
+      return {
+        synced: true,
+        failed: false,
+        reason: payloadTillId ? 'synced' : originalOfflineTillId ? 'synced-without-till' : 'synced',
+        originalOfflineTillId,
+      };
     }
 
     const attempts = (retryInfo?.attempts || 0) + 1;
@@ -429,7 +456,7 @@ async function syncTransactionRecord(transaction, { forceRetry = false } = {}) {
 /**
  * Sync pending transactions to cloud
  */
-export async function syncPendingTransactions() {
+export async function syncPendingTransactions({ forceRetry = false } = {}) {
   if (!isOnline) {
     console.log('⚠️ Offline - Skipping cloud sync');
     return;
@@ -495,7 +522,7 @@ export async function syncPendingTransactions() {
           let failed = 0;
 
           for (const tx of transactions) {
-            const result = await syncTransactionRecord(tx);
+            const result = await syncTransactionRecord(tx, { forceRetry });
             if (result?.synced) {
               synced++;
             } else if (result?.failed) {
