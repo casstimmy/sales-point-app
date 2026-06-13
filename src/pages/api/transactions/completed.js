@@ -8,6 +8,7 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
+import mongoose from 'mongoose';
 
 export default async function handler(req, res) {
   // Only support GET
@@ -44,7 +45,7 @@ export default async function handler(req, res) {
     if (location) {
       filters.location = location;
     }
-    if (tillId) {
+    if (tillId && mongoose.Types.ObjectId.isValid(String(tillId))) {
       filters.tillId = tillId;
     }
 
@@ -56,7 +57,9 @@ export default async function handler(req, res) {
       }
       if (endDate) {
         const endDateTime = new Date(endDate);
-        endDateTime.setHours(23, 59, 59, 999); // Include entire end date
+        if (!String(endDate).includes('T')) {
+          endDateTime.setHours(23, 59, 59, 999); // Include entire date-only value
+        }
         filters.createdAt.$lte = endDateTime;
       }
     }
