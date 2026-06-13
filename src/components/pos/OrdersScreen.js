@@ -90,6 +90,22 @@ const textIncludes = (value, needle) => {
   return String(value || '').toLowerCase().includes(query);
 };
 
+const sameToken = (left, right) => String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
+
+const orderMatchesCurrentLocation = (order, currentLocation) => {
+  const currentLocationId = String(currentLocation?._id || currentLocation?.id || '').trim();
+  const orderLocationId = String(order?.locationId || '').trim();
+
+  if (currentLocationId && orderLocationId) {
+    return currentLocationId === orderLocationId;
+  }
+
+  const currentLocationName = String(currentLocation?.name || '').trim();
+  if (!currentLocationName) return true;
+
+  return sameToken(order?.location, currentLocationName) || sameToken(order?.locationName, currentLocationName);
+};
+
 const getTenderSearchText = (order) => [
   order?.tenderType,
   order?.paymentStatus,
@@ -189,25 +205,36 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     setIsLoadingCompleted(true);
     try {
       let completed = [];
+      const todayDateKey = getLocalDateKey(new Date());
+      const effectiveDateKey = selectedDate || todayDateKey;
 
-      // Try to use cached data first (much faster)
-      const cached = getCachedCompletedTransactions();
-      if (cached.length > 0) {
-        console.log(`⚡ Using ${cached.length} cached transactions`);
-        setCompletedTransactions(cached);
+      // The local completed cache is keyed by today's date only.
+      if (effectiveDateKey === todayDateKey) {
+        const cached = getCachedCompletedTransactions();
+        if (cached.length > 0) {
+          console.log(`⚡ Using ${cached.length} cached transactions`);
+          setCompletedTransactions(cached);
+        }
       }
 
       if (isOnline) {
-        // Online: Fetch recent completed transactions. Date/time/tender/customer filters are applied client-side.
+        // Online: Fetch the selected day for this POS location. Other filters are applied client-side.
         try {
           const params = new URLSearchParams({
             limit: '1000',
           });
 
-          const selectedDateRange = getLocalDateRange(selectedDate);
-          if (selectedDateRange) {
-            params.append('startDate', selectedDateRange.start.toISOString());
-            params.append('endDate', selectedDateRange.end.toISOString());
+          const dateRange = getLocalDateRange(effectiveDateKey);
+          if (dateRange) {
+            params.append('startDate', dateRange.start.toISOString());
+            params.append('endDate', dateRange.end.toISOString());
+          }
+
+          if (location?._id) {
+            params.append('locationId', String(location._id));
+          }
+          if (location?.name) {
+            params.append('location', String(location.name));
           }
 
           const response = await fetch(`/api/transactions/completed?${params}`);
@@ -216,7 +243,9 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             completed = result.data || result || [];
             console.log(`✅ Fetched ${completed.length} completed transactions from server`);
             // Cache the fresh data
-            cacheCompletedTransactions(completed);
+            if (effectiveDateKey === todayDateKey) {
+              cacheCompletedTransactions(completed);
+            }
           } else {
             console.warn('Failed to fetch from server, falling back to IndexedDB');
             completed = await getCompletedTransactions();
@@ -238,7 +267,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     } finally {
       setIsLoadingCompleted(false);
     }
-  }, [isOnline, selectedDate]);
+  }, [isOnline, location?._id, location?.name, selectedDate]);
 
   // Load completed transactions on mount and when switching to COMPLETE tab or online status changes
   useEffect(() => {
@@ -425,6 +454,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           staffMember: tx.staffName || 'Unknown',
           heldByStaffName: tx.heldByStaffName || null,
           location: tx.location || 'Main Store',
+          locationId: tx.locationId || null,
           locationAddress: tx.locationAddress || '',
           tenderType: tenderDisplay,
           tenderPayments: tx.tenderPayments || [],
@@ -507,10 +537,19 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     }
 
     let filtered = sourceOrders;
-    if (selectedDate) {
+
+    if (activeStatus === 'COMPLETE') {
+      filtered = filtered.filter(order => orderMatchesCurrentLocation(order, location));
+    }
+
+    const effectiveDateKey = activeStatus === 'COMPLETE'
+      ? selectedDate || getLocalDateKey(new Date())
+      : selectedDate;
+
+    if (effectiveDateKey) {
       filtered = filtered.filter(order => {
         const orderDate = getLocalDateKey(order.createdAt || order.time);
-        return orderDate === selectedDate;
+        return orderDate === effectiveDateKey;
       });
     }
 

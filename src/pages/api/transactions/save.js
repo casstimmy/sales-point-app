@@ -8,6 +8,7 @@
 
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
+import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
 import {
@@ -66,6 +67,7 @@ export default async function handler(req, res) {
       incrementName = '',
       promotionValueType = null,
       location = 'Default Location',
+      locationId,
       device,
       tableName,
       customerName,
@@ -264,6 +266,9 @@ export default async function handler(req, res) {
       staff: staffId || null,
       staffName: finalStaffName, // Use normalized staff name
       location: normalizedLocation,
+      ...(mongoose.Types.ObjectId.isValid(String(locationId || '')) && {
+        locationId: new mongoose.Types.ObjectId(String(locationId)),
+      }),
       device: device || 'web',
       status: normalizedStatus,
       

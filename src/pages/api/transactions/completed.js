@@ -10,6 +10,8 @@ import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import mongoose from 'mongoose';
 
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 export default async function handler(req, res) {
   // Only support GET
   if (req.method !== 'GET') {
@@ -26,6 +28,7 @@ export default async function handler(req, res) {
     const { 
       staffId,
       location,
+      locationId,
       tillId,
       startDate,
       endDate,
@@ -42,8 +45,22 @@ export default async function handler(req, res) {
     if (staffId) {
       filters.staff = staffId;
     }
+    const locationClauses = [];
+    if (locationId && mongoose.Types.ObjectId.isValid(String(locationId))) {
+      locationClauses.push({ locationId: new mongoose.Types.ObjectId(String(locationId)) });
+    }
     if (location) {
-      filters.location = location;
+      locationClauses.push({
+        location: {
+          $regex: `^${escapeRegex(location)}$`,
+          $options: 'i',
+        },
+      });
+    }
+    if (locationClauses.length === 1) {
+      Object.assign(filters, locationClauses[0]);
+    } else if (locationClauses.length > 1) {
+      filters.$or = locationClauses;
     }
     if (tillId && mongoose.Types.ObjectId.isValid(String(tillId))) {
       filters.tillId = tillId;
@@ -87,6 +104,7 @@ export default async function handler(req, res) {
       staffName: tx.staffName || 'Unknown',
       staffId: tx.staff?.toString() || tx.staffId,
       tillId: tx.tillId?.toString() || tx.tillId,
+      locationId: tx.locationId?.toString() || tx.locationId || null,
       location: tx.location || 'Default Location',
       tenderType: tx.tenderType, // Legacy single tender
       tenderPayments: tx.tenderPayments, // New split payments
