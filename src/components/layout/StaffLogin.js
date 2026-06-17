@@ -18,6 +18,7 @@ import {
 } from "@fortawesome/free-solid-svg-icons";
 import { normalizeStaffList, normalizeStaffMember } from "@/src/lib/posPermissions";
 import { getUiSettings } from "@/src/lib/uiSettings";
+import { primePosBootstrapFromCache, primePosBootstrapFromLiveData } from "@/src/lib/posBootstrap";
 
 const normalizeLocationToken = (value) => String(value || "").trim().toLowerCase();
 
@@ -182,6 +183,49 @@ export default function StaffLogin() {
       return "Login service is unavailable. You can continue in offline mode if data is cached.";
     }
     return payload?.message || "Unable to log in. Please check your details and try again.";
+  }, []);
+
+  const preloadPosShell = useCallback(async (staffData, locationData) => {
+    const normalizedStaffData = normalizeStaffMember(staffData);
+    primePosBootstrapFromCache({ staff: normalizedStaffData, location: locationData });
+
+    try {
+      const settingsRequest = normalizedStaffData?.storeId
+        ? fetch(`/api/ui-settings?storeId=${encodeURIComponent(normalizedStaffData.storeId)}`)
+        : Promise.resolve(null);
+
+      const [storeResult, settingsResult] = await Promise.allSettled([
+        fetch("/api/store/init"),
+        settingsRequest,
+      ]);
+
+      let storeData = null;
+      let uiSettings = null;
+
+      if (storeResult.status === "fulfilled" && storeResult.value?.ok) {
+        const liveStoreData = await storeResult.value.json();
+        storeData = {
+          ...liveStoreData,
+          location: locationData?.name || liveStoreData?.location,
+          address: locationData?.address || liveStoreData?.address || "",
+          phone: locationData?.phone || liveStoreData?.phone || "",
+        };
+      }
+
+      if (settingsResult.status === "fulfilled" && settingsResult.value?.ok) {
+        const settingsPayload = await settingsResult.value.json();
+        uiSettings = settingsPayload?.settings || null;
+      }
+
+      primePosBootstrapFromLiveData({
+        staff: normalizedStaffData,
+        location: locationData,
+        storeData,
+        uiSettings,
+      });
+    } catch (error) {
+      primePosBootstrapFromCache({ staff: normalizedStaffData, location: locationData });
+    }
   }, []);
 
   /* Load cached staff and locations from localStorage */
@@ -680,6 +724,8 @@ export default function StaffLogin() {
     console.log("📍 Staff:", selectedStaffData.name, "Location:", selectedLocationData.name);
     console.log("⚠️ NOTE: Running in OFFLINE mode - PIN validation skipped");
 
+    void preloadPosShell(selectedStaffData, selectedLocationData);
+
     // Offline: check if there's an existing open till to resume
     const savedTill = localStorage.getItem("till");
     if (savedTill) {
@@ -712,7 +758,7 @@ export default function StaffLogin() {
     setLoginData({ staff: selectedStaffData, location: selectedLocationData });
     setShowOpenTillModal(true);
     return true;
-  }, [locations, staff, selectedStaff, selectedLocation, login, setCurrentTill, router, setError, getPendingTillCloseIds]);
+  }, [locations, staff, selectedStaff, selectedLocation, login, setCurrentTill, router, setError, getPendingTillCloseIds, preloadPosShell]);
 
   const handleLogin = useCallback(async () => {
     if (!selectedStore || !selectedLocation || !selectedStaff || pin.length !== 4) {
@@ -753,6 +799,8 @@ export default function StaffLogin() {
         if (response.ok && data?.staff && data?.location) {
           console.log("✅ Login successful (ONLINE)!");
           console.log("📍 Staff:", data.staff?.name, "Location:", data.location?.name);
+          const normalizedStaffData = normalizeStaffMember(data.staff);
+          void preloadPosShell(normalizedStaffData, data.location);
           
           // Sync pending offline till/transactions before checking current till
           try {
@@ -776,13 +824,13 @@ export default function StaffLogin() {
             console.log("   Till Status:", tillData.till?.status);
             console.log("   Opening Balance:", tillData.till?.openingBalance);
             
-            login(normalizeStaffMember(data.staff), data.location);
+            login(normalizedStaffData, data.location);
             setCurrentTill(tillData.till);
             router.push("/");
           } else {
             // No open till, show OpenTillModal
             console.log("❌ No open till found - showing OpenTillModal");
-            setLoginData({ staff: normalizeStaffMember(data.staff), location: data.location });
+            setLoginData({ staff: normalizedStaffData, location: data.location });
             setShowOpenTillModal(true);
           }
         } else {
@@ -815,7 +863,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, login, setCurrentTill, router, attemptOfflineLogin, getLoginErrorMessage]);
+  }, [selectedStore, selectedLocation, selectedStaff, pin, isOnline, login, setCurrentTill, router, attemptOfflineLogin, getLoginErrorMessage, preloadPosShell]);
 
   const handlePinClick = (digit) => {
     if (pin.length < 4) {
@@ -832,6 +880,7 @@ export default function StaffLogin() {
     if (loginData) {
       console.log("📋 Till opened, storing till in context:", till);
       login(loginData.staff, loginData.location);
+      void preloadPosShell(loginData.staff, loginData.location);
       
       // IMPORTANT: Set the till in context so it's available throughout the app
       setCurrentTill(till);
@@ -960,6 +1009,8 @@ export default function StaffLogin() {
         locationName: location?.name || till.locationName || staffMember?.locationName,
       });
 
+      void preloadPosShell(sessionStaff, location);
+
       login(sessionStaff, location);
       setCurrentTill(till);
       setResumeTill(null);
@@ -972,7 +1023,7 @@ export default function StaffLogin() {
     } finally {
       setLoading(false);
     }
-  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router]);
+  }, [staff, locations, isOnline, selectedStore, pin, login, setCurrentTill, router, preloadPosShell]);
 
   const handleKeyPress = useCallback((e) => {
     if (e.key === "Enter" && pin.length === 4 && selectedStore && selectedLocation && selectedStaff) {

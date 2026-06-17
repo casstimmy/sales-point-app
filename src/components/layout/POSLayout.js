@@ -20,13 +20,14 @@ import { saveUiSettings } from "@/src/lib/uiSettings";
 import { getUiSettings } from "@/src/lib/uiSettings";
 import { getStoreLogo, setStoreLogo } from "@/src/lib/logoCache";
 import { hasPosPermission } from "@/src/lib/posPermissions";
+import { getOptimisticStoreData, primePosBootstrapFromLiveData, readPosBootstrap } from "@/src/lib/posBootstrap";
 
 export default function POSLayout({ children }) {
   const router = useRouter();
   const { staff, location, logout } = useStaff();
   const { handleApiError, forceLoginRedirect } = useErrorHandler();
-  const [storeData, setStoreData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [storeData, setStoreData] = useState(() => getOptimisticStoreData({ location }));
+  const [loading, setLoading] = useState(() => !staff);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingStep, setLoadingStep] = useState("Initializing...");
   const [activeTab, setActiveTab] = useState("MENU");
@@ -44,13 +45,33 @@ export default function POSLayout({ children }) {
 
   // Fetch store and till data from database
   useEffect(() => {
+    const bootstrap = readPosBootstrap({ location });
+    if (bootstrap?.storeData) {
+      setStoreData((currentValue) => currentValue || bootstrap.storeData);
+    }
+    if (bootstrap?.uiSettings) {
+      setUiSettings(bootstrap.uiSettings);
+    }
+    if (staff) {
+      setLoading(false);
+    }
+  }, [location, staff]);
+
+  useEffect(() => {
     const fetchStoreData = async () => {
+      const optimisticStoreData = getOptimisticStoreData({ location });
+
       try {
-        setLoadingProgress(0);
-        setLoadingStep("Initializing...");
+        if (!optimisticStoreData) {
+          setLoadingProgress(0);
+          setLoadingStep("Initializing...");
+          setLoading(true);
+        }
         
-        setLoadingProgress(20);
-        setLoadingStep("Fetching store data...");
+        if (!optimisticStoreData) {
+          setLoadingProgress(20);
+          setLoadingStep("Fetching store data...");
+        }
         const response = await fetch("/api/store/init");
         
         // Check for auth errors
@@ -71,6 +92,7 @@ export default function POSLayout({ children }) {
           }
           setStoreData({
             name: cachedStore?.name || "Store Name",
+            logo: getStoreLogo(),
             tillId: "Till_001",
             location: location?.name || "Store Location",
           });
@@ -78,17 +100,28 @@ export default function POSLayout({ children }) {
           return;
         }
         
-        setLoadingProgress(50);
-        setLoadingStep("Processing store information...");
-        const data = await response.json();
-        setStoreData(data);
-        // Cache logo from store data if available
-        if (data.logo) {
-          setStoreLogo(data.logo);
+        if (!optimisticStoreData) {
+          setLoadingProgress(50);
+          setLoadingStep("Processing store information...");
         }
+        const data = await response.json();
+        const resolvedStoreData = {
+          ...data,
+          location: location?.name || data?.location,
+          address: location?.address || data?.address || "",
+          phone: location?.phone || data?.phone || "",
+        };
+        setStoreData(resolvedStoreData);
+        // Cache logo from store data if available
+        if (resolvedStoreData.logo) {
+          setStoreLogo(resolvedStoreData.logo);
+        }
+        primePosBootstrapFromLiveData({ staff, location, storeData: resolvedStoreData });
         
-        setLoadingProgress(80);
-        setLoadingStep("Finalizing...");
+        if (!optimisticStoreData) {
+          setLoadingProgress(80);
+          setLoadingStep("Finalizing...");
+        }
       } catch (err) {
         console.error("Failed to fetch store data:", err);
         // Use cached data or defaults if API fails
@@ -101,18 +134,21 @@ export default function POSLayout({ children }) {
         }
         setStoreData({
           name: cachedStore?.name || "Store Name",
+          logo: getStoreLogo(),
           tillId: "Till_001",
           location: location?.name || "Store Location",
         });
       } finally {
-        setLoadingProgress(100);
-        setLoadingStep("Complete!");
+        if (!optimisticStoreData) {
+          setLoadingProgress(100);
+          setLoadingStep("Complete!");
+        }
         setLoading(false);
       }
     };
 
     fetchStoreData();
-  }, [handleApiError, location?.name]);
+  }, [handleApiError, location, staff]);
 
   useEffect(() => {
     const fetchUiSettings = async () => {
@@ -123,6 +159,7 @@ export default function POSLayout({ children }) {
         const data = await res.json();
         if (data?.settings) {
           saveUiSettings(data.settings);
+          primePosBootstrapFromLiveData({ staff, location, storeData, uiSettings: data.settings });
         }
       } catch (err) {
         // Keep local settings if offline
@@ -130,7 +167,7 @@ export default function POSLayout({ children }) {
     };
 
     fetchUiSettings();
-  }, [staff?.storeId]);
+  }, [location, staff, storeData]);
 
   useEffect(() => {
     const handleSettingsUpdate = (event) => {

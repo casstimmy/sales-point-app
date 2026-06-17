@@ -57,79 +57,10 @@ const getOrderContactDetails = (order) => {
 
 const getOrderSourceLabel = (siteKey) => (siteKey === 'hotel' ? 'Hotel Website' : 'Store Website');
 
-const getLocalDateKey = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getLocalDateRange = (dateKey) => {
-  const [year, month, day] = String(dateKey || '').split('-').map(Number);
-  if (!year || !month || !day) return null;
-  const start = new Date(year, month - 1, day, 0, 0, 0, 0);
-  const end = new Date(year, month - 1, day, 23, 59, 59, 999);
-  return { start, end };
-};
-
-const getLocalTimeKey = (value) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  return `${hours}:${minutes}`;
-};
-
-const textIncludes = (value, needle) => {
-  const query = String(needle || '').trim().toLowerCase();
-  if (!query) return true;
-  return String(value || '').toLowerCase().includes(query);
-};
-
-const sameToken = (left, right) => String(left || '').trim().toLowerCase() === String(right || '').trim().toLowerCase();
-
-const orderMatchesCurrentLocation = (order, currentLocation) => {
-  const currentLocationId = String(currentLocation?._id || currentLocation?.id || '').trim();
-  const orderLocationId = String(order?.locationId || '').trim();
-
-  if (currentLocationId && orderLocationId) {
-    return currentLocationId === orderLocationId;
-  }
-
-  const currentLocationName = String(currentLocation?.name || '').trim();
-  if (!currentLocationName) return true;
-
-  return sameToken(order?.location, currentLocationName) || sameToken(order?.locationName, currentLocationName);
-};
-
-const getTenderSearchText = (order) => [
-  order?.tenderType,
-  order?.paymentStatus,
-  order?.status,
-  ...(Array.isArray(order?.tenderPayments)
-    ? order.tenderPayments.map((payment) => payment?.tenderName || payment?.tenderType)
-    : []),
-].filter(Boolean).join(' ');
-
-const emptyAdvancedFilters = {
-  customer: '',
-  staff: '',
-  location: '',
-  tender: '',
-  minTotal: '',
-  maxTotal: '',
-};
-
 export default function OrdersScreen({ onNavigateToMenu }) {
   const [activeStatus, setActiveStatus] = useState('HELD');
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [advancedFilters, setAdvancedFilters] = useState(emptyAdvancedFilters);
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [completedTransactions, setCompletedTransactions] = useState([]);
   const [onlineOrders, setOnlineOrders] = useState([]);
@@ -205,47 +136,39 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     setIsLoadingCompleted(true);
     try {
       let completed = [];
-      const todayDateKey = getLocalDateKey(new Date());
-      const effectiveDateKey = selectedDate || todayDateKey;
 
-      // The local completed cache is keyed by today's date only.
-      if (effectiveDateKey === todayDateKey) {
-        const cached = getCachedCompletedTransactions();
-        if (cached.length > 0) {
-          console.log(`⚡ Using ${cached.length} cached transactions`);
-          setCompletedTransactions(cached);
-        }
+      // Try to use cached data first (much faster)
+      const cached = getCachedCompletedTransactions();
+      if (cached.length > 0) {
+        console.log(`⚡ Using ${cached.length} cached transactions`);
+        setCompletedTransactions(cached);
       }
 
       if (isOnline) {
-        // Online: Fetch the selected day for this POS location. Other filters are applied client-side.
+        // Online: Fetch from server API - filter by today's date
         try {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const tomorrow = new Date(today);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+
           const params = new URLSearchParams({
-            limit: '1000',
+            startDate: today.toISOString(),
+            endDate: tomorrow.toISOString(),
+            limit: 500,
           });
-
-          const dateRange = getLocalDateRange(effectiveDateKey);
-          if (dateRange) {
-            params.append('startDate', dateRange.start.toISOString());
-            params.append('endDate', dateRange.end.toISOString());
-          }
-
-          if (location?._id) {
-            params.append('locationId', String(location._id));
-          }
-          if (location?.name) {
-            params.append('location', String(location.name));
+          // Filter by current till session if available
+          if (till?._id) {
+            params.append('tillId', till._id);
           }
 
           const response = await fetch(`/api/transactions/completed?${params}`);
           if (response.ok) {
             const result = await response.json();
             completed = result.data || result || [];
-            console.log(`✅ Fetched ${completed.length} completed transactions from server`);
+            console.log(`✅ Fetched ${completed.length} completed transactions from server (today)`);
             // Cache the fresh data
-            if (effectiveDateKey === todayDateKey) {
-              cacheCompletedTransactions(completed);
-            }
+            cacheCompletedTransactions(completed);
           } else {
             console.warn('Failed to fetch from server, falling back to IndexedDB');
             completed = await getCompletedTransactions();
@@ -255,9 +178,23 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           completed = await getCompletedTransactions();
         }
       } else {
-        // Offline: Fetch from IndexedDB and apply filters client-side
+        // Offline: Fetch from IndexedDB filtered by today and current till
         console.log('🔴 Offline mode - fetching from IndexedDB');
-        completed = await getCompletedTransactions();
+        let allCompleted = await getCompletedTransactions();
+        
+        // Filter for today's transactions
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        completed = allCompleted.filter(tx => {
+          const txDate = new Date(tx.createdAt);
+          const isToday = txDate >= today && txDate < tomorrow;
+          // Also filter by tillId if available
+          const matchesTill = till?._id ? (tx.tillId === till._id || tx.tillId?.toString() === till._id) : true;
+          return isToday && matchesTill;
+        });
       }
 
       setCompletedTransactions(completed);
@@ -267,7 +204,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     } finally {
       setIsLoadingCompleted(false);
     }
-  }, [isOnline, location?._id, location?.name, selectedDate]);
+  }, [isOnline, till]);
 
   // Load completed transactions on mount and when switching to COMPLETE tab or online status changes
   useEffect(() => {
@@ -454,7 +391,6 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           staffMember: tx.staffName || 'Unknown',
           heldByStaffName: tx.heldByStaffName || null,
           location: tx.location || 'Main Store',
-          locationId: tx.locationId || null,
           locationAddress: tx.locationAddress || '',
           tenderType: tenderDisplay,
           tenderPayments: tx.tenderPayments || [],
@@ -536,74 +472,18 @@ export default function OrdersScreen({ onNavigateToMenu }) {
         }));
     }
 
+    // Apply date filter if selected
     let filtered = sourceOrders;
-
-    if (activeStatus === 'COMPLETE') {
-      filtered = filtered.filter(order => orderMatchesCurrentLocation(order, location));
-    }
-
-    const effectiveDateKey = activeStatus === 'COMPLETE'
-      ? selectedDate || getLocalDateKey(new Date())
-      : selectedDate;
-
-    if (effectiveDateKey) {
+    if (selectedDate) {
+      const filterDate = new Date(selectedDate).toDateString();
       filtered = filtered.filter(order => {
-        const orderDate = getLocalDateKey(order.createdAt || order.time);
-        return orderDate === effectiveDateKey;
+        const orderDate = new Date(order.createdAt || order.time).toDateString();
+        return orderDate === filterDate;
       });
-    }
-
-    if (selectedTime) {
-      filtered = filtered.filter(order => {
-        const orderTime = getLocalTimeKey(order.createdAt || order.time);
-        return orderTime.startsWith(selectedTime);
-      });
-    }
-
-    if (advancedFilters.customer) {
-      filtered = filtered.filter(order => textIncludes(order.customer, advancedFilters.customer));
-    }
-
-    if (advancedFilters.staff) {
-      filtered = filtered.filter(order => textIncludes(order.staffMember, advancedFilters.staff));
-    }
-
-    if (advancedFilters.location) {
-      filtered = filtered.filter(order => textIncludes(order.location, advancedFilters.location));
-    }
-
-    if (advancedFilters.tender) {
-      filtered = filtered.filter(order => textIncludes(getTenderSearchText(order), advancedFilters.tender));
-    }
-
-    const minTotal = Number(advancedFilters.minTotal);
-    if (advancedFilters.minTotal !== '' && Number.isFinite(minTotal)) {
-      filtered = filtered.filter(order => Number(order.total || 0) >= minTotal);
-    }
-
-    const maxTotal = Number(advancedFilters.maxTotal);
-    if (advancedFilters.maxTotal !== '' && Number.isFinite(maxTotal)) {
-      filtered = filtered.filter(order => Number(order.total || 0) <= maxTotal);
     }
 
     setFilteredOrders(filtered);
-  }, [activeStatus, selectedDate, selectedTime, advancedFilters, orders, completedTransactions, onlineOrders, location]);
-
-  const updateAdvancedFilter = (field, value) => {
-    setAdvancedFilters(prev => ({ ...prev, [field]: value }));
-  };
-
-  const clearAllFilters = () => {
-    setSelectedDate('');
-    setSelectedTime('');
-    setAdvancedFilters(emptyAdvancedFilters);
-  };
-
-  const hasActiveFilters = Boolean(
-    selectedDate ||
-    selectedTime ||
-    Object.values(advancedFilters).some(value => String(value || '').trim())
-  );
+  }, [activeStatus, selectedDate, orders, completedTransactions, onlineOrders, location]);
 
   const handleOrderSelect = (order) => {
     if (activeStatus === 'COMPLETE' || activeStatus === 'ORDERED') {
@@ -783,18 +663,10 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           </label>
         </div>
 
-        <button
-          onClick={() => setShowAdvancedFilters(prev => !prev)}
-          className={`px-3 py-1.5 text-white rounded font-semibold text-xs flex items-center gap-1.5 transition-colors touch-manipulation ${
-            showAdvancedFilters || hasActiveFilters
-              ? 'bg-blue-700 hover:bg-blue-800'
-              : 'bg-blue-500 hover:bg-blue-600'
-          }`}
-        >
+        <button className="px-3 py-1.5 bg-blue-500 text-white rounded font-semibold text-xs hover:bg-blue-600 flex items-center gap-1.5 transition-colors touch-manipulation">
           <FontAwesomeIcon icon={faSliders} className="w-3 h-3" />
           <span className="hidden sm:inline">ADVANCED FILTER</span>
           <span className="sm:hidden">FILTER</span>
-          <FontAwesomeIcon icon={faChevronDown} className={`w-2.5 h-2.5 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
         </button>
         
         {/* Refresh button for completed transactions */}
@@ -809,66 +681,6 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           </button>
         )}
       </div>
-
-      {showAdvancedFilters && (
-        <div className="bg-white border-b border-gray-200 px-2 pb-2">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 rounded-lg border border-blue-100 bg-blue-50/40 p-2">
-            <input
-              type="search"
-              value={advancedFilters.customer}
-              onChange={e => updateAdvancedFilter('customer', e.target.value)}
-              placeholder="Customer"
-              className="rounded border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-blue-500"
-            />
-            <input
-              type="search"
-              value={advancedFilters.staff}
-              onChange={e => updateAdvancedFilter('staff', e.target.value)}
-              placeholder="Staff/source"
-              className="rounded border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-blue-500"
-            />
-            <input
-              type="search"
-              value={advancedFilters.location}
-              onChange={e => updateAdvancedFilter('location', e.target.value)}
-              placeholder="Location"
-              className="rounded border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-blue-500"
-            />
-            <input
-              type="search"
-              value={advancedFilters.tender}
-              onChange={e => updateAdvancedFilter('tender', e.target.value)}
-              placeholder="Tender/status"
-              className="rounded border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-blue-500"
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              value={advancedFilters.minTotal}
-              onChange={e => updateAdvancedFilter('minTotal', e.target.value)}
-              placeholder="Min total"
-              className="rounded border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-blue-500"
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              min="0"
-              value={advancedFilters.maxTotal}
-              onChange={e => updateAdvancedFilter('maxTotal', e.target.value)}
-              placeholder="Max total"
-              className="rounded border border-gray-300 bg-white px-2 py-2 text-xs outline-none focus:border-blue-500"
-            />
-            <button
-              onClick={clearAllFilters}
-              disabled={!hasActiveFilters}
-              className="rounded bg-gray-700 px-3 py-2 text-xs font-bold text-white transition hover:bg-gray-800 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500"
-            >
-              CLEAR FILTERS
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Orders Table */}
       <div className="flex-1 overflow-y-auto">
@@ -992,13 +804,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
             <div className="text-center">
               <div className="text-2xl mb-1">📋</div>
               <div className="text-xs">
-                {activeStatus === 'ORDERED' && isLoadingOnlineOrders
-                  ? 'Loading online orders...'
-                  : activeStatus === 'COMPLETE' && isLoadingCompleted
-                    ? 'Loading completed transactions...'
-                    : activeStatus === 'ORDERED'
-                      ? 'No online orders'
-                      : `No ${activeStatus.toLowerCase()} orders`}
+                {activeStatus === 'ORDERED' ? 'No online orders' : `No ${activeStatus.toLowerCase()} orders`}
               </div>
             </div>
           </div>
