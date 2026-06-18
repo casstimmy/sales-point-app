@@ -32,6 +32,23 @@ export default function ReceiptPrinter({
 }) {
   const receiptRef = useRef(null);
   
+  // Compute font settings from receiptSettings
+  const receiptFontFamily = (receiptSettings?.fontFamily || 'Arial').trim();
+  const receiptFontSize = Number(receiptSettings?.fontSize) || 6.5;
+
+  // Font family mapping for receipt
+  const FONT_FAMILY_MAP = {
+    'Arial': "'Arial', 'Helvetica Neue', sans-serif",
+    'Courier New': "'Courier New', 'Courier', monospace",
+    'Times New Roman': "'Times New Roman', 'Times', serif",
+    'Verdana': "'Verdana', 'Geneva', sans-serif",
+    'Georgia': "'Georgia', 'Cambria', serif",
+    'Tahoma': "'Tahoma', 'Geneva', sans-serif",
+    'Roboto': "'Roboto', 'Arial', sans-serif",
+    'Mono': "'Courier New', 'Lucida Console', monospace",
+  };
+  const resolvedFontFamily = FONT_FAMILY_MAP[receiptFontFamily] || FONT_FAMILY_MAP['Arial'];
+
   // Handle print
   const handlePrint = () => {
     if (receiptRef.current) {
@@ -52,7 +69,7 @@ export default function ReceiptPrinter({
 	              }
 
 	              body {
-	                font-family: 'Arial', 'Helvetica Neue', sans-serif;
+	                font-family: ${resolvedFontFamily};
 	              }
 
 	              .receipt-page {
@@ -68,36 +85,36 @@ export default function ReceiptPrinter({
 	              
 	              .receipt {
 	                width: 100%;
-	                padding: 2mm 1.5mm 1.5mm;
-	                font-size: 8pt;
-	                line-height: 1.2;
+	                padding: 1mm 0.5mm 1mm;
+	                font-size: ${receiptFontSize}pt;
+	                line-height: 1.12;
 	                color: #000;
               }
               
               .receipt-header {
                 text-align: center;
-                margin-bottom: 5mm;
-                padding-bottom: 5mm;
+                margin-bottom: 3mm;
+                padding-bottom: 3mm;
                 border-bottom: 1px solid #000;
               }
               
               .receipt-header img {
-                max-width: 40mm;
-                max-height: 20mm;
-                margin-bottom: 3mm;
+                max-width: 35mm;
+                max-height: 16mm;
+                margin-bottom: 2mm;
                 filter: grayscale(100%);
               }
               
               .company-name {
                 font-weight: bold;
-                font-size: 10pt;
-                margin: 3mm 0;
-                letter-spacing: 1px;
+                font-size: ${receiptFontSize + 1.5}pt;
+                margin: 1.5mm 0 1mm;
+                letter-spacing: 0.3px;
               }
               
               .company-info {
-                font-size: 7pt;
-                line-height: 1.2;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                line-height: 1.1;
                 color: #333;
               }
               
@@ -107,46 +124,52 @@ export default function ReceiptPrinter({
               
               .receipt-details {
                 text-align: left;
-                font-size: 7.5pt;
-                margin: 3mm 0;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                margin: 2mm 0;
               }
               
               .detail-row {
                 display: flex;
                 justify-content: space-between;
-                margin: 1mm 0;
+                margin: 0.5mm 0;
               }
               
               .items-section {
-                margin: 3mm 0;
+                margin: 2mm 0;
                 border-top: 1px solid #000;
                 border-bottom: 1px solid #000;
-                padding: 3mm 0;
+                padding: 2mm 0;
               }
               
               .items-header {
                 display: grid;
-                grid-template-columns: 1fr 0.5fr 0.75fr;
-                gap: 2mm;
+                grid-template-columns: 2fr 0.8fr 0.5fr 0.8fr;
+                gap: 1mm;
                 font-weight: bold;
-                margin-bottom: 2mm;
-                font-size: 7pt;
+                margin-bottom: 1mm;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                text-transform: uppercase;
               }
               
               .item-row {
                 display: grid;
-                grid-template-columns: 1fr 0.5fr 0.75fr;
-                gap: 2mm;
-                margin: 1mm 0;
-                font-size: 7.5pt;
+                grid-template-columns: 2fr 0.8fr 0.5fr 0.8fr;
+                gap: 1mm;
+                margin: 0.3mm 0;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
               }
               
               .item-name {
                 text-align: left;
                 overflow: hidden;
                 text-overflow: ellipsis;
+                white-space: nowrap;
               }
               
+              .item-rate {
+                text-align: right;
+              }
+
               .item-qty {
                 text-align: center;
               }
@@ -156,100 +179,100 @@ export default function ReceiptPrinter({
               }
               
               .totals-section {
-                margin: 3mm 0;
-                font-size: 7.5pt;
+                margin: 2mm 0;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
               }
               
               .total-row {
                 display: flex;
                 justify-content: space-between;
-                margin: 2mm 0;
+                margin: 1mm 0;
               }
               
               .final-total {
                 font-weight: bold;
-                font-size: 9pt;
+                font-size: ${receiptFontSize + 1}pt;
                 border-top: 1px solid #000;
-                padding-top: 2mm;
-                margin: 2mm 0;
+                padding-top: 1.5mm;
+                margin: 1.5mm 0;
               }
               
               .payment-section {
-                margin: 3mm 0;
+                margin: 2mm 0;
                 border-top: 1px solid #000;
                 border-bottom: 1px solid #000;
-                padding: 3mm 0;
+                padding: 2mm 0;
               }
               
               .payment-title {
                 font-weight: bold;
-                font-size: 7.5pt;
-                margin-bottom: 2mm;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                margin-bottom: 1mm;
               }
               
               .payment-row {
                 display: flex;
                 justify-content: space-between;
-                margin: 1mm 0;
-                font-size: 7.5pt;
+                margin: 0.3mm 0;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
               }
               
               .qr-section {
                 text-align: center;
-                margin: 3mm 0;
-                padding: 3mm 0;
+                margin: 2mm 0;
+                padding: 2mm 0;
                 border-top: 1px solid #000;
               }
               
               .qr-box {
                 background: #f0f0f0;
-                width: 30mm;
-                height: 30mm;
-                margin: 2mm auto;
+                width: 22mm;
+                height: 22mm;
+                margin: 1mm auto;
                 border: 1px solid #000;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 7pt;
+                font-size: ${Math.max(5, receiptFontSize - 1)}pt;
                 color: #666;
               }
               
               .qr-description {
-                font-size: 7pt;
-                margin: 2mm 0;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                margin: 1.5mm 0;
                 font-weight: bold;
               }
               
               .message-section {
                 text-align: center;
-                margin: 3mm 0;
-                padding: 3mm 0;
+                margin: 2mm 0;
+                padding: 2mm 0;
                 border-top: 1px solid #000;
-                font-size: 8pt;
+                font-size: ${receiptFontSize}pt;
                 white-space: pre-wrap;
               }
               
               .thank-you {
                 text-align: center;
                 font-weight: bold;
-                font-size: 9pt;
-                margin: 5mm 0;
+                font-size: ${receiptFontSize + 1}pt;
+                margin: 3mm 0;
               }
               
               .footer {
                 text-align: center;
-                font-size: 7pt;
-                margin-top: 5mm;
+                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                margin-top: 3mm;
                 color: #666;
               }
               
               .status-box {
                 text-align: center;
                 font-weight: bold;
-                font-size: 9pt;
+                font-size: ${receiptFontSize + 1}pt;
                 border: 2px solid #000;
-                padding: 2mm;
-                margin: 3mm 0;
+                padding: 1.5mm;
+                margin: 2mm 0;
               }
               
               @media print {
@@ -362,15 +385,17 @@ export default function ReceiptPrinter({
         {/* Items Section */}
         <div className="items-section">
           <div className="items-header">
-            <span>PRODUCT</span>
+            <span>ITEM</span>
+            <span style={{ textAlign: 'right' }}>RATE</span>
             <span style={{ textAlign: 'center' }}>QTY</span>
-            <span style={{ textAlign: 'right' }}>PRICE</span>
+            <span style={{ textAlign: 'right' }}>TOTAL</span>
           </div>
 
           {/* Items */}
           {model.items.map((item, idx) => (
             <div key={idx} className="item-row">
               <div className="item-name">{item.name}</div>
+              <div className="item-rate">{formatReceiptNaira(item.unitPrice)}</div>
               <div className="item-qty">{item.quantity}</div>
               <div className="item-total">
                 {formatReceiptNaira(item.lineTotal)}
@@ -379,7 +404,7 @@ export default function ReceiptPrinter({
           ))}
 
           {/* Total Qty */}
-          <div className="detail-row" style={{ marginTop: '3mm', paddingTop: '2mm', borderTop: '1px solid #ccc' }}>
+          <div className="detail-row" style={{ marginTop: '2mm', paddingTop: '1.5mm', borderTop: '1px solid #ccc' }}>
             <span></span>
             <span style={{ fontWeight: 'bold' }}>
               Total: {model.totalQuantity} Items

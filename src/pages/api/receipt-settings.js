@@ -16,6 +16,8 @@ export default async function handler(req, res) {
   try {
     await mongooseConnect();
 
+    const { locationId } = req.query;
+
     // Fetch the store document which contains receipt settings
     const store = await Store.findOne({});
 
@@ -35,6 +37,7 @@ export default async function handler(req, res) {
       qrDescription: "",
       paymentStatus: "paid",
       fontSize: "8.0",
+      fontFamily: "Arial",
     };
 
     if (!store) {
@@ -45,6 +48,15 @@ export default async function handler(req, res) {
     }
 
     // Extract receipt settings from store, falling back to defaults
+    // Use per-location QR if locationId is provided and location has its own QR
+    let locationQrUrl = "";
+    let locationQrDataUrl = "";
+    if (locationId) {
+      const loc = store.locations?.find((l) => l._id?.toString() === locationId);
+      if (loc?.qrUrl) locationQrUrl = loc.qrUrl;
+      if (loc?.qrDataUrl) locationQrDataUrl = loc.qrDataUrl;
+    }
+
     const settings = {
       companyDisplayName: store.companyDisplayName || defaultSettings.companyDisplayName,
       companyLogo: store.logo || defaultSettings.companyLogo,
@@ -59,11 +71,12 @@ export default async function handler(req, res) {
       taxNumber: store.taxNumber || defaultSettings.taxNumber,
       refundDays: store.refundDays || defaultSettings.refundDays,
       receiptMessage: store.receiptMessage || defaultSettings.receiptMessage,
-      qrUrl: store.qrUrl || defaultSettings.qrUrl,
-      qrDataUrl: store.qrDataUrl || defaultSettings.qrDataUrl,
+      qrUrl: locationQrUrl || store.qrUrl || defaultSettings.qrUrl,
+      qrDataUrl: locationQrDataUrl || store.qrDataUrl || defaultSettings.qrDataUrl,
       qrDescription: store.qrDescription || defaultSettings.qrDescription,
       paymentStatus: store.paymentStatus || defaultSettings.paymentStatus,
       fontSize: store.fontSize || defaultSettings.fontSize,
+      fontFamily: store.fontFamily || defaultSettings.fontFamily,
     };
 
     return res.status(200).json({

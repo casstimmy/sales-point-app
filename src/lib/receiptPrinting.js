@@ -40,12 +40,26 @@ export async function getReceiptSettings() {
   const cachedLogo = getStoreLogo();
   const cached = getCachedReceiptSettings();
 
+  // Get current location ID for per-location QR
+  let locationId = '';
+  try {
+    const savedLocation = localStorage.getItem('location');
+    if (savedLocation) {
+      const loc = JSON.parse(savedLocation);
+      locationId = loc?._id || '';
+    }
+  } catch {}
+
+  const apiUrl = locationId
+    ? `/api/receipt-settings?locationId=${encodeURIComponent(locationId)}`
+    : '/api/receipt-settings';
+
   // If we have cached settings, return immediately and refresh in background
   if (cached) {
     const result = { ...cached, companyLogo: cachedLogo };
     // Background refresh if online (non-blocking)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
-      fetch('/api/receipt-settings', { signal: AbortSignal.timeout(3000) })
+      fetch(apiUrl, { signal: AbortSignal.timeout(3000) })
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data?.settings) cacheReceiptSettings(data.settings); })
         .catch(() => {});
@@ -70,7 +84,7 @@ export async function getReceiptSettings() {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3000);
-    const response = await fetch('/api/receipt-settings', { signal: controller.signal });
+    const response = await fetch(apiUrl, { signal: controller.signal });
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error('Failed to fetch receipt settings');

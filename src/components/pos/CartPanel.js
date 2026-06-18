@@ -112,6 +112,7 @@ export default function CartPanel() {
     activeCart.customer?.isCreditCustomer || activeCart.customer?.type === "CREDIT"
   );
   const canViewResolvedHistory = hasPosPermission(staff, "viewAdvancedOrders");
+  const canApplyDiscount = hasPosPermission(staff, "applyDiscount");
 
   const loadPendingTransactions = useCallback(async () => {
     setPendingTransactionsLoading(true);
@@ -1125,6 +1126,7 @@ export default function CartPanel() {
                             />
                             <span>NOTE</span>
                           </button>
+                          {canApplyDiscount && (
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1138,6 +1140,7 @@ export default function CartPanel() {
                             <FontAwesomeIcon icon={faTag} className="w-3.5 h-3.5" />
                             <span>DISC</span>
                           </button>
+                          )}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();

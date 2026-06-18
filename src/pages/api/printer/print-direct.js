@@ -79,7 +79,7 @@ function generateReceiptCommands(transaction, settings) {
 
   // Items Header
   printer.setBold(true);
-  printer.text('PRODUCT        PRICE QTY         TOTAL');
+  printer.text('ITEM           RATE  QTY        TOTAL');
   printer.setBold(false);
 
   // Items

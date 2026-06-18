@@ -43,8 +43,8 @@ export function formatReceiptDateTime(value) {
 
 export function normalizeReceiptFontSize(value) {
   const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 7.5;
-  return Math.min(9, Math.max(6.5, parsed));
+  if (!Number.isFinite(parsed)) return 6.5;
+  return Math.min(9, Math.max(5.5, parsed));
 }
 
 const getLineTotal = (item) => {
@@ -191,6 +191,7 @@ export function buildReceiptViewModel(transaction = {}, settings = {}) {
     tillLabel: cleanString(transaction.tillNumber || transaction.tillId) || 'Till',
     status: paymentStatus,
     fontSize: normalizeReceiptFontSize(settings.fontSize),
+    fontFamily: cleanString(settings.fontFamily) || 'Arial',
     items,
     totalQuantity: items.reduce((sum, item) => sum + item.quantity, 0),
     subtotal,
