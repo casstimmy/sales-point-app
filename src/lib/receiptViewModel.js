@@ -44,7 +44,7 @@ export function formatReceiptDateTime(value) {
 export function normalizeReceiptFontSize(value) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return 6.5;
-  return Math.min(9, Math.max(5.5, parsed));
+  return Math.min(9, Math.max(4, parsed));
 }
 
 const getLineTotal = (item) => {

@@ -85,11 +85,9 @@ export default function ReceiptPrinter({
 	              
 	              .receipt {
 	                width: 100%;
-	                padding: 1mm 0.5mm 1mm;
-	                font-size: ${receiptFontSize}pt;
-	                line-height: 1.12;
-	                color: #000;
-              }
+                padding: 1mm 0 1mm;
+                font-size: ${receiptFontSize}pt;
+                line-height: 1.2;
               
               .receipt-header {
                 text-align: center;
@@ -113,8 +111,8 @@ export default function ReceiptPrinter({
               }
               
               .company-info {
-                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
-                line-height: 1.1;
+                font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
+                line-height: 1.2;
                 color: #333;
               }
               
@@ -124,7 +122,7 @@ export default function ReceiptPrinter({
               
               .receipt-details {
                 text-align: left;
-                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
                 margin: 2mm 0;
               }
               
@@ -143,20 +141,20 @@ export default function ReceiptPrinter({
               
               .items-header {
                 display: grid;
-                grid-template-columns: 2fr 0.8fr 0.5fr 0.8fr;
-                gap: 1mm;
+                grid-template-columns: 1fr 54px 32px 58px;
+                gap: 0.5mm;
                 font-weight: bold;
                 margin-bottom: 1mm;
-                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
                 text-transform: uppercase;
               }
               
               .item-row {
                 display: grid;
-                grid-template-columns: 2fr 0.8fr 0.5fr 0.8fr;
-                gap: 1mm;
+                grid-template-columns: 1fr 54px 32px 58px;
+                gap: 0.5mm;
                 margin: 0.3mm 0;
-                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
               }
               
               .item-name {
@@ -180,7 +178,7 @@ export default function ReceiptPrinter({
               
               .totals-section {
                 margin: 2mm 0;
-                font-size: ${Math.max(5.5, receiptFontSize - 0.5)}pt;
+                font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
               }
               
               .total-row {
