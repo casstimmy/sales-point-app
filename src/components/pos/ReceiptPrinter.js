@@ -85,43 +85,43 @@ export default function ReceiptPrinter({
 	              
 	              .receipt {
 	                width: 100%;
-                padding: 0;
+                padding: 1mm 0;
                 font-size: ${receiptFontSize}pt;
-                line-height: 1.2;
+                line-height: 1.15;
                 color: #000;
               }
               
               .receipt-header {
                 text-align: center;
-                margin-bottom: 1em;
-                padding-bottom: 1em;
+                margin-bottom: 1.5mm;
+                padding-bottom: 1.5mm;
                 border-bottom: 1px dashed #000;
               }
               
               .receipt-header img {
-                max-width: 35mm;
-                max-height: 14mm;
-                margin-bottom: 0.6em;
+                max-width: 30mm;
+                max-height: 12mm;
+                margin-bottom: 1mm;
                 filter: grayscale(100%);
               }
               
               .company-name {
                 font-weight: bold;
                 font-size: ${receiptFontSize + 1.5}pt;
-                margin: 0.5em 0 0.3em;
+                margin: 0.5mm 0;
                 letter-spacing: 0.3px;
               }
               
               .company-info {
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
-                line-height: 1.2;
+                line-height: 1.15;
                 color: #333;
               }
               
               .separator {
                 border: none;
                 border-top: 1px dashed #000;
-                margin: 0.7em 0;
+                margin: 1mm 0;
                 font-size: 0;
                 line-height: 0;
                 height: 0;
@@ -131,28 +131,28 @@ export default function ReceiptPrinter({
               .receipt-details {
                 text-align: left;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
-                margin: 0.7em 0;
+                margin: 1mm 0;
               }
               
               .detail-row {
                 display: flex;
                 justify-content: space-between;
-                margin: 0.15em 0;
+                margin: 0.2mm 0;
               }
               
               .items-section {
-                margin: 0.7em 0;
+                margin: 1mm 0;
                 border-top: 1px dashed #000;
                 border-bottom: 1px dashed #000;
-                padding: 0.6em 0;
+                padding: 1mm 0;
               }
               
               .items-header {
                 display: grid;
                 grid-template-columns: 2.4fr 1fr 0.5fr 1fr;
-                gap: 0.2em;
+                gap: 0;
                 font-weight: bold;
-                margin-bottom: 0.4em;
+                margin-bottom: 0.5mm;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
                 text-transform: uppercase;
               }
@@ -160,8 +160,8 @@ export default function ReceiptPrinter({
               .item-row {
                 display: grid;
                 grid-template-columns: 2.4fr 1fr 0.5fr 1fr;
-                gap: 0.2em;
-                margin: 0.1em 0;
+                gap: 0;
+                margin: 0;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
               }
               
@@ -185,56 +185,56 @@ export default function ReceiptPrinter({
               }
               
               .totals-section {
-                margin: 0.7em 0;
+                margin: 1mm 0;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
               }
               
               .total-row {
                 display: flex;
                 justify-content: space-between;
-                margin: 0.3em 0;
+                margin: 0.2mm 0;
               }
               
               .final-total {
                 font-weight: bold;
                 font-size: ${receiptFontSize + 1}pt;
                 border-top: 1px dashed #000;
-                padding-top: 0.5em;
-                margin: 0.5em 0;
+                padding-top: 0.8mm;
+                margin: 0.8mm 0;
               }
               
               .payment-section {
-                margin: 0.7em 0;
+                margin: 1mm 0;
                 border-top: 1px dashed #000;
                 border-bottom: 1px dashed #000;
-                padding: 0.6em 0;
+                padding: 1mm 0;
               }
               
               .payment-title {
                 font-weight: bold;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
-                margin-bottom: 0.3em;
+                margin-bottom: 0.3mm;
               }
               
               .payment-row {
                 display: flex;
                 justify-content: space-between;
-                margin: 0.1em 0;
+                margin: 0.2mm 0;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
               }
               
               .qr-section {
                 text-align: center;
-                margin: 0.7em 0;
-                padding: 0.6em 0;
+                margin: 1mm 0;
+                padding: 1mm 0;
                 border-top: 1px dashed #000;
               }
               
               .qr-box {
                 background: #f0f0f0;
-                width: 22mm;
-                height: 22mm;
-                margin: 0.3em auto;
+                width: 18mm;
+                height: 18mm;
+                margin: 0.5mm auto;
                 border: 1px solid #000;
                 display: flex;
                 align-items: center;
@@ -245,14 +245,14 @@ export default function ReceiptPrinter({
               
               .qr-description {
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
-                margin: 0.5em 0;
+                margin: 0.5mm 0;
                 font-weight: bold;
               }
               
               .message-section {
                 text-align: center;
-                margin: 0.7em 0;
-                padding: 0.6em 0;
+                margin: 1mm 0;
+                padding: 1mm 0;
                 border-top: 1px dashed #000;
                 font-size: ${receiptFontSize}pt;
                 white-space: pre-wrap;
@@ -262,7 +262,7 @@ export default function ReceiptPrinter({
                 text-align: center;
                 font-weight: bold;
                 font-size: ${receiptFontSize + 1}pt;
-                margin: 1em 0;
+                margin: 2mm 0;
               }
               
               .footer {

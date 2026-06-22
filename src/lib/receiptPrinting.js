@@ -476,7 +476,7 @@ function generateReceiptHTML(transaction, settings) {
           body {
             font-family: ${resolvedFontFamily};
             font-size: ${model.fontSize}pt;
-            line-height: 1.2;
+            line-height: 1.15;
             overflow-x: hidden;
           }
           .receipt-page {
@@ -492,68 +492,67 @@ function generateReceiptHTML(transaction, settings) {
           .receipt {
             width: 100%;
             margin: 0;
-            padding: 0;
+            padding: 1mm 0;
             color: #000;
             text-align: center;
           }
           .header {
             text-align: center;
             border-bottom: 1px dashed #000;
-            padding-bottom: 1em;
-            margin-bottom: 0.8em;
+            padding-bottom: 1.5mm;
+            margin-bottom: 1.5mm;
           }
           .logo {
-            max-width: 34mm;
-            max-height: 14mm;
+            max-width: 30mm;
+            max-height: 12mm;
             width: auto;
             height: auto;
             display: block;
-            margin: 0 auto 0.6em auto;
+            margin: 0 auto 1mm auto;
             filter: grayscale(100%);
           }
           .company-name {
             font-weight: bold;
-            font-size: 1.15em;
-            letter-spacing: 0.08em;
-            margin: 0.5em 0 0.3em;
+            font-size: 1.12em;
+            letter-spacing: 0.06em;
+            margin: 0.5mm 0;
             text-transform: uppercase;
           }
           .company-info {
             font-size: 0.86em;
-            line-height: 1.2;
+            line-height: 1.15;
             word-break: break-word;
           }
           .details {
             font-size: 0.9em;
-            margin: 0.7em 0;
+            margin: 1mm 0;
             text-align: left;
           }
           .detail-row {
             display: flex;
             justify-content: space-between;
-            gap: 1em;
-            margin: 0.15em 0;
+            margin: 0.2mm 0;
             text-align: left;
           }
           .items-section {
             border-top: 1px dashed #000;
             border-bottom: 1px dashed #000;
-            padding: 0.6em 0;
-            margin: 0.7em 0;
+            padding: 1mm 0;
+            margin: 1mm 0;
             text-align: left;
           }
           .items-table {
             width: 100%;
-            border-collapse: separate;
-            border-spacing: 0.2em 0;
+            border-collapse: collapse;
+            border-spacing: 0;
             table-layout: fixed;
-            font-size: 0.86em;
+            font-size: 0.88em;
             text-align: left;
             font-variant-numeric: tabular-nums;
           }
           .items-table th,
           .items-table td {
-            padding: 0.1em 0;
+            padding: 0.2mm 0;
             vertical-align: top;
           }
           .items-table th {
@@ -561,18 +560,17 @@ function generateReceiptHTML(transaction, settings) {
             text-transform: uppercase;
             font-weight: bold;
             border-bottom: 1px dashed #555;
-            padding-bottom: 0.3em;
+            padding-bottom: 0.5mm;
           }
           .item-name {
-            width: 36%;
+            width: 38%;
             overflow-wrap: anywhere;
-            padding-right: 0.3em !important;
+            padding-right: 0.5mm !important;
           }
           .price-col {
-            width: 24%;
+            width: 22%;
             text-align: right;
             white-space: nowrap;
-            padding-right: 0.3em !important;
           }
           .qty {
             width: 10%;
@@ -589,35 +587,34 @@ function generateReceiptHTML(transaction, settings) {
             white-space: nowrap;
           }
           .totals {
-            margin: 0.7em 0;
+            margin: 1mm 0;
             font-size: 0.92em;
             text-align: left;
           }
           .total-row {
             display: flex;
             justify-content: space-between;
-            gap: 1em;
-            margin: 0.15em 0;
+            margin: 0.2mm 0;
             text-align: left;
           }
           .final-total {
             font-weight: bold;
-            font-size: 1.1em;
+            font-size: 1.08em;
             border-top: 1px dashed #000;
-            padding-top: 0.5em;
-            margin: 0.5em 0;
+            padding-top: 0.8mm;
+            margin: 0.8mm 0;
           }
           .payment-section {
             border-top: 1px dashed #000;
             border-bottom: 1px dashed #000;
-            padding: 0.6em 0;
-            margin: 0.7em 0;
+            padding: 1mm 0;
+            margin: 1mm 0;
             text-align: left;
           }
           .payment-title {
             font-weight: bold;
             font-size: 0.9em;
-            margin-bottom: 0.3em;
+            margin-bottom: 0.3mm;
             text-transform: uppercase;
           }
           .payment-table {
@@ -626,13 +623,13 @@ function generateReceiptHTML(transaction, settings) {
             font-size: 0.9em;
           }
           .payment-table td {
-            padding: 0.1em 0;
+            padding: 0.2mm 0;
           }
           .footer {
             text-align: center;
             font-size: 0.84em;
-            margin-top: 0.5em;
-            padding-top: 0.5em;
+            margin-top: 1mm;
+            padding-top: 1mm;
             border-top: 1px dashed #000;
           }
           .status-box {
@@ -641,28 +638,27 @@ function generateReceiptHTML(transaction, settings) {
             font-size: 1em;
             border-top: 1px dashed #000;
             border-bottom: 1px dashed #000;
-            padding: 0.5em;
-            margin: 0.7em 0;
+            padding: 0.8mm;
+            margin: 1mm 0;
             text-transform: uppercase;
           }
           .message {
             text-align: center;
             font-size: 0.84em;
-            margin: 0.4em 0;
-            padding: 0.3em 0;
+            margin: 0.5mm 0;
             white-space: pre-wrap;
           }
           .qr-section {
             text-align: center;
-            margin: 0.7em 0;
-            padding: 0.6em 0;
+            margin: 1mm 0;
+            padding: 1mm 0;
             border-top: 1px dashed #000;
           }
           .qr-section img {
-            width: 21mm;
-            height: 21mm;
+            width: 18mm;
+            height: 18mm;
             display: block;
-            margin: 0.3em auto 0;
+            margin: 0.5mm auto 0;
           }
           .muted { font-size: 0.82em; }
           .change-row { font-weight: bold; }
@@ -684,7 +680,7 @@ function generateReceiptHTML(transaction, settings) {
             .receipt {
               width: 100%;
               margin: 0;
-              padding: 0;
+              padding: 0.5mm 0;
             }
             @page {
               size: 58mm auto;
