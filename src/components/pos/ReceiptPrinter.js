@@ -85,15 +85,17 @@ export default function ReceiptPrinter({
 	              
 	              .receipt {
 	                width: 100%;
-                padding: 1mm 0 1mm;
+                padding: 0;
                 font-size: ${receiptFontSize}pt;
                 line-height: 1.2;
+                color: #000;
+              }
               
               .receipt-header {
                 text-align: center;
                 margin-bottom: 3mm;
                 padding-bottom: 3mm;
-                border-bottom: 1px solid #000;
+                border-bottom: 1px dashed #000;
               }
               
               .receipt-header img {
@@ -117,7 +119,13 @@ export default function ReceiptPrinter({
               }
               
               .separator {
-                display: none;
+                border: none;
+                border-top: 1px dashed #000;
+                margin: 2mm 0;
+                font-size: 0;
+                line-height: 0;
+                height: 0;
+                overflow: hidden;
               }
               
               .receipt-details {
@@ -134,14 +142,14 @@ export default function ReceiptPrinter({
               
               .items-section {
                 margin: 2mm 0;
-                border-top: 1px solid #000;
-                border-bottom: 1px solid #000;
+                border-top: 1px dashed #000;
+                border-bottom: 1px dashed #000;
                 padding: 2mm 0;
               }
               
               .items-header {
                 display: grid;
-                grid-template-columns: 1fr 54px 32px 58px;
+                grid-template-columns: 2.4fr 1fr 0.5fr 1fr;
                 gap: 0.5mm;
                 font-weight: bold;
                 margin-bottom: 1mm;
@@ -151,7 +159,7 @@ export default function ReceiptPrinter({
               
               .item-row {
                 display: grid;
-                grid-template-columns: 1fr 54px 32px 58px;
+                grid-template-columns: 2.4fr 1fr 0.5fr 1fr;
                 gap: 0.5mm;
                 margin: 0.3mm 0;
                 font-size: ${Math.max(4, receiptFontSize - 0.5)}pt;
@@ -190,15 +198,15 @@ export default function ReceiptPrinter({
               .final-total {
                 font-weight: bold;
                 font-size: ${receiptFontSize + 1}pt;
-                border-top: 1px solid #000;
+                border-top: 1px dashed #000;
                 padding-top: 1.5mm;
                 margin: 1.5mm 0;
               }
               
               .payment-section {
                 margin: 2mm 0;
-                border-top: 1px solid #000;
-                border-bottom: 1px solid #000;
+                border-top: 1px dashed #000;
+                border-bottom: 1px dashed #000;
                 padding: 2mm 0;
               }
               
@@ -219,7 +227,7 @@ export default function ReceiptPrinter({
                 text-align: center;
                 margin: 2mm 0;
                 padding: 2mm 0;
-                border-top: 1px solid #000;
+                border-top: 1px dashed #000;
               }
               
               .qr-box {
@@ -245,7 +253,7 @@ export default function ReceiptPrinter({
                 text-align: center;
                 margin: 2mm 0;
                 padding: 2mm 0;
-                border-top: 1px solid #000;
+                border-top: 1px dashed #000;
                 font-size: ${receiptFontSize}pt;
                 white-space: pre-wrap;
               }
@@ -288,7 +296,7 @@ export default function ReceiptPrinter({
 	                }
 	                .receipt {
 	                  margin: 0;
-	                  padding: 2mm 1.5mm 1.5mm;
+	                  padding: 0;
 	                }
 	              }
 	            </style>
@@ -402,12 +410,11 @@ export default function ReceiptPrinter({
           ))}
 
           {/* Total Qty */}
-          <div className="detail-row" style={{ marginTop: '2mm', paddingTop: '1.5mm', borderTop: '1px solid #ccc' }}>
-            <span></span>
-            <span style={{ fontWeight: 'bold' }}>
-              Total: {model.totalQuantity} Items
+          <div className="detail-row" style={{ marginTop: '2mm', paddingTop: '1.5mm', borderTop: '1px dashed #000' }}>
+            <span>Total Qty</span>
+            <span style={{ fontWeight: 'bold', textAlign: 'right' }}>
+              {model.totalQuantity}
             </span>
-            <span></span>
           </div>
         </div>
 
