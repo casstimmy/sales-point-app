@@ -476,7 +476,7 @@ function generateReceiptHTML(transaction, settings) {
           body {
             font-family: ${resolvedFontFamily};
             font-size: ${model.fontSize}pt;
-            line-height: 1.15;
+            line-height: 1.18;
             overflow-x: hidden;
           }
           .receipt-page {
@@ -498,9 +498,9 @@ function generateReceiptHTML(transaction, settings) {
           }
           .header {
             text-align: center;
-            border-bottom: 1px dashed #000;
+            border-bottom: 0.5px dashed #444;
             padding-bottom: 1.5mm;
-            margin-bottom: 1.5mm;
+            margin-bottom: 1mm;
           }
           .logo {
             max-width: 30mm;
@@ -513,14 +513,14 @@ function generateReceiptHTML(transaction, settings) {
           }
           .company-name {
             font-weight: bold;
-            font-size: 1.12em;
-            letter-spacing: 0.06em;
+            font-size: 1.25em;
+            letter-spacing: 0.08em;
             margin: 0.5mm 0;
             text-transform: uppercase;
           }
           .company-info {
-            font-size: 0.86em;
-            line-height: 1.15;
+            font-size: 0.92em;
+            line-height: 1.18;
             word-break: break-word;
           }
           .details {
@@ -535,8 +535,7 @@ function generateReceiptHTML(transaction, settings) {
             text-align: left;
           }
           .items-section {
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
+            border-top: 0.5px dashed #444;
             padding: 1mm 0;
             margin: 1mm 0;
             text-align: left;
@@ -546,7 +545,7 @@ function generateReceiptHTML(transaction, settings) {
             border-collapse: collapse;
             border-spacing: 0;
             table-layout: fixed;
-            font-size: 0.88em;
+            font-size: 0.9em;
             text-align: left;
             font-variant-numeric: tabular-nums;
           }
@@ -556,10 +555,9 @@ function generateReceiptHTML(transaction, settings) {
             vertical-align: top;
           }
           .items-table th {
-            font-size: 0.9em;
+            font-size: 0.92em;
             text-transform: uppercase;
             font-weight: bold;
-            border-bottom: 1px dashed #555;
             padding-bottom: 0.5mm;
           }
           .item-name {
@@ -586,7 +584,14 @@ function generateReceiptHTML(transaction, settings) {
             text-align: right;
             white-space: nowrap;
           }
+          .qty-total-row {
+            border-top: 0.5px dotted #888;
+            padding-top: 0.5mm;
+            margin-top: 0.5mm;
+          }
           .totals {
+            border-top: 0.5px dashed #444;
+            padding-top: 1mm;
             margin: 1mm 0;
             font-size: 0.92em;
             text-align: left;
@@ -600,13 +605,12 @@ function generateReceiptHTML(transaction, settings) {
           .final-total {
             font-weight: bold;
             font-size: 1.08em;
-            border-top: 1px dashed #000;
+            border-top: 0.5px dashed #444;
             padding-top: 0.8mm;
             margin: 0.8mm 0;
           }
           .payment-section {
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
+            border-top: 0.5px dashed #444;
             padding: 1mm 0;
             margin: 1mm 0;
             text-align: left;
@@ -625,20 +629,17 @@ function generateReceiptHTML(transaction, settings) {
           .payment-table td {
             padding: 0.2mm 0;
           }
-          .footer {
+          .footer-section {
+            border-top: 0.5px dashed #444;
             text-align: center;
-            font-size: 0.84em;
-            margin-top: 1mm;
             padding-top: 1mm;
-            border-top: 1px dashed #000;
+            margin-top: 1mm;
           }
           .status-box {
             text-align: center;
             font-weight: bold;
             font-size: 1em;
-            border-top: 1px dashed #000;
-            border-bottom: 1px dashed #000;
-            padding: 0.8mm;
+            padding: 0.8mm 0;
             margin: 1mm 0;
             text-transform: uppercase;
           }
@@ -652,7 +653,6 @@ function generateReceiptHTML(transaction, settings) {
             text-align: center;
             margin: 1mm 0;
             padding: 1mm 0;
-            border-top: 1px dashed #000;
           }
           .qr-section img {
             width: 18mm;
@@ -705,7 +705,7 @@ function generateReceiptHTML(transaction, settings) {
           </div>
 
           <div class="details">
-            <div style="font-weight: bold; margin-bottom: 0.6mm; text-transform: uppercase;">${escapeHtml(model.title)}</div>
+            <div style="font-weight: bold; margin-bottom: 0.5mm; text-transform: uppercase;">${escapeHtml(model.title)}</div>
             <div class="detail-row">
               <span>${escapeHtml(model.dateTime)}</span>
               <span>${escapeHtml(model.receiptId)}</span>
@@ -719,8 +719,8 @@ function generateReceiptHTML(transaction, settings) {
           <div class="items-section">
             <table class="items-table">
               <colgroup>
-                <col style="width: 36%;">
-                <col style="width: 24%;">
+                <col style="width: 38%;">
+                <col style="width: 22%;">
                 <col style="width: 10%;">
                 <col style="width: 30%;">
               </colgroup>
@@ -734,7 +734,7 @@ function generateReceiptHTML(transaction, settings) {
               </thead>
               <tbody>
                 ${itemsHTML}
-                <tr>
+                <tr class="qty-total-row">
                   <td class="item-name muted">Total Qty</td>
                   <td></td>
                   <td class="qty muted">${escapeHtml(String(model.totalQuantity))}</td>
@@ -769,17 +769,21 @@ function generateReceiptHTML(transaction, settings) {
             ${changeHTML}
           </div>
 
-          <div class="status-box">${escapeHtml(model.status)}</div>
+          <div class="footer-section">
+            ${model.refundDays > 0 ? `<div class="message">Refund within ${escapeHtml(String(model.refundDays))} days with receipt</div>` : ''}
 
-          ${model.refundDays > 0 ? `<div class="message">Refund within ${escapeHtml(String(model.refundDays))} days with receipt</div>` : ''}
-          ${model.receiptMessage ? `<div class="message">${escapeHtml(model.receiptMessage)}</div>` : ''}
+            ${(qrImageSrc || model.qrUrl) ? `
+              <div class="qr-section">
+                ${model.qrDescription ? `<div class="muted">${escapeHtml(model.qrDescription)}</div>` : ''}
+                ${qrImageSrc ? `<img src="${escapeHtml(qrImageSrc)}" alt="QR Code" onerror="this.style.display='none'">` : `<div class="muted">${escapeHtml(model.qrUrl)}</div>`}
+              </div>
+            ` : ''}
 
-          ${(qrImageSrc || model.qrUrl) ? `
-            <div class="qr-section">
-              ${model.qrDescription ? `<div class="muted">${escapeHtml(model.qrDescription)}</div>` : ''}
-              ${qrImageSrc ? `<img src="${escapeHtml(qrImageSrc)}" alt="QR Code" onerror="this.style.display='none'">` : `<div class="muted">${escapeHtml(model.qrUrl)}</div>`}
-            </div>
-          ` : ''}
+            ${model.receiptMessage ? `<div class="message">${escapeHtml(model.receiptMessage)}</div>` : ''}
+
+            <div class="status-box">THANK YOU</div>
+            <div class="status-box">${escapeHtml(model.status)}</div>
+          </div>
         </div>
         </div>
       </body>
