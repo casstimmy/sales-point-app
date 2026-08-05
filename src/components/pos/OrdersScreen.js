@@ -915,9 +915,15 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                 <span>₦{Number(detailOrder.subtotal || detailOrder.total || 0).toLocaleString('en-NG')}</span>
               </div>
               {detailOrder.discount > 0 && (
-                <div className="flex justify-between text-sm text-orange-600 font-semibold">
-                  <span>Discount</span>
-                  <span>-₦{Number(detailOrder.discount).toLocaleString('en-NG')}</span>
+                <div className={`flex justify-between text-sm font-semibold ${detailOrder.promotionValueType === 'INCREMENT' ? 'text-green-600' : 'text-red-600'}`}>
+                  <span>{detailOrder.customerType || (detailOrder.promotionValueType === 'INCREMENT' ? 'Price Adjustment' : 'Discount')}</span>
+                  <span>{detailOrder.promotionValueType === 'INCREMENT' ? '+' : '-'}₦{Number(detailOrder.discount).toLocaleString('en-NG')}</span>
+                </div>
+              )}
+              {detailOrder.incrementAmount > 0 && detailOrder.promotionValueType !== 'INCREMENT' && (
+                <div className="flex justify-between text-sm text-green-600 font-semibold">
+                  <span>{detailOrder.customerType || 'Price Adjustment'}</span>
+                  <span>+₦{Number(detailOrder.incrementAmount).toLocaleString('en-NG')}</span>
                 </div>
               )}
               {detailOrder.tax > 0 && (

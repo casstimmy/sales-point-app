@@ -75,6 +75,9 @@ function generateReceiptCommands(transaction, settings) {
   printer.setBold(true).text(model.title.toUpperCase()).setBold(false);
   printer.text(`${model.dateTime} ${model.receiptId}`);
   printer.text(`Staff: ${truncateText(model.staffName, 20)}  ${model.status}`);
+  if (model.directorMemoAccount?.active) {
+    printer.text(`Director: ${truncateText(model.directorMemoAccount.name, 32)}`);
+  }
   printer.text('-'.repeat(RECEIPT_WIDTH));
 
   // Items Header

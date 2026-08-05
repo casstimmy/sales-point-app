@@ -1,5 +1,16 @@
 const STORAGE_KEY = 'uiSettings';
 
+export const DIRECTOR_MEMO_ACCOUNT_OPTIONS = [
+  {
+    value: 'catherine-ashenuga-farrer',
+    label: 'Catherine Ashenuga Farrer',
+  },
+  {
+    value: 'paul-farrer',
+    label: 'Paul Farrer',
+  },
+];
+
 export const defaultUiSettings = {
   sidebarSections: {
     print: false,
@@ -42,6 +53,10 @@ export const defaultUiSettings = {
     contentScale: 100, // percentage (60 - 150) — scales content for screens where resolution can't be adjusted
     showPrintPreview: true, // show/hide the branded print preview modal (false = print silently)
     autoRefreshProducts: true, // auto-refresh product quantities after each sale when online
+    directorMemoAccount: {
+      active: false,
+      selected: DIRECTOR_MEMO_ACCOUNT_OPTIONS[0].value,
+    },
   },
   login: {
     showExitButton: true, // show/hide EXIT button on login page

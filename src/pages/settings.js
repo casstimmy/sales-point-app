@@ -32,6 +32,7 @@ import {
   saveUiSettings,
   resetUiSettings,
   defaultUiSettings,
+  DIRECTOR_MEMO_ACCOUNT_OPTIONS,
 } from '@/src/lib/uiSettings';
 import { useStaff } from '@/src/context/StaffContext';
 import { hasPosPermission } from '@/src/lib/posPermissions';
@@ -71,6 +72,7 @@ export default function SettingsPage() {
     layout: true,
     payment: true,
     system: true,
+    systemPrint: true,
     login: true,
     summary: true,
   });

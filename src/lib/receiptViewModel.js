@@ -1,6 +1,16 @@
 const DEFAULT_COMPANY_NAME = 'Store';
 const DEFAULT_RECEIPT_MESSAGE = '';
 const DEFAULT_QR_DESCRIPTION = '';
+const DIRECTOR_MEMO_ACCOUNTS = [
+  {
+    value: 'catherine-ashenuga-farrer',
+    label: 'Catherine Ashenuga Farrer',
+  },
+  {
+    value: 'paul-farrer',
+    label: 'Paul Farrer',
+  },
+];
 
 const toNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -85,7 +95,6 @@ const getNamedAdjustments = (transaction, baseDiscount, incrementAmount) => {
     transaction?.appliedPromotion?.name ||
     transaction?.customerType
   ) || 'Discount';
-
   pushAmountLine(lines, discountName, baseDiscount, 'subtract');
 
   const incrementName = cleanString(
@@ -133,6 +142,20 @@ const getQrImageSrc = (settings) => {
   if (!qrUrl) return '';
 
   return `https://api.qrserver.com/v1/create-qr-code/?size=110x110&margin=1&data=${encodeURIComponent(qrUrl)}`;
+};
+
+const getDirectorMemoAccount = (settings = {}) => {
+  const config = settings.directorMemoAccount || settings.system?.directorMemoAccount || {};
+  const selected = cleanString(config.selected || config.value || config.name);
+  const option = DIRECTOR_MEMO_ACCOUNTS.find((account) => (
+    account.value === selected || account.label.toLowerCase() === selected.toLowerCase()
+  )) || DIRECTOR_MEMO_ACCOUNTS[0];
+
+  return {
+    active: config.active === true,
+    value: option.value,
+    name: option.label,
+  };
 };
 
 export function buildReceiptViewModel(transaction = {}, settings = {}) {
@@ -209,5 +232,6 @@ export function buildReceiptViewModel(transaction = {}, settings = {}) {
     qrDescription: cleanString(settings.qrDescription || DEFAULT_QR_DESCRIPTION),
     receiptMessage: cleanString(settings.receiptMessage || DEFAULT_RECEIPT_MESSAGE),
     refundDays: toNumber(settings.refundDays, 0),
+    directorMemoAccount: getDirectorMemoAccount(settings),
   };
 }

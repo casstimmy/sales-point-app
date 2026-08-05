@@ -765,17 +765,22 @@ export function CartProvider({ children }) {
   // =========================================================================
 
   const calculateTotals = useCallback(() => {
-    const { items, discountPercent, fixedDiscount, appliedPromotion } = state.activeCart;
+    const { items, discountPercent, fixedDiscount, appliedPromotion, onlineOrder } = state.activeCart;
+
+    // If the cart is an online order that already has a discount baked into its total,
+    // skip applying the POS promotion to avoid double-discounting.
+    const hasPreAppliedDiscount = Boolean(onlineOrder?.id) && Number(onlineOrder?.discount || 0) > 0;
+    const effectivePromotion = hasPreAppliedDiscount ? null : appliedPromotion;
     
     // Debug: Log promotion details
-    if (appliedPromotion) {
+    if (effectivePromotion) {
       console.log('🎁 PROMOTION DEBUG:', {
-        promotionName: appliedPromotion.name,
-        discountType: appliedPromotion.discountType,
-        discountValue: appliedPromotion.discountValue,
-        valueType: appliedPromotion.valueType,
-        active: appliedPromotion.active,
-        fullPromotion: appliedPromotion
+        promotionName: effectivePromotion.name,
+        discountType: effectivePromotion.discountType,
+        discountValue: effectivePromotion.discountValue,
+        valueType: effectivePromotion.valueType,
+        active: effectivePromotion.active,
+        fullPromotion: effectivePromotion
       });
     }
     
@@ -787,25 +792,25 @@ export function CartProvider({ children }) {
       const originalItemTotal = itemTotal;
       
       // Apply promotion INCREMENT/discount to item if customer selected
-      if (appliedPromotion && appliedPromotion.active) {
-        if (appliedPromotion.discountType === 'PERCENTAGE') {
-          const percentChange = appliedPromotion.discountValue / 100;
-          if (appliedPromotion.valueType === 'INCREMENT') {
+      if (effectivePromotion && effectivePromotion.active) {
+        if (effectivePromotion.discountType === 'PERCENTAGE') {
+          const percentChange = effectivePromotion.discountValue / 100;
+          if (effectivePromotion.valueType === 'INCREMENT') {
             // INCREMENT increases the item price
             itemTotal = itemTotal * (1 + percentChange);
-          } else if (appliedPromotion.valueType === 'DISCOUNT') {
+          } else if (effectivePromotion.valueType === 'DISCOUNT') {
             // DISCOUNT decreases the item price
             itemTotal = itemTotal * (1 - percentChange);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (${appliedPromotion.discountValue}%): ₦${itemTotal}`);
-        } else if (appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode !== 'TOTAL') {
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${effectivePromotion.valueType} (${effectivePromotion.discountValue}%): ₦${itemTotal}`);
+        } else if (effectivePromotion.discountType === 'FIXED' && effectivePromotion.fixedAmountApplyMode !== 'TOTAL') {
           // Fixed amount per item (default PER_ITEM mode) — multiply by quantity
-          if (appliedPromotion.valueType === 'INCREMENT') {
-            itemTotal = itemTotal + appliedPromotion.discountValue * item.quantity;
-          } else if (appliedPromotion.valueType === 'DISCOUNT') {
-            itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue * item.quantity);
+          if (effectivePromotion.valueType === 'INCREMENT') {
+            itemTotal = itemTotal + effectivePromotion.discountValue * item.quantity;
+          } else if (effectivePromotion.valueType === 'DISCOUNT') {
+            itemTotal = Math.max(0, itemTotal - effectivePromotion.discountValue * item.quantity);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${appliedPromotion.valueType} (₦${appliedPromotion.discountValue} × ${item.quantity} items): ₦${itemTotal}`);
+          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${effectivePromotion.valueType} (₦${effectivePromotion.discountValue} × ${item.quantity} items): ₦${itemTotal}`);
         }
         // FIXED + TOTAL mode is applied after the items loop below
       }
@@ -814,13 +819,13 @@ export function CartProvider({ children }) {
     });
 
     // Apply FIXED + TOTAL mode promotion to the subtotal (not per-item)
-    if (appliedPromotion && appliedPromotion.active && appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode === 'TOTAL') {
-      if (appliedPromotion.valueType === 'INCREMENT') {
-        subtotal = subtotal + appliedPromotion.discountValue;
-      } else if (appliedPromotion.valueType === 'DISCOUNT') {
-        subtotal = Math.max(0, subtotal - appliedPromotion.discountValue);
+    if (effectivePromotion && effectivePromotion.active && effectivePromotion.discountType === 'FIXED' && effectivePromotion.fixedAmountApplyMode === 'TOTAL') {
+      if (effectivePromotion.valueType === 'INCREMENT') {
+        subtotal = subtotal + effectivePromotion.discountValue;
+      } else if (effectivePromotion.valueType === 'DISCOUNT') {
+        subtotal = Math.max(0, subtotal - effectivePromotion.discountValue);
       }
-      console.log(`💰 Fixed TOTAL mode: Applied ₦${appliedPromotion.discountValue} ${appliedPromotion.valueType} to cart total: ₦${subtotal}`);
+      console.log(`💰 Fixed TOTAL mode: Applied ₦${effectivePromotion.discountValue} ${effectivePromotion.valueType} to cart total: ₦${subtotal}`);
     }
 
     // Apply fixed discount if any
@@ -836,14 +841,14 @@ export function CartProvider({ children }) {
       0
     );
     const priceDifference = rawSubtotal - subtotal + fixedDiscountAmount;
-    const isIncrement = appliedPromotion?.active && appliedPromotion?.valueType === 'INCREMENT';
+    const isIncrement = effectivePromotion?.active && effectivePromotion?.valueType === 'INCREMENT';
     // For increments, the "discount" is actually negative (price went up), so discountAmount should be 0
     // For discounts, it's positive (price went down)
     const discountAmount = isIncrement ? fixedDiscountAmount : Math.max(0, priceDifference);
     const incrementAmount = isIncrement ? Math.abs(rawSubtotal - subtotal) : 0;
 
     // Debug: Log final totals
-    if (appliedPromotion) {
+    if (effectivePromotion) {
       console.log('💰 TOTALS DEBUG:', {
         rawSubtotal,
         subtotalAfterPromotion: subtotal,
@@ -859,13 +864,13 @@ export function CartProvider({ children }) {
       subtotal: rawSubtotal,
       discountAmount,
       incrementAmount,
-      discountName: appliedPromotion?.active && appliedPromotion.valueType === 'DISCOUNT'
-        ? (appliedPromotion.name || 'Discount')
+      discountName: effectivePromotion?.active && effectivePromotion.valueType === 'DISCOUNT'
+        ? (effectivePromotion.name || 'Discount')
         : (fixedDiscountAmount > 0 ? 'Discount' : ''),
-      incrementName: appliedPromotion?.active && appliedPromotion.valueType === 'INCREMENT'
-        ? (appliedPromotion.name || 'Additional Charge')
+      incrementName: effectivePromotion?.active && effectivePromotion.valueType === 'INCREMENT'
+        ? (effectivePromotion.name || 'Additional Charge')
         : '',
-      promotionValueType: appliedPromotion?.active ? appliedPromotion.valueType : null,
+      promotionValueType: effectivePromotion?.active ? effectivePromotion.valueType : null,
       discountedSubtotal,
       tax,
       total,

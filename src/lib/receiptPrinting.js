@@ -8,6 +8,7 @@
 
 import { getPrinterSettings, sendDirectPrint } from './printerConfig';
 import { getStoreLogo } from './logoCache';
+import { getUiSettings } from './uiSettings';
 import {
   buildReceiptViewModel,
   escapeHtml,
@@ -35,6 +36,18 @@ function cacheReceiptSettings(settings) {
   } catch {}
 }
 
+function mergeDirectorMemoAccount(settings = {}) {
+  try {
+    const uiSettings = getUiSettings();
+    return {
+      ...settings,
+      directorMemoAccount: uiSettings.system?.directorMemoAccount || settings.directorMemoAccount,
+    };
+  } catch {
+    return settings;
+  }
+}
+
 export async function getReceiptSettings() {
   // Always use cached logo from logoCache for the logo field
   const cachedLogo = getStoreLogo();
@@ -56,7 +69,7 @@ export async function getReceiptSettings() {
 
   // If we have cached settings, return immediately and refresh in background
   if (cached) {
-    const result = { ...cached, companyLogo: cachedLogo };
+    const result = mergeDirectorMemoAccount({ ...cached, companyLogo: cachedLogo });
     // Background refresh if online (non-blocking)
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       fetch(apiUrl, { signal: AbortSignal.timeout(3000) })
@@ -69,7 +82,7 @@ export async function getReceiptSettings() {
 
   // No cache — must fetch (but only if online)
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
-    return {
+    return mergeDirectorMemoAccount({
       companyDisplayName: 'Store',
       companyLogo: cachedLogo,
       storePhone: '',
@@ -78,7 +91,7 @@ export async function getReceiptSettings() {
       businessAddress: '',
       refundDays: 0,
       receiptMessage: '',
-    };
+    });
   }
 
   try {
@@ -92,10 +105,10 @@ export async function getReceiptSettings() {
     const data = await response.json();
     const settings = data.settings || {};
     cacheReceiptSettings(settings);
-    return { ...settings, companyLogo: cachedLogo || settings.companyLogo };
+    return mergeDirectorMemoAccount({ ...settings, companyLogo: cachedLogo || settings.companyLogo });
   } catch (error) {
     console.error('❌ Error fetching receipt settings:', error);
-    return {
+    return mergeDirectorMemoAccount({
       companyDisplayName: 'Store',
       companyLogo: cachedLogo,
       storePhone: '',
@@ -104,7 +117,7 @@ export async function getReceiptSettings() {
       businessAddress: '',
       refundDays: 0,
       receiptMessage: '',
-    };
+    });
   }
 }
 
@@ -128,7 +141,7 @@ export async function printTransactionReceipt(transaction, receiptSettings) {
     }
 
     // Use provided settings or get them (cached on client)
-    const settings = receiptSettings || (await getReceiptSettings());
+    const settings = mergeDirectorMemoAccount(receiptSettings || (await getReceiptSettings()));
 
     // Get printer settings
     const printerSettings = getPrinterSettings();
@@ -460,6 +473,13 @@ function generateReceiptHTML(transaction, settings) {
     </div>
   ` : '';
 
+  const directorMemoHTML = model.directorMemoAccount?.active ? `
+    <div class="detail-row director-row">
+      <span>Director</span>
+      <span>${escapeHtml(model.directorMemoAccount.name)}</span>
+    </div>
+  ` : '';
+
   return `
     <!DOCTYPE html>
     <html>
@@ -714,6 +734,7 @@ function generateReceiptHTML(transaction, settings) {
               <span>Staff: ${escapeHtml(model.staffName)}</span>
               <span>${escapeHtml(model.status)}</span>
             </div>
+            ${directorMemoHTML}
           </div>
 
           <div class="items-section">

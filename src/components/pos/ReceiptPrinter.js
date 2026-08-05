@@ -379,11 +379,18 @@ export default function ReceiptPrinter({
             <span style={{ textAlign: 'right' }}>{model.receiptId}</span>
           </div>
           
-          <div className="detail-row">
-            <span>Staff: {model.staffName}</span>
-            <span style={{ textAlign: 'right' }}>{model.status}</span>
-          </div>
-        </div>
+	          <div className="detail-row">
+	            <span>Staff: {model.staffName}</span>
+	            <span style={{ textAlign: 'right' }}>{model.status}</span>
+	          </div>
+
+	          {model.directorMemoAccount?.active && (
+	            <div className="detail-row">
+	              <span>Director</span>
+	              <span style={{ textAlign: 'right' }}>{model.directorMemoAccount.name}</span>
+	            </div>
+	          )}
+	        </div>
 
         {/* Separator */}
         <div className="separator">━━━━━━━━━━━━━━━━━━</div>
@@ -436,9 +443,9 @@ export default function ReceiptPrinter({
           )}
 
           {model.adjustmentLines.map((line, idx) => (
-            <div key={`${line.label}-${idx}`} className="total-row">
+            <div key={`${line.label}-${idx}`} className="total-row" style={{ color: line.type === 'subtract' ? '#dc2626' : '#16a34a' }}>
               <span>{line.label}:</span>
-              <span style={{ textAlign: 'right' }}>{line.type === 'subtract' ? '-' : ''}{formatReceiptNaira(line.amount)}</span>
+              <span style={{ textAlign: 'right' }}>{line.type === 'subtract' ? '-' : '+'}{formatReceiptNaira(line.amount)}</span>
             </div>
           ))}
 

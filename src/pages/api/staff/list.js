@@ -9,8 +9,8 @@ export default async function handler(req, res) {
   try {
     await mongooseConnect();
 
-    const staff = await Staff.find({})
-      .select("_id name role locationName locationId isActive")
+    const staff = await Staff.find({ showOnPos: { $ne: false } })
+      .select("_id name role locationName locationId isActive posPermissions")
       .lean();
 
     const normalized = staff.map((member) => ({
@@ -20,6 +20,7 @@ export default async function handler(req, res) {
       locationName: member.locationName || "",
       locationId: member.locationId || null,
       isActive: member.isActive !== false,
+      posPermissions: member.posPermissions || {},
     }));
 
     return res.status(200).json({
