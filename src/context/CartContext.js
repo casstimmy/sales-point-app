@@ -64,6 +64,24 @@ const INITIAL_STATE = {
   error: null,
 };
 
+// Check if a promotion applies to a specific cart item based on applicationType
+export function doesPromotionApplyToItem(promotion, item) {
+  if (!promotion || !promotion.active) return false;
+  if (promotion.applicationType === 'ALL_PRODUCTS') return true;
+
+  if (promotion.applicationType === 'ONE_PRODUCT') {
+    const targetIds = (promotion.products || []).map(p => String(p._id || p));
+    return targetIds.includes(String(item.id));
+  }
+
+  if (promotion.applicationType === 'CATEGORY') {
+    const targetCatIds = (promotion.categories || []).map(c => String(c._id || c));
+    return targetCatIds.includes(String(item.category));
+  }
+
+  return false;
+}
+
 const getOrderContactDetails = (order = {}) => {
   const shippingDetails = order?.shippingDetails || {};
   const customerSnapshot = order?.customerSnapshot || {};
@@ -772,18 +790,6 @@ export function CartProvider({ children }) {
     const hasPreAppliedDiscount = Boolean(onlineOrder?.id) && Number(onlineOrder?.discount || 0) > 0;
     const effectivePromotion = hasPreAppliedDiscount ? null : appliedPromotion;
     
-    // Debug: Log promotion details
-    if (effectivePromotion) {
-      console.log('🎁 PROMOTION DEBUG:', {
-        promotionName: effectivePromotion.name,
-        discountType: effectivePromotion.discountType,
-        discountValue: effectivePromotion.discountValue,
-        valueType: effectivePromotion.valueType,
-        active: effectivePromotion.active,
-        fullPromotion: effectivePromotion
-      });
-    }
-    
     // Calculate subtotal with promotion applied to each item
     let subtotal = 0;
     
@@ -791,41 +797,37 @@ export function CartProvider({ children }) {
       let itemTotal = item.price * item.quantity - (item.discount || 0);
       const originalItemTotal = itemTotal;
       
-      // Apply promotion INCREMENT/discount to item if customer selected
-      if (effectivePromotion && effectivePromotion.active) {
+      // Apply promotion only if this item is within the promotion's scope
+      if (effectivePromotion && effectivePromotion.active && doesPromotionApplyToItem(effectivePromotion, item)) {
         if (effectivePromotion.discountType === 'PERCENTAGE') {
           const percentChange = effectivePromotion.discountValue / 100;
           if (effectivePromotion.valueType === 'INCREMENT') {
-            // INCREMENT increases the item price
             itemTotal = itemTotal * (1 + percentChange);
           } else if (effectivePromotion.valueType === 'DISCOUNT') {
-            // DISCOUNT decreases the item price
             itemTotal = itemTotal * (1 - percentChange);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${effectivePromotion.valueType} (${effectivePromotion.discountValue}%): ₦${itemTotal}`);
         } else if (effectivePromotion.discountType === 'FIXED' && effectivePromotion.fixedAmountApplyMode !== 'TOTAL') {
-          // Fixed amount per item (default PER_ITEM mode) — multiply by quantity
           if (effectivePromotion.valueType === 'INCREMENT') {
             itemTotal = itemTotal + effectivePromotion.discountValue * item.quantity;
           } else if (effectivePromotion.valueType === 'DISCOUNT') {
             itemTotal = Math.max(0, itemTotal - effectivePromotion.discountValue * item.quantity);
           }
-          console.log(`📦 Item "${item.name}": Original: ₦${originalItemTotal}, After ${effectivePromotion.valueType} (₦${effectivePromotion.discountValue} × ${item.quantity} items): ₦${itemTotal}`);
         }
-        // FIXED + TOTAL mode is applied after the items loop below
       }
       
       subtotal += itemTotal;
     });
 
-    // Apply FIXED + TOTAL mode promotion to the subtotal (not per-item)
+    // Apply FIXED + TOTAL mode promotion to the subtotal (only if at least one item qualifies)
     if (effectivePromotion && effectivePromotion.active && effectivePromotion.discountType === 'FIXED' && effectivePromotion.fixedAmountApplyMode === 'TOTAL') {
-      if (effectivePromotion.valueType === 'INCREMENT') {
-        subtotal = subtotal + effectivePromotion.discountValue;
-      } else if (effectivePromotion.valueType === 'DISCOUNT') {
-        subtotal = Math.max(0, subtotal - effectivePromotion.discountValue);
+      const hasQualifyingItem = items.some(item => doesPromotionApplyToItem(effectivePromotion, item));
+      if (hasQualifyingItem) {
+        if (effectivePromotion.valueType === 'INCREMENT') {
+          subtotal = subtotal + effectivePromotion.discountValue;
+        } else if (effectivePromotion.valueType === 'DISCOUNT') {
+          subtotal = Math.max(0, subtotal - effectivePromotion.discountValue);
+        }
       }
-      console.log(`💰 Fixed TOTAL mode: Applied ₦${effectivePromotion.discountValue} ${effectivePromotion.valueType} to cart total: ₦${subtotal}`);
     }
 
     // Apply fixed discount if any
@@ -846,19 +848,6 @@ export function CartProvider({ children }) {
     // For discounts, it's positive (price went down)
     const discountAmount = isIncrement ? fixedDiscountAmount : Math.max(0, priceDifference);
     const incrementAmount = isIncrement ? Math.abs(rawSubtotal - subtotal) : 0;
-
-    // Debug: Log final totals
-    if (effectivePromotion) {
-      console.log('💰 TOTALS DEBUG:', {
-        rawSubtotal,
-        subtotalAfterPromotion: subtotal,
-        discountAmount,
-        incrementAmount,
-        fixedDiscountAmount,
-        discountedSubtotal,
-        total
-      });
-    }
 
     return {
       subtotal: rawSubtotal,

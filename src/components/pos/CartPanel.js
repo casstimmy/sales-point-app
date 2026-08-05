@@ -37,7 +37,7 @@ import {
   faTimes,
   faWifi,
 } from "@fortawesome/free-solid-svg-icons";
-import { useCart } from "../../context/CartContext";
+import { useCart, doesPromotionApplyToItem } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
 import {
   getOnlineStatus,
@@ -871,11 +871,12 @@ export default function CartPanel() {
           {/* Line Items */}
           <div className="flex-1 overflow-y-auto bg-white divide-y divide-neutral-200">
             {activeCart.items.map((item) => {
-              // Calculate adjusted price if promotion is active
+              // Calculate adjusted price if promotion is active and applies to this item
               let adjustedPrice = item.price;
               if (
                 activeCart.appliedPromotion &&
-                activeCart.appliedPromotion.active
+                activeCart.appliedPromotion.active &&
+                doesPromotionApplyToItem(activeCart.appliedPromotion, item)
               ) {
                 if (activeCart.appliedPromotion.discountType === "PERCENTAGE") {
                   const percentChange =
