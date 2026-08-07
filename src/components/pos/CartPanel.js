@@ -1224,20 +1224,21 @@ export default function CartPanel() {
               </div>
               {totals.discountAmount > 0 && (
                 <div className="flex justify-between col-span-2">
-                  <span
-                    className={`font-semibold ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
-                  >
-                    {activeCart.appliedPromotion?.valueType === "INCREMENT"
-                      ? "INCREMENT"
-                      : "SAVINGS"}
+                  <span className="font-semibold text-red-600">
+                    {totals.discountName || "SAVINGS"}
                   </span>
-                  <span
-                    className={`font-bold text-base ${activeCart.appliedPromotion?.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
-                  >
-                    {activeCart.appliedPromotion?.valueType === "INCREMENT"
-                      ? "+"
-                      : "-"}
-                    ₦{Math.round(totals.discountAmount).toLocaleString()}
+                  <span className="font-bold text-base text-red-600">
+                    -₦{Math.round(totals.discountAmount).toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {totals.incrementAmount > 0 && (
+                <div className="flex justify-between col-span-2">
+                  <span className="font-semibold text-green-600">
+                    {totals.incrementName || "INCREMENT"}
+                  </span>
+                  <span className="font-bold text-base text-green-600">
+                    +₦{Math.round(totals.incrementAmount).toLocaleString()}
                   </span>
                 </div>
               )}
