@@ -384,6 +384,7 @@ export default function CartPanel() {
     setIsProcessingCredit(true);
     try {
       const clientId = `pos-credit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const freshTotals = calculateTotals();
       const transaction = {
         items: activeCart.items.map((item) => ({
           productId: item.id,
@@ -398,14 +399,14 @@ export default function CartPanel() {
         })),
         externalId: clientId,
         clientId,
-        total: totals.total,
-        subtotal: totals.subtotal,
-        tax: totals.tax,
-        discount: totals.discountAmount || 0,
-        discountName: totals.discountName || "Discount",
-        incrementAmount: totals.incrementAmount || 0,
-        incrementName: totals.incrementName || "Additional Charge",
-        promotionValueType: totals.promotionValueType || null,
+        total: freshTotals.total,
+        subtotal: freshTotals.subtotal,
+        tax: freshTotals.tax,
+        discount: freshTotals.discountAmount || 0,
+        discountName: freshTotals.discountName || "Discount",
+        incrementAmount: freshTotals.incrementAmount || 0,
+        incrementName: freshTotals.incrementName || "Additional Charge",
+        promotionValueType: freshTotals.promotionValueType || null,
         customerType: customer.type || null,
         customerId: customer._id,
         customerName: customer.name,
