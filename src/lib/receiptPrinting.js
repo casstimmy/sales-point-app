@@ -452,12 +452,23 @@ function generateReceiptHTML(transaction, settings) {
     </tr>
   `).join('');
 
-  const adjustmentRows = model.adjustmentLines.map((line) => `
-    <div class="total-row" style="color: ${line.type === 'subtract' ? '#dc2626' : '#16a34a'}">
-      <span>${escapeHtml(line.label)}</span>
-      <span>${line.type === 'subtract' ? '-' : '+'}${formatReceiptNaira(line.amount)}</span>
-    </div>
-  `).join('');
+  const adjustmentRows = model.adjustmentLines.length > 0
+    ? model.adjustmentLines.map((line) => `
+      <div class="total-row" style="color: ${line.type === 'subtract' ? '#dc2626' : '#16a34a'}">
+        <span>${escapeHtml(line.label)}</span>
+        <span>${line.type === 'subtract' ? '-' : '+'}${formatReceiptNaira(line.amount)}</span>
+      </div>
+    `).join('')
+    : (() => {
+      // Fallback: show difference between subtotal and total if adjustment lines are missing
+      const diff = model.total - model.subtotal - (model.tax || 0);
+      if (Math.abs(diff) < 1) return '';
+      const isAdd = diff > 0;
+      return `<div class="total-row" style="color: ${isAdd ? '#16a34a' : '#dc2626'}">
+        <span>${isAdd ? 'Adjustment' : 'Discount'}</span>
+        <span>${isAdd ? '+' : '-'}${formatReceiptNaira(Math.abs(diff))}</span>
+      </div>`;
+    })();
 
   const paymentItemsHTML = model.tenderPayments.map((payment) => `
     <tr>

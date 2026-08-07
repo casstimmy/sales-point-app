@@ -449,6 +449,17 @@ export default function ReceiptPrinter({
             </div>
           ))}
 
+          {model.adjustmentLines.length === 0 && Math.abs(model.total - model.subtotal - (model.tax || 0)) >= 1 && (() => {
+            const diff = model.total - model.subtotal - (model.tax || 0);
+            const isAdd = diff > 0;
+            return (
+              <div className="total-row" style={{ color: isAdd ? '#16a34a' : '#dc2626' }}>
+                <span>{isAdd ? 'Adjustment' : 'Discount'}:</span>
+                <span style={{ textAlign: 'right' }}>{isAdd ? '+' : '-'}{formatReceiptNaira(Math.abs(diff))}</span>
+              </div>
+            );
+          })()}
+
           <div className="final-total">
             <div className="total-row">
               <span>TOTAL:</span>
