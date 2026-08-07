@@ -464,8 +464,9 @@ function generateReceiptHTML(transaction, settings) {
       const diff = model.total - model.subtotal - (model.tax || 0);
       if (Math.abs(diff) < 1) return '';
       const isAdd = diff > 0;
+      const fallbackLabel = isAdd ? 'Price Increment' : 'Price Discount';
       return `<div class="total-row" style="color: ${isAdd ? '#16a34a' : '#dc2626'}">
-        <span>${isAdd ? 'Adjustment' : 'Discount'}</span>
+        <span>${fallbackLabel}</span>
         <span>${isAdd ? '+' : '-'}${formatReceiptNaira(Math.abs(diff))}</span>
       </div>`;
     })();

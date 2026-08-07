@@ -465,6 +465,7 @@ export default function CartPanel() {
     }
 
     try {
+      const freshTotals = calculateTotals();
       // Create a temporary transaction object for printing
       const printTransaction = {
         items: activeCart.items.map((item) => ({
@@ -473,13 +474,18 @@ export default function CartPanel() {
           quantity: item.quantity,
           price: item.price,
         })),
-        total: totals.total,
-        subtotal: totals.subtotal,
-        discountAmount: totals.discountAmount,
-        tax: totals.tax,
+        total: freshTotals.total,
+        subtotal: freshTotals.subtotal,
+        tax: freshTotals.tax,
+        discount: freshTotals.discountAmount || 0,
+        discountName: freshTotals.discountName || '',
+        incrementAmount: freshTotals.incrementAmount || 0,
+        incrementName: freshTotals.incrementName || '',
+        promotionValueType: freshTotals.promotionValueType || null,
+        customerType: activeCart.customer?.type || null,
         payment: {
           method: "CASH",
-          amount: totals.total,
+          amount: freshTotals.total,
           change: 0,
         },
         staffId: staff?._id,
