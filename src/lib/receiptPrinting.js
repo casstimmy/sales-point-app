@@ -453,9 +453,9 @@ function generateReceiptHTML(transaction, settings) {
   `).join('');
 
   const adjustmentRows = model.adjustmentLines.map((line) => `
-    <div class="total-row">
+    <div class="total-row" style="color: ${line.type === 'subtract' ? '#dc2626' : '#16a34a'}">
       <span>${escapeHtml(line.label)}</span>
-      <span>${line.type === 'subtract' ? '-' : ''}${formatReceiptNaira(line.amount)}</span>
+      <span>${line.type === 'subtract' ? '-' : '+'}${formatReceiptNaira(line.amount)}</span>
     </div>
   `).join('');
 
