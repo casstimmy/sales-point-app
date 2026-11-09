@@ -1,8 +1,11 @@
-import Till from '@/src/models/Till';
 import { ROOM_STATUSES } from '@/src/lib/roomReservations';
 import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
-import { updateInventoryForSale } from '@/src/lib/syncPackQty';
+import { applySaleInventoryOnce, linkTransactionToTill } from '@/src/lib/tillLedger';
 
+/**
+ * Applies the stock and room effects of a completed sale. Safe to call on
+ * retries: stock is only deducted once per transaction.
+ */
 export async function applyCompletedTransactionEffects(transaction, items, isCompletedTransaction) {
   if (!isCompletedTransaction) {
     return { applied: false };
@@ -10,63 +13,27 @@ export async function applyCompletedTransactionEffects(transaction, items, isCom
 
   await markRoomsFromTransaction(items, transaction, ROOM_STATUSES.RESERVED);
 
-  if (transaction.inventoryUpdated) {
-    return { applied: false, roomsApplied: true };
+  const applied = await applySaleInventoryOnce(transaction._id, items);
+  if (applied) {
+    transaction.inventoryUpdated = true;
   }
 
-  await updateInventoryForSale(items);
-
-  transaction.inventoryUpdated = true;
-  await transaction.save();
-
-  return { applied: true };
+  return { applied, roomsApplied: true };
 }
 
-export async function linkCompletedTransactionToTill({
-  transaction,
-  tillId,
-  total,
-  tenderType,
-  tenderPayments,
-  hasMultiplePayments,
-  isCompletedTransaction,
-}) {
+/**
+ * Links a completed sale to its till and rebuilds the till totals from its
+ * sales. Linking the same sale twice has no effect.
+ */
+export async function linkCompletedTransactionToTill({ transaction, tillId, isCompletedTransaction }) {
   if (!tillId || !isCompletedTransaction) {
     return { linked: false };
   }
 
-  const till = await Till.findById(tillId);
-  if (!till) {
+  const totals = await linkTransactionToTill(tillId, transaction._id);
+  if (!totals) {
     throw new Error(`Till ${tillId} not found for completed transaction`);
   }
 
-  const alreadyLinked = till.transactions.some((txId) => String(txId) === String(transaction._id));
-  if (alreadyLinked) {
-    return { linked: false, alreadyLinked: true };
-  }
-
-  till.transactions.push(transaction._id);
-  till.totalSales = (till.totalSales || 0) + Number(total || 0);
-  till.transactionCount = till.transactions.length;
-
-  if (!(till.tenderBreakdown instanceof Map)) {
-    till.tenderBreakdown = new Map(Object.entries(till.tenderBreakdown || {}));
-  }
-
-  if (hasMultiplePayments) {
-    tenderPayments.forEach((payment) => {
-      const tenderName = payment.tenderName || 'Unknown';
-      const currentAmount = till.tenderBreakdown.get(tenderName) || 0;
-      till.tenderBreakdown.set(tenderName, currentAmount + Number(payment.amount || 0));
-    });
-  } else {
-    const tenderKey = tenderType || 'CASH';
-    const currentAmount = till.tenderBreakdown.get(tenderKey) || 0;
-    till.tenderBreakdown.set(tenderKey, currentAmount + Number(total || 0));
-  }
-
-  till.markModified('tenderBreakdown');
-  await till.save();
-
-  return { linked: true };
+  return { linked: true, totals };
 }

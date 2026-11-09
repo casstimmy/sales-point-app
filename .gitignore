@@ -39,3 +39,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env
+
+# Output written by "print /d:XP-80C" when the printer is not mapped
+XP-80C

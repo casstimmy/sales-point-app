@@ -8,9 +8,24 @@ import { getOnlineStatus, resolveTillId } from "../../lib/offlineSync";
 import { getStoreLogo } from "../../lib/logoCache";
 import { escapeHtml } from "../../lib/receiptViewModel";
 import { addTenderAmount, getTenderAmount, normalizeTenderBreakdown } from "../../lib/tenderKey";
+import { getAppliedTenderEntries } from "../../lib/tenderMath";
 import NumKeypad from "../common/NumKeypad";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faSpinner } from "@fortawesome/free-solid-svg-icons";
+
+const CASH_TENDER_PATTERN = /cash/i;
+
+// The opening float sits in the cash drawer, so the cash tender is expected to
+// hold its sales plus the float. Matches the server's till close calculation.
+const getFloatTenderName = (tenders = []) =>
+  (tenders || []).find((tender) => CASH_TENDER_PATTERN.test(String(tender?.name || '')))?.name || null;
+
+const getExpectedTenderAmount = (summaryData, tenderName, tenders) => {
+  const sales = getTenderAmount(summaryData?.tenderBreakdown, tenderName);
+  return tenderName && tenderName === getFloatTenderName(tenders)
+    ? sales + Number(summaryData?.openingBalance || 0)
+    : sales;
+};
 
 // Generate and print End-of-Day report
 const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closingNotes, locationName) => {
@@ -29,7 +44,7 @@ const printEndOfDayReport = (tillData, summaryData, tenderCounts, tenders, closi
 
   // Build tender reconciliation rows
   const tenderRows = (tenders || []).map(tender => {
-    const expected = getTenderAmount(summaryData?.tenderBreakdown, tender.name);
+    const expected = getExpectedTenderAmount(summaryData, tender.name, tenders);
     const physical = parseFloat(tenderCounts?.[tender.id]) || 0;
     const variance = physical - expected;
     return `
@@ -234,24 +249,28 @@ const getOfflineTillData = async (tillId) => {
           const tenderBreakdown = {};
           let unsyncedCount = 0;
           
+          let completedCount = 0;
+
           tillTransactions.forEach(tx => {
-            totalSales += tx.total || 0;
             if (tx.synced !== true) {
               unsyncedCount += 1;
             }
-            
-            // Process tender payments
-            if (tx.tenderPayments && Array.isArray(tx.tenderPayments)) {
-              tx.tenderPayments.forEach(tp => {
-                addTenderAmount(tenderBreakdown, tp.tenderName, tp.amount, 'Cash');
-              });
-            } else if (tx.tenderType) {
-              addTenderAmount(tenderBreakdown, tx.tenderType, tx.total, 'Cash');
+
+            // Same rules as the server: only completed sales count, and change is
+            // taken off cash so tenders add up to what is actually in the drawer.
+            if (String(tx.status || 'completed').toLowerCase() !== 'completed') {
+              return;
             }
+
+            completedCount += 1;
+            totalSales += Number(tx.total || 0);
+            getAppliedTenderEntries(tx).forEach((entry) => {
+              addTenderAmount(tenderBreakdown, entry.name, entry.amount, 'Cash');
+            });
           });
           
           resolve({
-            transactionCount: tillTransactions.length,
+            transactionCount: completedCount,
             totalSales,
             tenderBreakdown,
             unsyncedCount,
@@ -921,7 +940,7 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
             <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Reconcile Payment Methods</h3>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {tenders && tenders.map((tender) => {
-                const processedAmount = getTenderAmount(summary?.tenderBreakdown, tender.name);
+                const processedAmount = getExpectedTenderAmount(summary, tender.name, tenders);
                 const physicalCount = parseFloat(tenderCounts[tender.id]) || 0;
                 const variance = physicalCount - processedAmount;
                 const hasValue = tenderCounts[tender.id] !== undefined && tenderCounts[tender.id] !== "";
@@ -942,7 +961,12 @@ export default function CloseTillModal({ isOpen, onClose, onTillClosed }) {
                           {tender.name}
                           {activeTenderKeypad === tender.id && <span className="ml-2 text-cyan-600 font-bold text-sm">→ ACTIVE</span>}
                         </span>
-                        <span className="text-sm text-gray-500">Expected: ₦{Number(processedAmount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        <span className="text-sm text-gray-500">
+                          Expected: ₦{Number(processedAmount).toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {tender.name === getFloatTenderName(tenders) && Number(summary?.openingBalance || 0) > 0 && (
+                            <span className="block text-[11px] text-gray-400">incl. ₦{Number(summary.openingBalance).toLocaleString('en-NG')} float</span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex gap-2">
                         <div className="flex-1">

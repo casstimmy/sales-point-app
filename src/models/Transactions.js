@@ -36,7 +36,8 @@ const TransactionSchema = new mongoose.Schema({
   tenderPayments: [{
     tenderId: mongoose.Schema.Types.ObjectId, // Reference to Tender
     tenderName: { type: String, trim: true },   // Tender name (CASH, HYDROGEN POS, etc.)
-    amount: Number,                             // Amount paid with this tender
+    amount: Number,                             // Amount applied to the sale with this tender
+    tendered: Number,                           // Amount the customer handed over (before change)
   }],
   
   // Transaction amounts
@@ -80,7 +81,7 @@ const TransactionSchema = new mongoose.Schema({
   customerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
   creditStatus: {
     type: String,
-    enum: ["none", "open", "partly_paid", "paid", "written_off"],
+    enum: ["none", "open", "partly_paid", "paid", "overdue", "written_off"],
     default: "none",
   },
   creditCustomerId: { type: mongoose.Schema.Types.ObjectId, ref: "Customer", default: null },
@@ -123,7 +124,7 @@ const TransactionSchema = new mongoose.Schema({
   },
   subStatus: {
     type: String,
-    enum: ["edited", "void", null],
+    enum: ["none", "edited", "void", null],
     default: null,
   },
   
@@ -140,6 +141,22 @@ const TransactionSchema = new mongoose.Schema({
   
   // Track which till this transaction belongs to
   tillId: { type: mongoose.Schema.Types.ObjectId, ref: "Till" },
+  // Offline till id the sale was rung up on, kept when it synced without a till link
+  originalOfflineTillId: { type: String, default: null },
+  tillLinkMissing: { type: Boolean, default: false },
+
+  // Held sale lifecycle
+  heldAt: { type: Date, default: null },          // when the sale was first put on hold
+  completedAt: { type: Date, default: null },     // when a held sale was finally paid
+  voidedAt: { type: Date, default: null },        // held sale cancelled without payment
+  voidReason: { type: String, default: "" },
+  voidedByStaffId: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null },
+  voidedByStaffName: { type: String, default: "" },
+
+  // Client ids of edits already applied, so a retried edit is not applied twice
+  appliedEditIds: { type: [String], default: [] },
+  // Staff session that pushed the record to the server (may differ from the seller for offline sales)
+  syncedByStaffId: { type: mongoose.Schema.Types.ObjectId, ref: "Staff", default: null },
   
   // Timestamps
   createdAt: { type: Date, default: Date.now },
@@ -165,6 +182,8 @@ TransactionSchema.index({ salesChannel: 1, createdAt: -1 });
 TransactionSchema.index({ sourceOrderId: 1 }, { sparse: true });
 TransactionSchema.index({ status: 1, creditStatus: 1, createdAt: -1 });
 TransactionSchema.index({ creditCustomerId: 1, creditStatus: 1 });
+// Held sales list on the POS
+TransactionSchema.index({ status: 1, locationId: 1, createdAt: -1 });
 
 // Avoid re-registering the model in development
 delete mongoose.models.Transaction;

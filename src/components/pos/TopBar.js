@@ -22,7 +22,7 @@ import { useCart } from '../../context/CartContext';
 
 export default function TopBar({ activeTab, onTabChange, onLogout, storeData, staffData, onToggleSidebar }) {
   const [currentTime, setCurrentTime] = useState(new Date());
-  const { isOnline, pendingSyncCount } = useCart();
+  const { isOnline, pendingSyncCount, syncIssueCount } = useCart();
   const [apiDown, setApiDown] = useState(false);
 
   useEffect(() => {
@@ -99,6 +99,19 @@ export default function TopBar({ activeTab, onTabChange, onLogout, storeData, st
             </div>
           )}
         </div>
+      )}
+
+      {syncIssueCount > 0 && (
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new CustomEvent('pos:pending-transactions:open'))}
+          className="bg-red-600 hover:bg-red-700 px-4 py-2 flex items-center justify-between gap-2 text-left text-sm font-semibold text-white"
+        >
+          <span>
+            {syncIssueCount} sale{syncIssueCount !== 1 ? 's' : ''} could not reach the server and need{syncIssueCount === 1 ? 's' : ''} attention.
+          </span>
+          <span className="shrink-0 rounded-lg bg-white px-3 py-1 text-xs font-bold text-red-700">Review</span>
+        </button>
       )}
 
       {isOnline && apiDown && (

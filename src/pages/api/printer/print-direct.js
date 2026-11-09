@@ -239,7 +239,7 @@ export default async function handler(req, res) {
           });
           printed = true;
         } catch (error) {
-          console.warn('âš ï¸ USB direct print command failed:', error.message);
+          console.warn('⚠️ USB direct print command failed:', error.message);
         }
         
         // Clean up temp file after delay

@@ -51,7 +51,21 @@ const verifyPin = async (staffMember, pin) => {
   }
 
   if (!isPinCorrect) {
-    isPinCorrect = pin === staffMember.pin || pin === staffMember.password;
+    // Legacy accounts may still hold the PIN in plain text. Accept it once and
+    // replace it with a hash so it is never stored readable again.
+    const matchedPlainText = pin === staffMember.pin || pin === staffMember.password;
+    if (matchedPlainText) {
+      isPinCorrect = true;
+      try {
+        const hashed = await bcrypt.hash(pin, 10);
+        await Staff.updateOne(
+          { _id: staffMember._id },
+          { $set: { password: hashed, ...(staffMember.pin ? { pin: hashed } : {}) } }
+        );
+      } catch (err) {
+        console.warn("Could not upgrade plain-text PIN:", err?.message || err);
+      }
+    }
   }
 
   return isPinCorrect;

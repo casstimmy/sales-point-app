@@ -1,12 +1,11 @@
 // pages/api/till/close.js
 import { mongooseConnect } from "@/src/lib/mongoose";
 import Till from "@/src/models/Till";
-import { Transaction } from "@/src/models/Transactions";
 import EndOfDayReport from "@/src/models/EndOfDayReport";
 import Tender from "@/src/models/Tender";
 import Store from "@/src/models/Store";
-import mongoose from "mongoose";
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { buildExpectedByTender, recalculateTillTotals, roundMoney } from '@/src/lib/tillLedger';
 
 /**
  * Bulletproof Mongoose Map → plain object extraction.
@@ -115,148 +114,49 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get all transactions for this till since it was opened
-    const transactions = await Transaction.find({
-      _id: { $in: till.transactions },
-    }).exec();
-
-    console.log(`📊 Till ${tillId} has ${transactions.length} transactions linked`);
-    console.log(`📊 Till opening balance: ${till.openingBalance}`);
-
-    // **BEST METHOD: Use MongoDB aggregation to calculate tender breakdown**
-    // This ensures accuracy and consistency with the GET endpoint
-    // Handles both legacy tenderType (single tender) and new tenderPayments (split payments)
-    const tenderAggregation = await Transaction.aggregate([
-      {
-        $match: {
-          _id: { $in: (till.transactions || []).map(id => {
-            if (id && id._id) return id._id; // populated doc
-            if (typeof id === 'string') return new mongoose.Types.ObjectId(id);
-            return id; // already ObjectId
-          }) },
-          // IMPORTANT: Only include actual sales transactions (amount > 0)
-          // This prevents open-till operations or void transactions from being counted
-          total: { $gt: 0 }
-        }
-      },
-      // Normalize both payment methods to a common format
-      {
-        $addFields: {
-          normalizedPayments: {
-            $cond: [
-              { $gt: [{ $size: { $ifNull: ["$tenderPayments", []] } }, 0] },
-              "$tenderPayments", // If tenderPayments exists, use it
-              [{ tenderName: { $ifNull: ["$tenderType", "CASH"] }, amount: "$total" }] // Otherwise convert tenderType
-            ]
-          }
-        }
-      },
-      // Unwind the payments array so each payment becomes a separate document
-      {
-        $unwind: "$normalizedPayments"
-      },
-      // Group by tender name and sum amounts
-      // IMPORTANT: Count unique transactions, not payment entries (split payments should count as 1 transaction)
-      {
-        $group: {
-          _id: "$normalizedPayments.tenderName",
-          totalAmount: { $sum: "$normalizedPayments.amount" },
-          // Collect unique transaction IDs to count actual transactions, not split payments
-          uniqueTransactions: { $addToSet: "$_id" }
-        }
-      },
-      // Add transaction count from unique transactions
-      {
-        $addFields: {
-          transactionCount: { $size: "$uniqueTransactions" }
-        }
-      },
-      {
-        $sort: { _id: 1 }
-      }
-    ]);
-
-    console.log(`\n💰 TENDER BREAKDOWN BY AGGREGATION (supports split payments):`);
-    
-    // Calculate totals by tender type
-    let totalSales = 0;
-    const tenderBreakdown = {}; // Use object for collecting by tender name
-    const tenderVariances = {}; // Variance per tender
-
-    tenderAggregation.forEach((group) => {
-      const tenderType = group._id || "CASH";
-      const amount = group.totalAmount || 0;
-      const count = group.transactionCount || 0;
-      
-      tenderBreakdown[tenderType] = amount;
-      totalSales += amount;
-      
-      console.log(`   💳 ${tenderType}: ₦${amount.toLocaleString('en-NG')} (${count} payment${count !== 1 ? 's' : ''})`);
-    });
-
-    console.log(`\n✅ Total Sales Calculated: ₦${totalSales.toLocaleString('en-NG')}`);
-
-    // If aggregation returned nothing, fall back to stored tenderBreakdown
-    if (Object.keys(tenderBreakdown).length === 0 && till.tenderBreakdown) {
-      console.log('🔄 Aggregation empty, using stored tenderBreakdown as fallback');
-      const storedBreakdown = extractMapToObject(till.tenderBreakdown);
-      Object.entries(storedBreakdown).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          tenderBreakdown[key] = value;
-          totalSales += value;
-        }
-      });
-    }
-    // If still nothing but we have stored totalSales, use that
-    if (totalSales === 0 && till.totalSales > 0) {
-      totalSales = till.totalSales;
-    }
+    // Rebuild the till's numbers from its completed sales (refunds, held and
+    // credit sales excluded; change already taken off cash) so the close screen,
+    // the stored till and the end-of-day report all use the same figures.
+    const ledgerTotals = await recalculateTillTotals(till._id);
+    const totalSales = roundMoney(ledgerTotals?.totalSales || 0);
+    const transactionCount = ledgerTotals?.transactionCount || 0;
+    const tenderBreakdown = { ...(ledgerTotals?.tenderBreakdown || {}) };
+    const tenderVariances = {};
 
     // Get tender mapping (ID to name)
     const tenderDocs = await Tender.find();
-    const tenderMap = {}; // Map tender ID to name
-    const tenderNameMap = {}; // Map tender name to ID (for reverse lookup)
-    tenderDocs.forEach(t => {
+    const tenderMap = {};
+    tenderDocs.forEach((t) => {
       tenderMap[t._id.toString()] = t.name;
-      tenderNameMap[t.name] = t._id.toString();
     });
 
-    console.log("📋 Tender mapping:", tenderMap);
-    console.log("📋 Tender counts keys:", Object.keys(safeTenderCounts));
+    const countedTenderNames = Object.keys(safeTenderCounts).map((tenderId) => tenderMap[tenderId]).filter(Boolean);
+    const expectedByTender = buildExpectedByTender(tenderBreakdown, till.openingBalance, countedTenderNames);
 
     let totalCountedAmount = 0;
-    let totalVariance = 0;
 
-    // Process tender counts (keyed by tender ID)
+    // Process tender counts (keyed by tender ID). Cash is expected to include the opening float.
     for (const [tenderId, countedAmount] of Object.entries(safeTenderCounts)) {
       const tenderName = tenderMap[tenderId];
-      
       if (!tenderName) {
-        console.warn(`⚠️ Unknown tender ID: ${tenderId}`);
+        console.warn(`Unknown tender ID at till close: ${tenderId}`);
         continue;
       }
-      
-      const processedAmount = tenderBreakdown[tenderName] || 0;
-      const variance = parseFloat(countedAmount) - processedAmount;
-      
-      tenderVariances[tenderName] = {
-        processed: processedAmount,
-        counted: parseFloat(countedAmount),
-        variance: variance
-      };
-      
-      totalCountedAmount += parseFloat(countedAmount);
-      totalVariance += variance;
 
-      console.log(`  📊 ${tenderName} - Processed: ${processedAmount}, Counted: ${parseFloat(countedAmount)}, Variance: ${variance}`);
+      const counted = roundMoney(parseFloat(countedAmount) || 0);
+      const expectedAmount = roundMoney(expectedByTender[tenderName] || 0);
+      tenderVariances[tenderName] = {
+        processed: roundMoney(tenderBreakdown[tenderName] || 0),
+        counted,
+        variance: roundMoney(counted - expectedAmount),
+      };
+      totalCountedAmount = roundMoney(totalCountedAmount + counted);
     }
 
-    // Calculate expected closing balance
-    const expectedClosingBalance = till.openingBalance + totalSales;
-
-    // Calculate overall variance
-    const variancePercentage = expectedClosingBalance > 0 
-      ? (totalVariance / expectedClosingBalance) * 100 
+    const expectedClosingBalance = roundMoney(Number(till.openingBalance || 0) + totalSales);
+    const totalVariance = roundMoney(totalCountedAmount - expectedClosingBalance);
+    const variancePercentage = expectedClosingBalance > 0
+      ? (totalVariance / expectedClosingBalance) * 100
       : 0;
 
     // Update till with closing details (idempotent)
@@ -268,7 +168,7 @@ export default async function handler(req, res) {
       expectedClosingBalance: expectedClosingBalance,
       variance: totalVariance,
       totalSales: totalSales,
-      transactionCount: transactions.length,
+      transactionCount,
       tenderBreakdown: tenderBreakdown,
       tenderVariances: tenderVariances,
       closingNotes: closingNotes || "",
@@ -339,7 +239,7 @@ export default async function handler(req, res) {
         variance: totalVariance,
         variancePercentage: variancePercentage,
         totalSales: totalSales,
-        transactionCount: transactions.length,
+        transactionCount,
         tenderBreakdown: new Map(Object.entries(tenderBreakdown)),
         tenderActual: new Map(Object.entries(tenderActualMap)),
         tenderVariances: new Map(Object.entries(tenderVariances)),
@@ -385,7 +285,7 @@ export default async function handler(req, res) {
         expectedClosingBalance: expectedClosingBalance,
         totalCountedAmount: totalCountedAmount,
         totalVariance: totalVariance,
-        transactionCount: transactions.length,
+        transactionCount,
         tenderBreakdown: tenderBreakdownObj,
         tenderVariances: tenderVariancesObj, // Detailed variance per tender
       },

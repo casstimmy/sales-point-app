@@ -37,8 +37,9 @@ export async function autoSyncTransactions() {
     }
 
     // Use unified offline sync pipeline
+    // A manual sync retries everything now, including sales waiting out a back-off.
     await syncPendingTillOpens();
-    await syncPendingTransactions();
+    await syncPendingTransactions({ forceRetry: true });
     await syncPendingTillCloses();
 
     const pendingAfter = await getPendingTransactionsCount();

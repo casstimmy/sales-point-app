@@ -221,6 +221,8 @@ export default function PaymentPanel() {
 
       const clientId = `pos-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const editTransactionId = activeCart.recallSourceTransactionId || null;
+      const recallSourceStatus = activeCart.recallSourceStatus || null;
+      const isCompletingHeldOrder = recallSourceStatus === 'held';
 
       // Compute totals fresh to ensure promotion values are captured
       const freshTotals = calculateTotals();
@@ -232,8 +234,16 @@ export default function PaymentPanel() {
           quantity: item.quantity,
           price: item.price,
         })),
-        ...(editTransactionId ? {} : { externalId: clientId, clientId }),
-        ...(editTransactionId ? { editTransactionId, subStatus: "edited" } : {}),
+        // Every payment attempt gets its own id so a retried sync is recognised as the same payment.
+        externalId: clientId,
+        clientId,
+        ...(editTransactionId
+          ? {
+              editTransactionId,
+              recallSourceStatus,
+              ...(isCompletingHeldOrder ? {} : { subStatus: "edited" }),
+            }
+          : {}),
         total: freshTotals.total,
         subtotal: freshTotals.subtotal,
         tax: freshTotals.tax,

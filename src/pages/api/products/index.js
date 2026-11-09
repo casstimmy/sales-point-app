@@ -14,6 +14,10 @@ import Store from "@/src/models/Store";
 import { releaseExpiredRoomBookings } from "@/src/lib/roomAvailability";
 
 const normalizeLocationToken = (value) => String(value || "").trim().toLowerCase();
+const escapeRegex = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Safety cap on what one request returns. Applied after the location filter so a
+// large catalogue never hides products that belong to this till's location.
+const MAX_PRODUCTS = 5000;
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -26,7 +30,8 @@ export default async function handler(req, res) {
     const { category, search, locationId } = req.query;
     await releaseExpiredRoomBookings();
     
-    let query = {};
+    // Archived products are retired in the admin app and must not be sold at the till.
+    let query = { isArchived: { $ne: true } };
 
     // Filter by category if provided
     if (category) {
@@ -35,12 +40,11 @@ export default async function handler(req, res) {
 
     // Search by product name if provided
     if (search) {
-      query.name = { $regex: search, $options: "i" };
+      query.name = { $regex: escapeRegex(String(search).slice(0, 100)), $options: "i" };
     }
 
     let products = await Product.find(query)
       .select("_id name category salePriceIncTax quantity images description locations isChildProduct parentProduct packType qtyPerPack childSalePrice productType roomStatus currentBooking")
-      .limit(500)
       .lean();
 
     // Filter by location in JavaScript (more reliable than $or with mixed data)
@@ -102,6 +106,10 @@ export default async function handler(req, res) {
           child.quantity = parent.quantity * parent.qtyPerPack;
         }
       }
+    }
+
+    if (products.length > MAX_PRODUCTS) {
+      products = products.slice(0, MAX_PRODUCTS);
     }
 
     return res.status(200).json({

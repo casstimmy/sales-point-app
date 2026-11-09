@@ -28,13 +28,18 @@ export default async function handler(req, res) {
 
     console.log(`✅ Found ${activeTills.length} active till${activeTills.length !== 1 ? 's' : ''}`);
 
-    // Enrich till data with location name
+    // This endpoint is public (the login screen uses it before anyone signs in),
+    // so it only says which tills are open - never how much money is in them.
+    const storeCache = new Map();
     const enrichedTills = await Promise.all(
       activeTills.map(async (till) => {
-        // Find the location in its store
-        const store = await Store.findById(till.storeId).lean();
+        const storeKey = String(till.storeId || "");
+        if (storeKey && !storeCache.has(storeKey)) {
+          storeCache.set(storeKey, Store.findById(till.storeId).select("locations").lean());
+        }
+        const store = storeKey ? await storeCache.get(storeKey) : null;
         const location = store?.locations?.find(
-          (loc) => loc._id.toString() === till.locationId.toString()
+          (loc) => String(loc._id) === String(till.locationId || "")
         );
 
         return {
@@ -44,21 +49,11 @@ export default async function handler(req, res) {
           locationName: location?.name || "Unknown Location",
           locationId: till.locationId,
           openedAt: till.openedAt,
-          totalSales: till.totalSales || 0,
-          transactionCount: till.transactionCount || 0,
-          openingBalance: till.openingBalance || 0,
           storeId: till.storeId,
           status: till.status,
         };
       })
     );
-
-    // Log details for debugging
-    enrichedTills.forEach((till) => {
-      console.log(
-        `   💳 ${till.staffName} @ ${till.locationName}: ₦${till.totalSales.toLocaleString('en-NG')} (${till.transactionCount} transactions)`
-      );
-    });
 
     return res.status(200).json({
       success: true,

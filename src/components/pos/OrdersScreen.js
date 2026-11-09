@@ -20,6 +20,8 @@ import {
   faSync,
   faUndo,
   faPrint,
+  faTrash,
+  faPlay,
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 import { useStaff } from '../../context/StaffContext';
@@ -57,6 +59,20 @@ const getOrderContactDetails = (order) => {
 
 const getOrderSourceLabel = (siteKey) => (siteKey === 'hotel' ? 'Hotel Website' : 'Store Website');
 
+// "Today", "Yesterday" or "3 days ago" so staff can spot held orders from earlier days.
+const getHeldAgeLabel = (value) => {
+  if (!value) return '';
+  const heldDay = new Date(value);
+  if (Number.isNaN(heldDay.getTime())) return '';
+  heldDay.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const days = Math.round((today - heldDay) / 86400000);
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return `${days} days ago`;
+};
+
 export default function OrdersScreen({ onNavigateToMenu }) {
   const [activeStatus, setActiveStatus] = useState('HELD');
   const [selectedDate, setSelectedDate] = useState('');
@@ -76,6 +92,12 @@ export default function OrdersScreen({ onNavigateToMenu }) {
   const [refundError, setRefundError] = useState(null);
   const [printingOrderId, setPrintingOrderId] = useState(null);
   const [receiptSettings, setReceiptSettings] = useState(null);
+  const [serverHeldOrders, setServerHeldOrders] = useState([]);
+  const [isLoadingHeld, setIsLoadingHeld] = useState(false);
+  const [heldLoadError, setHeldLoadError] = useState('');
+  const [voidTarget, setVoidTarget] = useState(null);
+  const [voidReason, setVoidReason] = useState('');
+  const [voidLoading, setVoidLoading] = useState(false);
   const {
     isOnline,
     lastSyncTime,
@@ -130,6 +152,87 @@ export default function OrdersScreen({ onNavigateToMenu }) {
       setIsLoadingOnlineOrders(false);
     }
   }, [isOnline, location]);
+
+  // Held orders saved on the server for this location, from any till and any day.
+  // Offline, the last loaded list is kept so earlier held orders stay visible.
+  const fetchHeldOrders = useCallback(async () => {
+    if (!isOnline) return;
+
+    setIsLoadingHeld(true);
+    try {
+      const params = new URLSearchParams({ limit: '300' });
+      if (location?._id) params.append('locationId', String(location._id));
+      if (location?.name) params.append('location', String(location.name));
+
+      const response = await fetch(`/api/transactions/held?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error(`Failed to load held orders: ${response.status}`);
+      }
+
+      const result = await response.json();
+      setServerHeldOrders(Array.isArray(result.data) ? result.data : []);
+      setHeldLoadError('');
+    } catch (error) {
+      console.error('Failed to fetch held orders:', error);
+      setHeldLoadError('Could not load held orders from the server. Showing orders held on this device.');
+    } finally {
+      setIsLoadingHeld(false);
+    }
+  }, [isOnline, location]);
+
+  useEffect(() => {
+    if (activeStatus !== 'HELD') return undefined;
+
+    fetchHeldOrders();
+
+    const refresh = () => fetchHeldOrders();
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') fetchHeldOrders();
+    };
+
+    window.addEventListener('transactions:completed', refresh);
+    window.addEventListener('pos:held-updated', refresh);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+
+    return () => {
+      window.removeEventListener('transactions:completed', refresh);
+      window.removeEventListener('pos:held-updated', refresh);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [activeStatus, fetchHeldOrders, orders.length]);
+
+  const handleVoidHeldOrder = async () => {
+    if (!voidTarget) return;
+
+    setVoidLoading(true);
+    try {
+      const response = await fetch('/api/transactions/held', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'void',
+          transactionId: voidTarget.id,
+          reason: voidReason,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Could not cancel this held order.');
+      }
+
+      showToast('Held order cancelled.', 'success');
+      setVoidTarget(null);
+      setVoidReason('');
+      await fetchHeldOrders();
+    } catch (error) {
+      showToast(error.message || 'Could not cancel this held order.', 'error');
+    } finally {
+      setVoidLoading(false);
+    }
+  };
 
   // Fetch completed transactions from server (online) or IndexedDB (offline)
   const fetchCompletedTransactions = useCallback(async () => {
@@ -455,25 +558,53 @@ export default function OrdersScreen({ onNavigateToMenu }) {
         };
       });
     } else {
-      // Use held orders from CartContext
-      if (!orders || orders.length === 0) {
-        setFilteredOrders([]);
-        return;
-      }
+      // Held orders: everything saved on the server for this location (any till, any day)
+      // plus anything held on this device that has not reached the server yet.
+      const serverKeys = new Set(
+        serverHeldOrders.flatMap((tx) => [String(tx._id), String(tx.externalId || '')]).filter(Boolean)
+      );
 
-      sourceOrders = orders
-        .filter(order => order.status === activeStatus)
-        .map(order => ({
+      const fromServer = serverHeldOrders.map((tx) => {
+        const heldAt = tx.heldAt || tx.createdAt;
+        return {
+          id: String(tx._id),
+          source: 'server',
+          time: heldAt ? new Date(heldAt).toLocaleString() : 'N/A',
+          createdAt: heldAt || new Date().toISOString(),
+          ageLabel: getHeldAgeLabel(heldAt),
+          customer: tx.customerName || 'Walk-in',
+          staffMember: tx.heldByStaffName || tx.staffName || 'Unknown',
+          location: tx.location || 'Unknown',
+          tableName: tx.tableName || null,
+          tenderType: null,
+          total: Number(tx.total || 0),
+          status: 'HELD',
+          items: tx.items || [],
+          raw: tx,
+        };
+      });
+
+      const fromDevice = (orders || [])
+        .filter((order) => order.status === 'HELD' && !serverKeys.has(String(order.id)))
+        .map((order) => ({
           id: order.id,
+          source: 'local',
           time: order.createdAt ? new Date(order.createdAt).toLocaleString() : 'N/A',
+          createdAt: order.createdAt || new Date().toISOString(),
+          ageLabel: getHeldAgeLabel(order.createdAt),
           customer: order.customer?.name || 'Walk-in',
           staffMember: order.staffMember?.name || order.staffMember || 'Unknown',
           location: order.location?.name || order.location || 'Unknown',
-          tenderType: order.status === 'HELD' ? null : (order.tenderType || null), // Don't show tender for HELD
-          total: order.total || 0,
-          status: order.status,
+          tableName: order.tableName || null,
+          tenderType: null,
+          total: Number(order.total || 0),
+          status: 'HELD',
           items: order.items || [],
         }));
+
+      sourceOrders = [...fromServer, ...fromDevice].sort(
+        (left, right) => new Date(right.createdAt) - new Date(left.createdAt)
+      );
     }
 
     // Apply date filter if selected
@@ -487,7 +618,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
     }
 
     setFilteredOrders(filtered);
-  }, [activeStatus, selectedDate, orders, completedTransactions, onlineOrders, location]);
+  }, [activeStatus, selectedDate, orders, completedTransactions, onlineOrders, location, serverHeldOrders]);
 
   const handleOrderSelect = (order) => {
     if (activeStatus === 'COMPLETE' || activeStatus === 'ORDERED') {
@@ -495,9 +626,14 @@ export default function OrdersScreen({ onNavigateToMenu }) {
       setDetailOrder(order);
       setShowDetailPanel(true);
     } else {
-      // Resume held orders to cart
-      resumeOrder(order.id);
-      // Auto-navigate back to menu after resuming held order
+      // Resume held orders to cart. Server-saved ones are recalled by their server id so
+      // paying completes that same record (and any till can do it).
+      if (order.source === 'server' && order.raw) {
+        recallTransactionToCart({ ...order.raw, status: 'held' });
+      } else {
+        resumeOrder(order.id);
+      }
+      showToast('Held order loaded into the cart.', 'success');
       if (onNavigateToMenu) onNavigateToMenu();
     }
   };
@@ -674,17 +810,25 @@ export default function OrdersScreen({ onNavigateToMenu }) {
         </button>
         
         {/* Refresh button for completed transactions */}
-        {(activeStatus === 'COMPLETE' || activeStatus === 'ORDERED') && (
+        {(activeStatus === 'COMPLETE' || activeStatus === 'ORDERED' || activeStatus === 'HELD') && (
           <button 
-            onClick={activeStatus === 'COMPLETE' ? fetchCompletedTransactions : fetchOnlineOrders}
-            disabled={activeStatus === 'COMPLETE' ? isLoadingCompleted : isLoadingOnlineOrders}
+            onClick={activeStatus === 'COMPLETE' ? fetchCompletedTransactions : activeStatus === 'HELD' ? fetchHeldOrders : fetchOnlineOrders}
+            disabled={activeStatus === 'COMPLETE' ? isLoadingCompleted : activeStatus === 'HELD' ? isLoadingHeld : isLoadingOnlineOrders}
             className="px-3 py-1.5 bg-green-500 text-white rounded font-semibold text-xs hover:bg-green-600 flex items-center gap-1.5 transition-colors touch-manipulation disabled:opacity-50"
           >
-            <FontAwesomeIcon icon={faSync} className={`w-3 h-3 ${(activeStatus === 'COMPLETE' ? isLoadingCompleted : isLoadingOnlineOrders) ? 'animate-spin' : ''}`} />
+            <FontAwesomeIcon icon={faSync} className={`w-3 h-3 ${(activeStatus === 'COMPLETE' ? isLoadingCompleted : activeStatus === 'HELD' ? isLoadingHeld : isLoadingOnlineOrders) ? 'animate-spin' : ''}`} />
             <span className="hidden sm:inline">REFRESH</span>
           </button>
         )}
       </div>
+
+      {activeStatus === 'HELD' && (
+        <div className="bg-amber-50 border-b border-amber-200 px-3 py-2 text-xs text-amber-900">
+          Showing every held order for {location?.name || 'this location'}, including earlier days and other tills.
+          Tap an order to load it and take payment.
+          {heldLoadError && <div className="mt-1 font-semibold text-red-700">{heldLoadError}</div>}
+        </div>
+      )}
 
       {/* Orders Table */}
       <div className="flex-1 overflow-y-auto">
@@ -696,7 +840,7 @@ export default function OrdersScreen({ onNavigateToMenu }) {
               <th className="text-left p-2 text-gray-700 hidden md:table-cell">STAFF MEMBER</th>
               <th className="text-left p-2 text-gray-700">{activeStatus === 'ORDERED' ? 'STATUS' : 'TENDER TYPE'}</th>
               <th className="text-right p-2 text-gray-700">TOTAL</th>
-              {activeStatus === 'COMPLETE' && <th className="text-center p-2 text-gray-700">ACTIONS</th>}
+              {(activeStatus === 'COMPLETE' || activeStatus === 'HELD') && <th className="text-center p-2 text-gray-700">ACTIONS</th>}
             </tr>
           </thead>
           <tbody>
@@ -710,6 +854,27 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                   onClick={() => handleOrderSelect(order)}
                 >
                   {order.time}
+                  {activeStatus === 'HELD' && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {order.ageLabel && (
+                        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                          order.ageLabel === 'Today' ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {order.ageLabel}
+                        </span>
+                      )}
+                      {order.tableName && (
+                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] font-semibold text-blue-800">
+                          {order.tableName}
+                        </span>
+                      )}
+                      {order.source === 'local' && (
+                        <span className="rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          On this device only
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </td>
                 <td 
                   className="p-2 text-gray-800 cursor-pointer hidden sm:table-cell"
@@ -768,6 +933,35 @@ export default function OrdersScreen({ onNavigateToMenu }) {
                 >
                   ₦{order.total.toLocaleString()}
                 </td>
+                {activeStatus === 'HELD' && (
+                  <td className="p-2 text-center">
+                    <div className="flex items-center justify-center gap-1.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOrderSelect(order);
+                        }}
+                        className="px-2 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded text-xs font-semibold flex items-center gap-1 transition-colors"
+                      >
+                        <FontAwesomeIcon icon={faPlay} className="w-2.5 h-2.5" />
+                        Resume
+                      </button>
+                      {order.source === 'server' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setVoidReason('');
+                            setVoidTarget(order);
+                          }}
+                          className="px-2 py-1 bg-white border border-red-300 hover:bg-red-50 text-red-700 rounded text-xs font-semibold flex items-center gap-1 transition-colors"
+                        >
+                          <FontAwesomeIcon icon={faTrash} className="w-2.5 h-2.5" />
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                )}
                 {activeStatus === 'COMPLETE' && (
                   <td className="p-2 text-center">
                     <div className="flex items-center justify-center gap-1.5">
@@ -814,6 +1008,46 @@ export default function OrdersScreen({ onNavigateToMenu }) {
           </div>
         )}
       </div>
+
+      {/* Cancel held order */}
+      {voidTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => { if (!voidLoading) setVoidTarget(null); }}>
+          <div className="w-full max-w-sm rounded-xl bg-white p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">Cancel held order?</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              {voidTarget.customer} · ₦{Number(voidTarget.total || 0).toLocaleString()} · held {(voidTarget.ageLabel || '').toLowerCase()}
+            </p>
+            <p className="mt-2 text-xs text-gray-500">
+              Only cancel if the customer will not pay. Cancelled held orders stay on record but leave this list.
+            </p>
+            <label className="mt-3 block text-xs font-semibold text-gray-700">
+              Reason
+              <input
+                value={voidReason}
+                onChange={(e) => setVoidReason(e.target.value)}
+                placeholder="e.g. Customer left"
+                className="mt-1 w-full rounded border border-gray-300 px-2 py-1.5 text-sm outline-none focus:border-cyan-500"
+              />
+            </label>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => setVoidTarget(null)}
+                disabled={voidLoading}
+                className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                Keep it
+              </button>
+              <button
+                onClick={handleVoidHeldOrder}
+                disabled={voidLoading || !voidReason.trim()}
+                className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {voidLoading ? 'Cancelling...' : 'Cancel order'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Transaction Detail Slide-Out Panel */}
       {showDetailPanel && detailOrder && (

@@ -20,9 +20,11 @@ import { autoSyncTransactions } from '../services/syncService';
 import {
   getOnlineStatus,
   getPendingTransactionsCount,
+  getSyncIssueCount,
   saveTransactionOffline,
 } from '../lib/offlineSync';
 import { getSyncMeta } from '../lib/indexedDB';
+import { showToast } from '../components/common/Toast';
 import { getRoomReservationDetails, isRoomProduct } from '../lib/roomReservations';
 
 // ============================================================================
@@ -37,7 +39,8 @@ const CartContext = createContext();
 
 const INITIAL_CART = {
   id: null, // null for new, UUID for existing
-  recallSourceTransactionId: null, // original completed transaction being edited via refund recall
+  recallSourceTransactionId: null, // server/hold id of the sale this cart was recalled from
+  recallSourceStatus: null, // 'held' when this cart is a held order being resumed, else the recalled sale's status
   onlineOrder: null, // online order metadata when processing web orders in POS
   items: [], // [{ id, name, category, price, quantity, discount, notes }, ...]
   discountPercent: 0,
@@ -103,6 +106,7 @@ const getOrderContactDetails = (order = {}) => {
 export function CartProvider({ children }) {
   const [state, setState] = useState(INITIAL_STATE);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [syncIssueCount, setSyncIssueCount] = useState(0);
   const [showPaymentPanel, setShowPaymentPanel] = useState(false);
   const lastAddRef = useRef({});
 
@@ -147,6 +151,7 @@ export function CartProvider({ children }) {
   const refreshSyncState = useCallback(async ({ syncedAt = null } = {}) => {
     try {
       const pendingCount = await getPendingTransactionsCount();
+      setSyncIssueCount(await getSyncIssueCount());
       let persistedSyncTime = await resolvePersistedSyncTime(syncedAt);
 
       if (!persistedSyncTime && pendingCount === 0 && getOnlineStatus()) {
@@ -222,12 +227,26 @@ export function CartProvider({ children }) {
       refreshSyncState({ syncedAt });
     };
 
+    // A sale that cannot sync is announced straight away instead of failing quietly.
+    const handleSyncAlert = (event) => {
+      const amount = Number(event?.detail?.total || 0);
+      const message = event?.detail?.message || 'A sale could not be sent to the server.';
+      showToast(
+        `Sale of ₦${amount.toLocaleString('en-NG')} did not sync: ${message} Open "Unsynced" to fix it.`,
+        'error',
+        8000
+      );
+      refreshSyncState();
+    };
+
     window.addEventListener('pos:sync-state-changed', handleSyncStateChange);
     window.addEventListener('transactions:completed', handleSyncStateChange);
+    window.addEventListener('pos:sync-alert', handleSyncAlert);
 
     return () => {
       window.removeEventListener('pos:sync-state-changed', handleSyncStateChange);
       window.removeEventListener('transactions:completed', handleSyncStateChange);
+      window.removeEventListener('pos:sync-alert', handleSyncAlert);
     };
   }, [refreshSyncState]);
 
@@ -526,6 +545,7 @@ export function CartProvider({ children }) {
       id: holdReferenceId,
       recallSourceTransactionId:
         state.activeCart.recallSourceTransactionId || holdReferenceId,
+      recallSourceStatus: 'held',
       status: 'HELD',
       createdAt: state.activeCart.createdAt || new Date().toISOString(),
       // Store staff and location info when holding
@@ -576,6 +596,7 @@ export function CartProvider({ children }) {
       staffName: staffInfo?.name || staffInfo || 'POS Staff',
       staffId: staffInfo?._id || staffInfo?.id || null,
       location: locationString,
+      locationId: (typeof locationInfo === 'object' && locationInfo?._id) || null,
       device: state.activeCart.device || 'POS',
       tableName: state.activeCart.tableName || null,
       customerName: state.activeCart.customer?.name || null,
@@ -602,6 +623,7 @@ export function CartProvider({ children }) {
           .then(response => {
             if (response.ok) {
               console.log('✅ Held order saved to database for inventory review');
+              window.dispatchEvent(new CustomEvent('pos:held-updated'));
             } else {
               console.warn('⚠️ Failed to save held order to database, queuing offline');
               saveTransactionOffline(heldTransaction);
@@ -643,7 +665,13 @@ export function CartProvider({ children }) {
 
     setState(prev => ({
       ...prev,
-      activeCart: order,
+      // Resuming keeps the hold's id so paying for it completes the same record on the server.
+      activeCart: {
+        ...order,
+        status: 'DRAFT',
+        recallSourceTransactionId: order.recallSourceTransactionId || order.id,
+        recallSourceStatus: 'held',
+      },
       orders: prev.orders.filter(o => o.id !== orderId),
     }));
   }, [state.orders]);
@@ -667,12 +695,21 @@ export function CartProvider({ children }) {
       reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : null,
     }));
 
+    const recalledId = transaction.id || transaction._id || null;
+    const recallSourceStatus = String(transaction.status || 'completed').toLowerCase();
+
     setState(prev => ({
       ...prev,
+      // A held order picked up from the server is no longer "on this device only".
+      orders: recallSourceStatus === 'held'
+        ? prev.orders.filter(o => o.id !== transaction.externalId && o.id !== recalledId)
+        : prev.orders,
       activeCart: {
         ...INITIAL_CART,
-        id: transaction.id || transaction._id || null,
-        recallSourceTransactionId: transaction.id || transaction._id || null,
+        id: recalledId,
+        recallSourceTransactionId: recalledId,
+        recallSourceStatus,
+        tableName: transaction.tableName || null,
         items: mappedItems,
         discountPercent: transaction.discount || 0,
         subtotal: transaction.subtotal || 0,
@@ -880,6 +917,7 @@ export function CartProvider({ children }) {
     isOnline: state.isOnline,
     error: state.error,
     pendingSyncCount,
+    syncIssueCount,
 
     // Cart operations
     addItem,

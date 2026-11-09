@@ -8,6 +8,7 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { normalizeTenderPaymentsForStorage } from '@/src/lib/tillLedger';
 import {
   applyCompletedTransactionEffects,
   linkCompletedTransactionToTill,
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
 
   try {
     await mongooseConnect();
-    console.log('ðŸ“¤ Transaction sync request received:', req.body);
+    console.log('📤 Transaction sync request received:', req.body);
 
     const { 
       id, 
@@ -104,7 +105,7 @@ export default async function handler(req, res) {
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
-        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate sync transaction detected - externalId ${externalId}`);
+        console.log(`⚠️ Duplicate sync transaction detected - externalId ${externalId}`);
         await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
         await linkCompletedTransactionToTill({
           transaction: existingTransaction,
@@ -132,7 +133,7 @@ export default async function handler(req, res) {
       });
       
       if (existingTransaction) {
-        console.log(`âš ï¸ Duplicate sync transaction detected - already exists as ${existingTransaction._id}`);
+        console.log(`⚠️ Duplicate sync transaction detected - already exists as ${existingTransaction._id}`);
         await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
         await linkCompletedTransactionToTill({
           transaction: existingTransaction,
@@ -174,7 +175,9 @@ export default async function handler(req, res) {
       promotionValueType,
       total,
       ...(hasSingleTender && { tenderType }),
-      ...(hasMultiplePayments && { tenderPayments }),
+      ...(hasMultiplePayments && {
+        tenderPayments: normalizeTenderPaymentsForStorage({ tenderPayments, tenderType, total }),
+      }),
       amountPaid: amountPaid || total,
       change: Number(change || 0),
       ...(staffId && { staff: staffId }),
@@ -189,7 +192,7 @@ export default async function handler(req, res) {
     });
 
     await transaction.save();
-    console.log('âœ… Transaction synced successfully:', transaction._id);
+    console.log('✅ Transaction synced successfully:', transaction._id);
 
     if (isCompletedTransaction) {
       await applyCompletedTransactionEffects(transaction, mappedItems, true);
@@ -203,7 +206,7 @@ export default async function handler(req, res) {
         isCompletedTransaction,
       });
     } else if (tillId) {
-      console.log(`â„¹ï¸ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
+      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     }
     return res.status(200).json({
       success: true,
@@ -213,14 +216,14 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     if (err?.code === 11000 && (err?.keyPattern?.externalId || err?.keyPattern?.dedupeKey)) {
-      console.warn('âš ï¸ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId || err.keyValue?.dedupeKey);
+      console.warn('⚠️ Duplicate sync insert blocked by unique index:', err.keyValue?.externalId || err.keyValue?.dedupeKey);
       return res.status(200).json({
         success: true,
         message: 'Transaction already exists (duplicate prevented)',
         duplicate: true,
       });
     }
-    console.error('âŒ Transaction sync error:', err);
+    console.error('❌ Transaction sync error:', err);
     return res.status(500).json({
       success: false,
       message: 'Failed to sync transaction',

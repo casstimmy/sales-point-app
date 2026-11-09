@@ -7,7 +7,7 @@ import { Transaction } from '@/src/models/Transactions';
 import Till from '@/src/models/Till';
 import Product from '@/src/models/Product';
 import { sanitizeBody } from '@/src/lib/apiValidation';
-import { updateInventoryForSale } from '@/src/lib/syncPackQty';
+import { applySaleInventoryOnce, linkTransactionToTill, normalizeTenderPaymentsForStorage } from '@/src/lib/tillLedger';
 import { markRoomsFromTransaction } from '@/src/lib/roomAvailability';
 import { ROOM_STATUSES } from '@/src/lib/roomReservations';
 import { sendOrderDeliveredEmail, sendOrderProcessingEmail } from '@/src/lib/orderStatusEmail';
@@ -29,18 +29,6 @@ const getRecordedTenderName = (order) =>
 const normalizeTenderName = (value) => String(value || MANUAL_ENTRY_TENDER_NAME).trim() || MANUAL_ENTRY_TENDER_NAME;
 
 const isOrderConsideredPaid = (order) => Boolean(order?.paid || order?.paymentStatus === 'Paid');
-
-const ensureTenderBreakdownMap = (value) =>
-  value instanceof Map ? value : new Map(Object.entries(value || {}));
-
-const applyTenderEntries = (map, entries = [], sign = 1) => {
-  entries.forEach((entry) => {
-    const key = normalizeTenderName(entry?.name);
-    const current = Number(map.get(key) || 0);
-    const next = Math.max(0, current + (sign * Number(entry?.amount || 0)));
-    map.set(key, next);
-  });
-};
 
 const getOrderContactDetails = (order) => {
   const shippingDetails = order?.shippingDetails || {};
@@ -102,20 +90,6 @@ const buildTransactionItems = (items = []) =>
       images: Array.isArray(item.images) ? item.images : [],
     }))
     .filter((item) => item.productId && item.quantity > 0);
-
-const getTenderEntries = ({ tenderType, tenderPayments, total }) => {
-  if (Array.isArray(tenderPayments) && tenderPayments.length > 0) {
-    return tenderPayments.map((payment) => ({
-      name: normalizeTenderName(payment?.tenderName),
-      amount: Number(payment?.amount || 0),
-    }));
-  }
-
-  return [{
-    name: normalizeTenderName(tenderType),
-    amount: Number(total || 0),
-  }];
-};
 
 const normalizePaymentDetails = ({ order, paymentDetails }) => {
   const total = Number(order?.total || 0);
@@ -353,7 +327,13 @@ export default async function handler(req, res) {
         externalId,
         dedupeKey: externalId,
         tenderType: normalizedPayment.tenderType || null,
-        tenderPayments: Array.isArray(normalizedPayment.tenderPayments) ? normalizedPayment.tenderPayments : [],
+        tenderPayments: Array.isArray(normalizedPayment.tenderPayments)
+          ? normalizeTenderPaymentsForStorage({
+              tenderPayments: normalizedPayment.tenderPayments,
+              tenderType: normalizedPayment.tenderType,
+              total: order.total,
+            })
+          : [],
         amountPaid: normalizedPayment.amountPaid || Number(order.total || 0),
         subtotal: Number(order.subtotal || order.total || 0),
         tax: 0,
@@ -374,6 +354,7 @@ export default async function handler(req, res) {
         transactionType: 'pos',
         tillId: new mongoose.Types.ObjectId(String(tillId)),
         createdAt: new Date(),
+        // Already deducted when the website or admin finalised the order first.
         inventoryUpdated: !needsInventoryUpdate,
         salesChannel: ONLINE_SALES_CHANNEL,
         sourceOrderId: String(order._id),
@@ -384,31 +365,33 @@ export default async function handler(req, res) {
       await transaction.save();
     }
 
-    till.transactions = Array.isArray(till.transactions) ? till.transactions : [];
+    // Link the sale to the till; totals are rebuilt from the till's sales.
+    await linkTransactionToTill(till._id, transaction._id);
 
-    if (!till.transactions.some((transactionId) => String(transactionId) === String(transaction._id))) {
-      till.transactions.push(transaction._id);
-      till.totalSales = Number(till.totalSales || 0) + Number(order.total || 0);
-      till.transactionCount = till.transactions.length;
-      till.tenderBreakdown = ensureTenderBreakdownMap(till.tenderBreakdown);
-      applyTenderEntries(
-        till.tenderBreakdown,
-        getTenderEntries({
-          tenderType: normalizedPayment.tenderType,
-          tenderPayments: normalizedPayment.tenderPayments,
-          total: order.total,
-        }),
-        1
+    // Claim the order's stock deduction atomically. The website (Paystack), the admin
+    // app and the POS can all finalise an order; only the first one deducts stock.
+    if (needsInventoryUpdate) {
+      const claimedForInventory = await Order.findOneAndUpdate(
+        { _id: order._id, inventoryFinalizedBy: null },
+        { $set: { inventoryFinalizedBy: 'pos' } },
+        { new: true, projection: { _id: 1 } }
       );
-      till.markModified('tenderBreakdown');
-      await till.save();
-    }
 
-    if (needsInventoryUpdate && transaction.inventoryUpdated !== true) {
-      await updateInventoryForSale(mappedItems);
-      await clearReservedInventory(orderItems);
-      transaction.inventoryUpdated = true;
-      await transaction.save();
+      if (claimedForInventory) {
+        try {
+          await applySaleInventoryOnce(transaction._id, mappedItems);
+          await clearReservedInventory(orderItems);
+        } catch (stockError) {
+          await Order.updateOne(
+            { _id: order._id, inventoryFinalizedBy: 'pos' },
+            { $set: { inventoryFinalizedBy: null } }
+          );
+          throw stockError;
+        }
+      } else {
+        // Another app finalised the order's stock first; record that on this sale.
+        await Transaction.updateOne({ _id: transaction._id }, { $set: { inventoryUpdated: true } });
+      }
     }
 
     try {

@@ -43,7 +43,8 @@ import {
   getOnlineStatus,
   getPendingTransactions,
   getResolvedPendingTransactionsHistory,
-  resolvePendingTransaction,
+  discardPendingTransaction,
+  saveFailedEditAsNewSale,
   saveTransactionOffline,
   syncPendingTransactionById,
   syncPendingTransactions,
@@ -222,10 +223,8 @@ export default function CartPanel() {
         showToast("Transaction synced successfully.", "success");
       } else if (result?.reason === "already-synced") {
         showToast("Transaction was already synced.", "success");
-      } else if (result?.reason === "till-not-mapped") {
-        showToast("Till mapping is not ready yet for this transaction.", "warning");
       } else {
-        showToast("Transaction could not be synced yet.", "error");
+        showToast(result?.message || "Transaction could not be synced yet.", "error");
       }
 
       await loadPendingTransactions();
@@ -238,37 +237,61 @@ export default function CartPanel() {
     }
   };
 
-  const handlePendingTransactionResolve = async (transaction) => {
+  const handleSaveAsNewSale = async (transaction) => {
     const transactionId = transaction?.id;
     if (!transactionId) return;
 
     setPendingActionId(String(transactionId));
     try {
-      const result = await resolvePendingTransaction(transactionId, {
-        type: "previous-till",
-        note: "Resolved from unsynced transactions panel.",
-        tillId: till?._id || null,
+      const result = await saveFailedEditAsNewSale(transactionId);
+      if (result?.success) {
+        showToast("Recorded as a new sale.", "success");
+      } else {
+        showToast(result?.message || "Could not record this sale yet. It will keep retrying.", "warning");
+      }
+      await loadPendingTransactions();
+    } catch (error) {
+      console.error("Failed to save as new sale:", error);
+      showToast("Could not record this sale.", "error");
+    } finally {
+      setPendingActionId(null);
+    }
+  };
+
+  const handlePendingTransactionDiscard = async (transaction) => {
+    const transactionId = transaction?.id;
+    if (!transactionId) return;
+
+    const reason = typeof window !== "undefined"
+      ? window.prompt(
+          "Discard removes this sale from the sync queue WITHOUT recording it. Only do this if it was never a real sale or it is already on the server.\n\nType the reason to continue:"
+        )
+      : "";
+    if (!reason || !reason.trim()) return;
+
+    setPendingActionId(String(transactionId));
+    try {
+      const result = await discardPendingTransaction(transactionId, {
+        reason: reason.trim(),
         staffId: staff?._id || null,
         staffName: staff?.name || null,
         staffRole: staff?.role || null,
       });
 
       if (result?.success) {
-        showToast("Previous till transaction resolved and cleared from the queue.", "success");
+        showToast("Removed from the sync queue. Kept in device history.", "success");
       } else {
-        showToast("Transaction could not be resolved.", "error");
+        showToast("Could not discard this record.", "error");
       }
-
       await loadPendingTransactions();
     } catch (error) {
-      console.error("Failed to resolve pending transaction:", error);
-      showToast("Failed to resolve the selected transaction.", "error");
+      console.error("Failed to discard pending transaction:", error);
+      showToast("Could not discard this record.", "error");
     } finally {
       setPendingActionId(null);
     }
   };
 
-  // Auto-highlight the last added item ONLY when a new item is added (not on deselect)
   useEffect(() => {
     const currentLength = activeCart.items.length;
     
@@ -399,6 +422,13 @@ export default function CartPanel() {
         })),
         externalId: clientId,
         clientId,
+        // A held order sold on credit completes the held record instead of leaving it open.
+        ...(activeCart.recallSourceTransactionId
+          ? {
+              editTransactionId: activeCart.recallSourceTransactionId,
+              recallSourceStatus: activeCart.recallSourceStatus || null,
+            }
+          : {}),
         total: freshTotals.total,
         subtotal: freshTotals.subtotal,
         tax: freshTotals.tax,
@@ -546,7 +576,7 @@ export default function CartPanel() {
               <p className="mt-1 text-[11px] text-neutral-300 sm:text-xs">
                 {pendingOverlayTab === "resolved"
                   ? `${activeOverlayCount} resolved previous-till record${activeOverlayCount !== 1 ? "s" : ""}`
-                  : `${activeOverlayCount} pending transaction${activeOverlayCount !== 1 ? "s" : ""}`}
+                  : `${activeOverlayCount} sale${activeOverlayCount !== 1 ? "s" : ""} waiting to reach the server`}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -605,7 +635,7 @@ export default function CartPanel() {
                     : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
                 }`}
               >
-                <span>Resolved History</span>
+                <span>Discarded / resolved</span>
                 <span className={`rounded-full px-1.5 py-0.5 ${pendingOverlayTab === "resolved" ? "bg-white/10 text-white" : "bg-white text-neutral-700"}`}>
                   {resolvedTransactions.length}
                 </span>
@@ -627,9 +657,9 @@ export default function CartPanel() {
               resolvedTransactions.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-neutral-300 bg-white p-6 text-center">
                   <FontAwesomeIcon icon={faFileAlt} className="mb-3 h-10 w-10 text-neutral-400" />
-                  <p className="text-sm font-bold text-neutral-900">No resolved history yet</p>
+                  <p className="text-sm font-bold text-neutral-900">Nothing discarded on this device</p>
                   <p className="mt-1 text-xs text-neutral-500">
-                    Previous-till records resolved from this device will appear here for supervisor review.
+                    Sales removed from the sync queue without being recorded appear here for supervisor review.
                   </p>
                 </div>
               ) : (
@@ -653,8 +683,12 @@ export default function CartPanel() {
                               Resolved {formatPendingDate(transaction.resolvedAt || transaction.syncedAt)}
                             </p>
                           </div>
-                          <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-bold text-emerald-700">
-                            Resolved
+                          <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-bold ${
+                            transaction.resolutionType === "discarded"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-emerald-100 text-emerald-700"
+                          }`}>
+                            {transaction.resolutionType === "discarded" ? "Discarded" : "Resolved"}
                           </span>
                         </div>
 
@@ -732,19 +766,22 @@ export default function CartPanel() {
                   );
                   const belongsToCurrentTill = isCurrentTillTransaction(transaction);
                   const isActingOnTransaction = pendingActionId === transactionId;
+                  const canSaveAsNewSale = transaction.lastSyncErrorCode === "EDIT_TARGET_NOT_FOUND";
 
                   return (
                     <div
                       key={transactionId}
-                      className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm"
+                      className={`rounded-2xl border bg-white p-3 shadow-sm ${
+                        transaction.needsAttention ? "border-red-300" : "border-neutral-200"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="truncate text-xs font-bold text-neutral-900 sm:text-sm">
-                            {transaction.externalId || transaction.clientId || transaction.id}
+                            {transaction.status === "held" ? "Held order" : "Sale"} · {formatPendingDate(transaction.createdAt || transaction.timestamp)}
                           </p>
-                          <p className="mt-1 text-[11px] text-neutral-500 sm:text-xs">
-                            {formatPendingDate(transaction.createdAt || transaction.timestamp)}
+                          <p className="mt-1 truncate text-[11px] text-neutral-500 sm:text-xs">
+                            {transaction.externalId || transaction.clientId || transaction.id}
                           </p>
                         </div>
                         <span
@@ -813,31 +850,54 @@ export default function CartPanel() {
                         </div>
                       )}
 
-                      {!belongsToCurrentTill && (
-                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-[11px] text-amber-800 sm:text-xs">
+                      {transaction.lastSyncError && (
+                        <div className={`mt-3 flex items-start gap-2 rounded-xl border p-2.5 text-[11px] sm:text-xs ${
+                          transaction.needsAttention
+                            ? "border-red-200 bg-red-50 text-red-800"
+                            : "border-amber-200 bg-amber-50 text-amber-800"
+                        }`}>
                           <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                           <span>
-                            This transaction belongs to a previous till session. Resolve it here if it should no longer stay in the live sync queue.
+                            {transaction.lastSyncError}
+                            {transaction.syncAttempts ? ` (tried ${transaction.syncAttempts} time${transaction.syncAttempts !== 1 ? "s" : ""})` : ""}
                           </span>
                         </div>
                       )}
 
-                      <div className="mt-3 flex gap-2">
-                        {belongsToCurrentTill ? (
+                      {!belongsToCurrentTill && (
+                        <div className="mt-3 flex items-start gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2.5 text-[11px] text-neutral-700 sm:text-xs">
+                          <FontAwesomeIcon icon={faExclamationTriangle} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          <span>
+                            From an earlier till session. Syncing records it against that till and updates its end-of-day report.
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {canSaveAsNewSale ? (
+                          <button
+                            onClick={() => handleSaveAsNewSale(transaction)}
+                            disabled={isActingOnTransaction || !pendingIsOnline}
+                            className="flex-1 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                          >
+                            {isActingOnTransaction ? "Saving..." : "Save as new sale"}
+                          </button>
+                        ) : (
                           <button
                             onClick={() => handlePendingTransactionSync(transaction)}
                             disabled={isActingOnTransaction || !pendingIsOnline}
                             className="flex-1 rounded-xl bg-cyan-600 px-3 py-2 text-sm font-bold text-white transition hover:bg-cyan-700 disabled:cursor-not-allowed disabled:bg-neutral-300"
                           >
-                            {isActingOnTransaction ? "Syncing..." : pendingIsOnline ? "Sync" : "Offline"}
+                            {isActingOnTransaction ? "Syncing..." : pendingIsOnline ? "Sync now" : "Offline"}
                           </button>
-                        ) : (
+                        )}
+                        {canViewResolvedHistory && (
                           <button
-                            onClick={() => handlePendingTransactionResolve(transaction)}
+                            onClick={() => handlePendingTransactionDiscard(transaction)}
                             disabled={isActingOnTransaction}
-                            className="flex-1 rounded-xl bg-amber-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-amber-600 disabled:cursor-not-allowed disabled:bg-neutral-300"
+                            className="rounded-xl border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {isActingOnTransaction ? "Resolving..." : "Resolve"}
+                            Discard
                           </button>
                         )}
                       </div>

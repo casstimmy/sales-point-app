@@ -1,4 +1,4 @@
-﻿/**
+/**
  * API Endpoint: POST /api/transactions/save
  * 
  * Direct transaction save endpoint for online clients
@@ -11,6 +11,7 @@ import { Transaction } from '@/src/models/Transactions';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { normalizeTenderPaymentsForStorage } from '@/src/lib/tillLedger';
 import {
   applyCompletedTransactionEffects,
   linkCompletedTransactionToTill,
@@ -37,7 +38,7 @@ export default async function handler(req, res) {
   req.body = sanitizeBody(req.body);
 
   try {
-    console.log('ðŸ’¾ Direct transaction save request received');
+    console.log('💾 Direct transaction save request received');
     
     await mongooseConnect();
 
@@ -82,11 +83,11 @@ export default async function handler(req, res) {
     const finalStaffName = staffName && staffName !== 'Unknown' ? staffName : 'POS Staff';
     const normalizedLocation = normalizeLocationName(location);
     
-    console.log(`ðŸ’° Processing direct transaction - amount: ${total}, till: ${tillId}`);
+    console.log(`💰 Processing direct transaction - amount: ${total}, till: ${tillId}`);
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {
-      console.error('âŒ Validation error: items array required');
+      console.error('❌ Validation error: items array required');
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: items array required',
@@ -94,7 +95,7 @@ export default async function handler(req, res) {
     }
 
     if (total === undefined) {
-      console.error('âŒ Validation error: total required');
+      console.error('❌ Validation error: total required');
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: total required',
@@ -110,7 +111,7 @@ export default async function handler(req, res) {
     const isCompletedTransaction = normalizedStatus === 'completed';
 
     if (!isHeldTransaction && !hasSingleTender && !hasMultiplePayments) {
-      console.error('âŒ Validation error: payment method required');
+      console.error('❌ Validation error: payment method required');
       return res.status(400).json({
         success: false,
         message: 'Invalid transaction: tenderType or tenderPayments required',
@@ -164,7 +165,7 @@ export default async function handler(req, res) {
     if (externalId) {
       const existingTransaction = await Transaction.findOne({ externalId });
       if (existingTransaction) {
-        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - externalId ${externalId}`);
+        console.log(`⚠️ Duplicate transaction detected - externalId ${externalId}`);
         await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
         await linkCompletedTransactionToTill({
           transaction: existingTransaction,
@@ -185,7 +186,7 @@ export default async function handler(req, res) {
     } else {
       const existingByKey = await Transaction.findOne({ dedupeKey });
       if (existingByKey) {
-        console.log(`Ã¢Å¡Â Ã¯Â¸Â Duplicate transaction detected - dedupeKey ${dedupeKey}`);
+        console.log(`⚠️ Duplicate transaction detected - dedupeKey ${dedupeKey}`);
         await applyCompletedTransactionEffects(existingByKey, mappedItems, isCompletedTransaction);
         await linkCompletedTransactionToTill({
           transaction: existingByKey,
@@ -215,7 +216,7 @@ export default async function handler(req, res) {
       });
       
       if (existingTransaction) {
-        console.log(`âš ï¸ Duplicate transaction detected - already exists as ${existingTransaction._id}`);
+        console.log(`⚠️ Duplicate transaction detected - already exists as ${existingTransaction._id}`);
         await applyCompletedTransactionEffects(existingTransaction, mappedItems, isCompletedTransaction);
         await linkCompletedTransactionToTill({
           transaction: existingTransaction,
@@ -240,7 +241,9 @@ export default async function handler(req, res) {
       ...(externalId && { externalId }),
       dedupeKey,
       ...(hasSingleTender && { tenderType }),
-      ...(hasMultiplePayments && { tenderPayments }),
+      ...(hasMultiplePayments && {
+        tenderPayments: normalizeTenderPaymentsForStorage({ tenderPayments, tenderType, total }),
+      }),
       
       amountPaid: amountPaid || total,
       total: total,
@@ -285,7 +288,7 @@ export default async function handler(req, res) {
     // Save to database
     const savedTransaction = await transaction.save();
     
-    console.log(`âœ… Transaction saved successfully - ID: ${savedTransaction._id}, Amount: ${total}`);
+    console.log(`✅ Transaction saved successfully - ID: ${savedTransaction._id}, Amount: ${total}`);
 
     if (isCompletedTransaction) {
       await applyCompletedTransactionEffects(savedTransaction, mappedItems, true);
@@ -299,9 +302,9 @@ export default async function handler(req, res) {
         isCompletedTransaction,
       });
     } else if (tillId) {
-      console.log(`â„¹ï¸ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
+      console.log(`ℹ️ Skipping till totals update for non-completed transaction status: ${normalizedStatus}`);
     } else {
-      console.warn(`âš ï¸ No tillId provided - transaction will not be linked to till`);
+      console.warn(`⚠️ No tillId provided - transaction will not be linked to till`);
     }
     return res.status(200).json({
       success: true,
@@ -317,14 +320,14 @@ export default async function handler(req, res) {
 
   } catch (error) {
     if (error?.code === 11000 && (error?.keyPattern?.externalId || error?.keyPattern?.dedupeKey)) {
-      console.warn('âš ï¸ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId || error.keyValue?.dedupeKey);
+      console.warn('⚠️ Duplicate transaction insert blocked by unique index:', error.keyValue?.externalId || error.keyValue?.dedupeKey);
       return res.status(200).json({
         success: true,
         message: 'Transaction already exists (duplicate prevented)',
         duplicate: true,
       });
     }
-    console.error('âŒ Direct save error:', error);
+    console.error('❌ Direct save error:', error);
 
     // Return 500 so client knows to fallback to offline queue
     return res.status(500).json({

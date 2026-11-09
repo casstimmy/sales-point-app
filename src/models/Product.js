@@ -52,6 +52,7 @@ const ProductSchema = new Schema(
     ===================== */
     quantity: { type: Number, default: 0 },
     minStock: { type: Number, default: 0 },
+    isStockManaged: { type: Boolean, default: true },
     maxStock: { type: Number, default: 0 },
 
     /* =====================
@@ -97,6 +98,14 @@ const ProductSchema = new Schema(
        LOCATION ASSIGNMENT
     ===================== */
     locations: [{ type: String }],
+
+    /* =====================
+       ARCHIVE + VENDORS (kept in step with the admin app's Product model)
+    ===================== */
+    isArchived: { type: Boolean, default: false, index: true },
+    archivedAt: { type: Date },
+    archivedReason: { type: String, default: "" },
+    vendors: [{ type: Schema.Types.ObjectId, ref: "Vendor" }],
 
     /* =====================
        PACK / CHILD PRODUCT

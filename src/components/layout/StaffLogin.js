@@ -1011,8 +1011,23 @@ export default function StaffLogin() {
 
       void preloadPosShell(sessionStaff, location);
 
+      // The open-tills list on this screen is public and carries no money figures;
+      // now that the PIN is verified, load the full till (float, sales) for the session.
+      let fullTill = till;
+      if (navigator.onLine && till?._id && !String(till._id).startsWith('offline-till-')) {
+        try {
+          const tillResponse = await fetch(`/api/till/${till._id}`);
+          if (tillResponse.ok) {
+            const tillData = await tillResponse.json();
+            if (tillData?.till) fullTill = { ...till, ...tillData.till };
+          }
+        } catch (tillErr) {
+          console.warn('Could not load full till details on resume:', tillErr?.message || tillErr);
+        }
+      }
+
       login(sessionStaff, location);
-      setCurrentTill(till);
+      setCurrentTill(fullTill);
       setResumeTill(null);
       
       console.log("✅ Quick login successful! Proceeding to POS");
@@ -1270,7 +1285,9 @@ export default function StaffLogin() {
                       <div className="font-semibold">{till.staffName} @ {till.locationName || 'Unknown Location'}</div>
                       <div className="text-xs opacity-80">
                         Opened: {new Date(till.openedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                        {' | '}Sales: ₦{till.totalSales?.toLocaleString('en-NG') || '0'}
+                        {typeof till.totalSales === 'number' && (
+                          <>{' | '}Sales: ₦{till.totalSales.toLocaleString('en-NG')}</>
+                        )}
                       </div>
                     </div>
                     <button

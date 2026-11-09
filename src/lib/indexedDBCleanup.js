@@ -1,8 +1,8 @@
 /**
  * IndexedDB Cleanup Utility
  * 
- * Removes old invalid transactions with status 'COMPLETE'
- * This is needed for migration from old cart format to new transaction format
+ * Removes leftovers from the old cart format (status 'COMPLETE' with no sale
+ * lines). Anything that may still need to sync is always kept.
  */
 
 // Shared upgrade handler - ensures all stores exist
@@ -55,11 +55,13 @@ export async function cleanupOldTransactions() {
           let deleted = 0;
 
           transactions.forEach(tx => {
-            // Delete if status is invalid (old cart objects)
-            // Check if tx.id is a string before calling startsWith
-            const isOldCartObject = tx.status === 'COMPLETE' || 
-                                    (typeof tx.id === 'string' && tx.id.startsWith('order_'));
-            
+            // Only remove leftovers from the very old cart format (upper-case 'COMPLETE'
+            // with no sale lines). Never remove anything that still has to sync: held
+            // orders use 'order_' ids and used to be deleted here before they reached
+            // the server, which is why held orders went missing.
+            const hasSaleLines = Array.isArray(tx.items) && tx.items.length > 0;
+            const isOldCartObject = tx.status === 'COMPLETE' && (tx.synced === true || !hasSaleLines);
+
             if (isOldCartObject) {
               txStore.delete(tx.id || tx); // Delete by key (id)
               deleted++;
