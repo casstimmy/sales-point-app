@@ -61,6 +61,8 @@ const TransactionSchema = new mongoose.Schema({
   incrementName: String,
   promotionValueType: String, // "DISCOUNT" or "INCREMENT" - tracks promotion type
   customerType: String, // Customer type / promotion name for display
+  // Copy of the customer promotion used to price the sale (so recalls and reports price the same)
+  appliedPromotion: { type: mongoose.Schema.Types.Mixed, default: null },
   
   // References
   staff: { type: mongoose.Schema.Types.ObjectId, ref: "Staff" },

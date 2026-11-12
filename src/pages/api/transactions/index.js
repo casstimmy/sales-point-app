@@ -14,6 +14,7 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import { Transaction } from '@/src/models/Transactions';
 import Customer from '@/src/models/Customer';
+import Promotion from '@/src/models/Promotion';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { sanitizeBody } from '@/src/lib/apiValidation';
@@ -85,6 +86,37 @@ const recalculateCustomerCreditBalance = async (customerId) => {
     creditBalance,
     updatedAt: new Date(),
   });
+};
+
+/** Counts one use of the customer promotion on a sale, so promotion usage limits work. */
+async function recordPromotionUse(appliedPromotion) {
+  const promotionId = toObjectId(appliedPromotion?._id);
+  if (!promotionId) return;
+  try {
+    await Promotion.updateOne({ _id: promotionId }, { $inc: { timesUsed: 1 } });
+  } catch (error) {
+    console.warn('Could not record promotion use:', error.message);
+  }
+}
+
+/** Keeps only the promotion fields a sale needs (never trust a large client object as-is). */
+const toStoredPromotion = (promotion) => {
+  if (!promotion || typeof promotion !== 'object') return null;
+  const {
+    _id, name, valueType, discountType, discountValue, fixedAmountApplyMode,
+    applicationType, products, categories, targetCustomerTypes,
+  } = promotion;
+  return {
+    _id: _id ? String(_id) : null,
+    name: String(name || 'Promotion').slice(0, 120),
+    valueType, discountType,
+    discountValue: Number(discountValue || 0),
+    fixedAmountApplyMode, applicationType,
+    products: Array.isArray(products) ? products.map(String).slice(0, 200) : [],
+    categories: Array.isArray(categories) ? categories.map(String).slice(0, 200) : [],
+    targetCustomerTypes: Array.isArray(targetCustomerTypes) ? targetCustomerTypes.map(String).slice(0, 20) : [],
+    active: true,
+  };
 };
 
 /** Finishes any effects a sale should have but may have missed (crash, timeout, retry). */
@@ -160,6 +192,9 @@ export default async function handler(req, res) {
       heldByStaffName,
       heldByStaffId,
       incrementAmount,
+      incrementName,
+      discountName,
+      appliedPromotion: rawAppliedPromotion,
       promotionValueType,
       customerType,
       creditDueDate,
@@ -200,6 +235,7 @@ export default async function handler(req, res) {
       ? normalizeTenderPaymentsForStorage({ tenderPayments, tenderType, total })
       : [];
     const mappedItems = mapItems(items);
+    const appliedPromotion = toStoredPromotion(rawAppliedPromotion);
 
     const buildCreateContext = () => {
       const buildDedupeKey = () => {
@@ -307,6 +343,9 @@ export default async function handler(req, res) {
         ...(heldByStaffName && { heldByStaffName }),
         ...(toObjectId(heldByStaffId) && { heldByStaffId: toObjectId(heldByStaffId) }),
         ...(incrementAmount && { incrementAmount }),
+        ...(incrementName && { incrementName }),
+        ...(discountName && { discountName }),
+        ...(appliedPromotion && { appliedPromotion }),
         ...(promotionValueType && { promotionValueType }),
         ...(customerType && { customerType }),
         ...(salesChannel && { salesChannel }),
@@ -344,6 +383,10 @@ export default async function handler(req, res) {
 
       if (isCreditTransaction && savedTransaction.creditCustomerId) {
         await recalculateCustomerCreditBalance(savedTransaction.creditCustomerId);
+      }
+
+      if (isStockAffectingTransaction) {
+        await recordPromotionUse(appliedPromotion);
       }
 
       return res.status(201).json({
@@ -481,6 +524,9 @@ export default async function handler(req, res) {
       existingTransaction.creditNotes = creditNotes || existingTransaction.creditNotes || '';
       existingTransaction.tillId = newTillId ? toObjectId(newTillId) : existingTransaction.tillId;
       existingTransaction.incrementAmount = Number(incrementAmount || 0);
+      existingTransaction.incrementName = incrementName || '';
+      existingTransaction.discountName = discountName || '';
+      existingTransaction.appliedPromotion = appliedPromotion;
       existingTransaction.promotionValueType = promotionValueType || null;
       existingTransaction.customerType = customerType || null;
       existingTransaction.salesChannel = salesChannel || existingTransaction.salesChannel || 'POS';
@@ -552,6 +598,11 @@ export default async function handler(req, res) {
 
       if (isCreditTransaction || oldStatus === 'credit') {
         await recalculateCustomerCreditBalance(existingTransaction.creditCustomerId || oldCreditCustomerId);
+      }
+
+      // A held order paid now is a new use of its promotion; edits of finished sales are not.
+      if (completingHeldSale && isStockAffectingTransaction) {
+        await recordPromotionUse(appliedPromotion);
       }
 
       return res.status(200).json({

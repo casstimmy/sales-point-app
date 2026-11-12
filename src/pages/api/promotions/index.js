@@ -8,6 +8,7 @@
 import { mongooseConnect } from '@/src/lib/mongoose';
 import Promotion from '@/src/models/Promotion';
 import { sanitizeBody } from '@/src/lib/apiValidation';
+import { isPromotionUsableNow } from '@/src/lib/promotionRules';
 
 export default async function handler(req, res) {
   await mongooseConnect();
@@ -19,16 +20,9 @@ export default async function handler(req, res) {
         .sort({ priority: -1, createdAt: -1 })
         .lean();
 
-      // Filter promotions that are within date range or indefinite
+      // Running today (the end date counts as a whole day) and not past its usage limit.
       const now = new Date();
-      const validPromotions = promotions.filter(promo => {
-        if (promo.indefinite) return true;
-        
-        const startDate = new Date(promo.startDate);
-        const endDate = new Date(promo.endDate);
-        
-        return now >= startDate && now <= endDate;
-      });
+      const validPromotions = promotions.filter((promo) => isPromotionUsableNow(promo, now));
 
       console.log(`📢 Found ${validPromotions.length} active promotions`);
       

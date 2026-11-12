@@ -25,6 +25,8 @@ import {
 } from '../lib/offlineSync';
 import { getSyncMeta } from '../lib/indexedDB';
 import { showToast } from '../components/common/Toast';
+import { doesPromotionApplyToItem, getMaxLineDiscount, priceCart, toSaleItems } from '../lib/cartPricing';
+import { toPromotionSnapshot } from '../lib/promotionRules';
 import { getRoomReservationDetails, isRoomProduct } from '../lib/roomReservations';
 
 // ============================================================================
@@ -67,23 +69,8 @@ const INITIAL_STATE = {
   error: null,
 };
 
-// Check if a promotion applies to a specific cart item based on applicationType
-export function doesPromotionApplyToItem(promotion, item) {
-  if (!promotion || !promotion.active) return false;
-  if (promotion.applicationType === 'ALL_PRODUCTS') return true;
-
-  if (promotion.applicationType === 'ONE_PRODUCT') {
-    const targetIds = (promotion.products || []).map(p => String(p._id || p));
-    return targetIds.includes(String(item.id));
-  }
-
-  if (promotion.applicationType === 'CATEGORY') {
-    const targetCatIds = (promotion.categories || []).map(c => String(c._id || c));
-    return targetCatIds.includes(String(item.category));
-  }
-
-  return false;
-}
+// Kept for existing imports; pricing rules live in lib/cartPricing.
+export { doesPromotionApplyToItem };
 
 const getOrderContactDetails = (order = {}) => {
   const shippingDetails = order?.shippingDetails || {};
@@ -408,13 +395,22 @@ export function CartProvider({ children }) {
     }));
   }, []);
 
+  // Line discount in naira, never below zero or above the line's value.
   const setItemDiscount = useCallback((itemId, discountAmount) => {
     setState(prev => ({
       ...prev,
       activeCart: {
         ...prev.activeCart,
         items: prev.activeCart.items.map(item =>
-          item.id === itemId ? { ...item, discount: discountAmount } : item
+          item.id === itemId
+            ? {
+                ...item,
+                discount: Math.min(
+                  Math.max(0, Math.round(Number(discountAmount) || 0)),
+                  getMaxLineDiscount(item)
+                ),
+              }
+            : item
         ),
       },
     }));
@@ -456,7 +452,8 @@ export function CartProvider({ children }) {
       const newCart = {
         ...prev.activeCart,
         customer: customer,
-        appliedPromotion: promotion,
+        // A compact copy, so held and recalled sales keep exactly the same pricing.
+        appliedPromotion: toPromotionSnapshot(promotion),
       };
 
       // The promotion will be applied in calculateTotals
@@ -503,42 +500,12 @@ export function CartProvider({ children }) {
 
     const holdReferenceId = state.activeCart.id || `order_${Date.now()}`;
 
-    // Calculate total for the held order
+    // Price the held order with the same rules as the till, so the held total is what the customer will pay.
     const items = state.activeCart.items;
-    const appliedPromotion = state.activeCart.appliedPromotion;
-    let subtotal = 0;
-    
-    items.forEach(item => {
-      let itemTotal = item.price * item.quantity - (item.discount || 0);
-      
-      // Apply promotion if active
-      if (appliedPromotion && appliedPromotion.active) {
-        if (appliedPromotion.discountType === 'PERCENTAGE') {
-          const percentChange = appliedPromotion.discountValue / 100;
-          if (appliedPromotion.valueType === 'INCREMENT') {
-            itemTotal = itemTotal * (1 + percentChange);
-          } else if (appliedPromotion.valueType === 'DISCOUNT') {
-            itemTotal = itemTotal * (1 - percentChange);
-          }
-        } else if (appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode !== 'TOTAL') {
-          if (appliedPromotion.valueType === 'INCREMENT') {
-            itemTotal = itemTotal + appliedPromotion.discountValue;
-          } else if (appliedPromotion.valueType === 'DISCOUNT') {
-            itemTotal = Math.max(0, itemTotal - appliedPromotion.discountValue);
-          }
-        }
-      }
-      subtotal += itemTotal;
-    });
-
-    // Apply FIXED + TOTAL mode promotion
-    if (appliedPromotion && appliedPromotion.active && appliedPromotion.discountType === 'FIXED' && appliedPromotion.fixedAmountApplyMode === 'TOTAL') {
-      if (appliedPromotion.valueType === 'INCREMENT') {
-        subtotal = subtotal + appliedPromotion.discountValue;
-      } else if (appliedPromotion.valueType === 'DISCOUNT') {
-        subtotal = Math.max(0, subtotal - appliedPromotion.discountValue);
-      }
-    }
+    const pricing = priceCart(state.activeCart);
+    const saleItemsById = Object.fromEntries(
+      toSaleItems(state.activeCart, pricing).map((line) => [String(line.productId), line])
+    );
 
     const newOrder = {
       ...state.activeCart,
@@ -552,11 +519,11 @@ export function CartProvider({ children }) {
       staffMember: staffInfo || state.activeCart.staffMember,
       location: locationInfo || state.activeCart.location,
       // Store calculated total
-      total: subtotal,
-      subtotal: subtotal,
+      total: pricing.total,
+      subtotal: pricing.subtotal,
     };
 
-    console.log('📋 Holding order with total:', subtotal);
+    console.log('📋 Holding order with total:', pricing.total);
 
     // =====================================================================
     // SAVE HELD ORDER AS TRANSACTION FOR INVENTORY REVIEW
@@ -564,11 +531,11 @@ export function CartProvider({ children }) {
     // Convert cart items to transaction format
     const transactionItems = items.map(item => ({
       ...item,
+      ...saleItemsById[String(item.id)],
       productId: item.id,
       name: item.name,
       price: item.price,
       quantity: isRoomProduct(item) ? 1 : item.quantity,
-      discount: item.discount || 0,
       salePriceIncTax: item.price,
       qty: isRoomProduct(item) ? 1 : item.quantity,
       reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : undefined,
@@ -589,10 +556,17 @@ export function CartProvider({ children }) {
       clientId: holdReferenceId,
       ...(existingHeldId ? { editTransactionId: existingHeldId } : {}),
       items: transactionItems,
-      total: subtotal,
-      subtotal: subtotal,
+      total: pricing.total,
+      subtotal: pricing.subtotal,
       tax: 0,
-      discount: state.activeCart.discountAmount || 0,
+      discount: pricing.discountAmount,
+      discountName: pricing.discountName,
+      incrementAmount: pricing.incrementAmount,
+      incrementName: pricing.incrementName,
+      promotionValueType: pricing.promotionValueType,
+      appliedPromotion: state.activeCart.appliedPromotion || null,
+      customerId: state.activeCart.customer?._id || null,
+      customerType: state.activeCart.customer?.type || null,
       staffName: staffInfo?.name || staffInfo || 'POS Staff',
       staffId: staffInfo?._id || staffInfo?.id || null,
       location: locationString,
@@ -711,12 +685,19 @@ export function CartProvider({ children }) {
         recallSourceStatus,
         tableName: transaction.tableName || null,
         items: mappedItems,
-        discountPercent: transaction.discount || 0,
+        // Restore the customer's promotion so the recalled sale prices the same as before.
+        appliedPromotion: transaction.appliedPromotion || null,
         subtotal: transaction.subtotal || 0,
         tax: transaction.tax || 0,
         total: transaction.total || 0,
         status: 'DRAFT',
-        customer: transaction.customerName ? { name: transaction.customerName } : null,
+        customer: transaction.customerName
+          ? {
+              ...(transaction.customerId ? { _id: String(transaction.customerId) } : {}),
+              name: transaction.customerName,
+              ...(transaction.customerType ? { type: transaction.customerType } : {}),
+            }
+          : null,
         createdAt: transaction.createdAt || new Date().toISOString(),
       },
     }));
@@ -819,90 +800,8 @@ export function CartProvider({ children }) {
   // CART CALCULATIONS
   // =========================================================================
 
-  const calculateTotals = useCallback(() => {
-    const { items, discountPercent, fixedDiscount, appliedPromotion, onlineOrder } = state.activeCart;
-
-    // If the cart is an online order that already has a discount baked into its total,
-    // skip applying the POS promotion to avoid double-discounting.
-    const hasPreAppliedDiscount = Boolean(onlineOrder?.id) && Number(onlineOrder?.discount || 0) > 0;
-    const effectivePromotion = hasPreAppliedDiscount ? null : appliedPromotion;
-    
-    // Calculate subtotal with promotion applied to each item
-    let subtotal = 0;
-    
-    items.forEach(item => {
-      let itemTotal = item.price * item.quantity - (item.discount || 0);
-      const originalItemTotal = itemTotal;
-      
-      // Apply promotion only if this item is within the promotion's scope
-      if (effectivePromotion && effectivePromotion.active && doesPromotionApplyToItem(effectivePromotion, item)) {
-        if (effectivePromotion.discountType === 'PERCENTAGE') {
-          const percentChange = effectivePromotion.discountValue / 100;
-          if (effectivePromotion.valueType === 'INCREMENT') {
-            itemTotal = itemTotal * (1 + percentChange);
-          } else if (effectivePromotion.valueType === 'DISCOUNT') {
-            itemTotal = itemTotal * (1 - percentChange);
-          }
-        } else if (effectivePromotion.discountType === 'FIXED' && effectivePromotion.fixedAmountApplyMode !== 'TOTAL') {
-          if (effectivePromotion.valueType === 'INCREMENT') {
-            itemTotal = itemTotal + effectivePromotion.discountValue * item.quantity;
-          } else if (effectivePromotion.valueType === 'DISCOUNT') {
-            itemTotal = Math.max(0, itemTotal - effectivePromotion.discountValue * item.quantity);
-          }
-        }
-      }
-      
-      subtotal += itemTotal;
-    });
-
-    // Apply FIXED + TOTAL mode promotion to the subtotal (only if at least one item qualifies)
-    if (effectivePromotion && effectivePromotion.active && effectivePromotion.discountType === 'FIXED' && effectivePromotion.fixedAmountApplyMode === 'TOTAL') {
-      const hasQualifyingItem = items.some(item => doesPromotionApplyToItem(effectivePromotion, item));
-      if (hasQualifyingItem) {
-        if (effectivePromotion.valueType === 'INCREMENT') {
-          subtotal = subtotal + effectivePromotion.discountValue;
-        } else if (effectivePromotion.valueType === 'DISCOUNT') {
-          subtotal = Math.max(0, subtotal - effectivePromotion.discountValue);
-        }
-      }
-    }
-
-    // Apply fixed discount if any
-    const fixedDiscountAmount = fixedDiscount || 0;
-    const discountedSubtotal = Math.max(0, subtotal - fixedDiscountAmount);
-    
-    const tax = 0; // No tax for now
-    const total = discountedSubtotal + tax;
-
-    // Calculate the discount amount for display
-    const rawSubtotal = items.reduce(
-      (sum, item) => sum + item.price * item.quantity - (item.discount || 0),
-      0
-    );
-    const priceDifference = rawSubtotal - subtotal + fixedDiscountAmount;
-    const isIncrement = effectivePromotion?.active && effectivePromotion?.valueType === 'INCREMENT';
-    // For increments, the "discount" is actually negative (price went up), so discountAmount should be 0
-    // For discounts, it's positive (price went down)
-    const discountAmount = isIncrement ? fixedDiscountAmount : Math.max(0, priceDifference);
-    const incrementAmount = isIncrement ? Math.abs(rawSubtotal - subtotal) : 0;
-
-    return {
-      subtotal: rawSubtotal,
-      discountAmount,
-      incrementAmount,
-      discountName: effectivePromotion?.active && effectivePromotion.valueType === 'DISCOUNT'
-        ? (effectivePromotion.name || 'Discount')
-        : (fixedDiscountAmount > 0 ? 'Discount' : ''),
-      incrementName: effectivePromotion?.active && effectivePromotion.valueType === 'INCREMENT'
-        ? (effectivePromotion.name || 'Additional Charge')
-        : '',
-      promotionValueType: effectivePromotion?.active ? effectivePromotion.valueType : null,
-      discountedSubtotal,
-      tax,
-      total,
-      itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
-    };
-  }, [state.activeCart]);
+  // One pricing function for the cart lines, totals, held orders, payment and receipts.
+  const calculateTotals = useCallback(() => priceCart(state.activeCart), [state.activeCart]);
 
   // =========================================================================
   // CONTEXT VALUE

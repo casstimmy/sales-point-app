@@ -37,7 +37,9 @@ import {
   faTimes,
   faWifi,
 } from "@fortawesome/free-solid-svg-icons";
-import { useCart, doesPromotionApplyToItem } from "../../context/CartContext";
+import { useCart } from "../../context/CartContext";
+import { getMaxLineDiscount, toSaleItems } from "../../lib/cartPricing";
+import { describePromotion } from "../../lib/promotionRules";
 import { useStaff } from "../../context/StaffContext";
 import {
   getOnlineStatus,
@@ -82,6 +84,9 @@ export default function CartPanel() {
   const [cartBtnSettings, setCartBtnSettings] = useState(getUiSettings().cartPanelButtons || {});
   const [totalsCollapsed, setTotalsCollapsed] = useState(false);
   const [qtyEditorItemId, setQtyEditorItemId] = useState(null);
+  const [discountEditorItemId, setDiscountEditorItemId] = useState(null);
+  const [discountDraft, setDiscountDraft] = useState("");
+  const [discountMode, setDiscountMode] = useState("amount"); // "amount" (naira) or "percent"
   const [qtyDraft, setQtyDraft] = useState("");
   const [showPendingTransactions, setShowPendingTransactions] = useState(false);
   const [pendingTransactions, setPendingTransactions] = useState([]);
@@ -408,15 +413,16 @@ export default function CartPanel() {
     try {
       const clientId = `pos-credit-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
       const freshTotals = calculateTotals();
+      const saleLines = toSaleItems(activeCart, freshTotals);
       const transaction = {
-        items: activeCart.items.map((item) => ({
+        items: activeCart.items.map((item, index) => ({
+          ...saleLines[index],
           productId: item.id,
           name: item.name,
           quantity: isRoomProduct(item) ? 1 : item.quantity,
           price: item.price,
           qty: isRoomProduct(item) ? 1 : item.quantity,
           salePriceIncTax: item.price,
-          discount: item.discount || 0,
           notes: item.notes || "",
           reservationDetails: isRoomProduct(item) ? getRoomReservationDetails(item) : undefined,
         })),
@@ -433,10 +439,11 @@ export default function CartPanel() {
         subtotal: freshTotals.subtotal,
         tax: freshTotals.tax,
         discount: freshTotals.discountAmount || 0,
-        discountName: freshTotals.discountName || "Discount",
+        discountName: freshTotals.discountName || "",
         incrementAmount: freshTotals.incrementAmount || 0,
-        incrementName: freshTotals.incrementName || "Additional Charge",
+        incrementName: freshTotals.incrementName || "",
         promotionValueType: freshTotals.promotionValueType || null,
+        appliedPromotion: freshTotals.promotionApplied ? activeCart.appliedPromotion : null,
         customerType: customer.type || null,
         customerId: customer._id,
         customerName: customer.name,
@@ -498,12 +505,7 @@ export default function CartPanel() {
       const freshTotals = calculateTotals();
       // Create a temporary transaction object for printing
       const printTransaction = {
-        items: activeCart.items.map((item) => ({
-          productId: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+        items: toSaleItems(activeCart, freshTotals),
         total: freshTotals.total,
         subtotal: freshTotals.subtotal,
         tax: freshTotals.tax,
@@ -560,7 +562,32 @@ export default function CartPanel() {
     closeQtyEditor();
   };
 
+  const openDiscountEditor = (item) => {
+    setDiscountEditorItemId(item.id);
+    setDiscountMode("amount");
+    setDiscountDraft(item.discount ? String(item.discount) : "");
+  };
+
+  const closeDiscountEditor = () => {
+    setDiscountEditorItemId(null);
+    setDiscountDraft("");
+  };
+
+  // Turns what was keyed in (naira or %) into a naira line discount, capped at the line value.
+  const getDraftDiscountAmount = (item) => {
+    const entered = Number(discountDraft) || 0;
+    const lineValue = getMaxLineDiscount(item);
+    const amount = discountMode === "percent" ? Math.round((lineValue * Math.min(entered, 100)) / 100) : Math.round(entered);
+    return Math.min(Math.max(0, amount), lineValue);
+  };
+
+  const applyDiscountDraft = (item) => {
+    setItemDiscount(item.id, getDraftDiscountAmount(item));
+    closeDiscountEditor();
+  };
+
   const qtyEditItem = activeCart.items.find((item) => item.id === qtyEditorItemId) || null;
+  const discountEditItem = activeCart.items.find((item) => item.id === discountEditorItemId) || null;
   const activeOverlayCount = pendingOverlayTab === "resolved" ? resolvedTransactions.length : pendingTransactions.length;
 
   return (
@@ -938,43 +965,12 @@ export default function CartPanel() {
           {/* Line Items */}
           <div className="flex-1 overflow-y-auto bg-white divide-y divide-neutral-200">
             {activeCart.items.map((item) => {
-              // Calculate adjusted price if promotion is active and applies to this item
-              let adjustedPrice = item.price;
-              if (
-                activeCart.appliedPromotion &&
-                activeCart.appliedPromotion.active &&
-                doesPromotionApplyToItem(activeCart.appliedPromotion, item)
-              ) {
-                if (activeCart.appliedPromotion.discountType === "PERCENTAGE") {
-                  const percentChange =
-                    activeCart.appliedPromotion.discountValue / 100;
-                  if (activeCart.appliedPromotion.valueType === "INCREMENT") {
-                    // INCREMENT increases the price
-                    adjustedPrice = item.price * (1 + percentChange);
-                  } else {
-                    // DISCOUNT decreases the price
-                    adjustedPrice = item.price * (1 - percentChange);
-                  }
-                } else if (
-                  activeCart.appliedPromotion.discountType === "FIXED" &&
-                  activeCart.appliedPromotion.fixedAmountApplyMode !== "TOTAL"
-                ) {
-                  // Fixed discount per item (PER_ITEM mode)
-                  if (activeCart.appliedPromotion.valueType === "INCREMENT") {
-                    adjustedPrice =
-                      item.price + activeCart.appliedPromotion.discountValue;
-                  } else {
-                    adjustedPrice = Math.max(
-                      0,
-                      item.price - activeCart.appliedPromotion.discountValue,
-                    );
-                  }
-                }
-                // FIXED + TOTAL mode: no per-item adjustment shown
-              }
-              const itemTotal =
-                adjustedPrice * item.quantity - (item.discount || 0);
-              const hasPromoAdjustment = adjustedPrice !== item.price;
+              // Every figure comes from the shared cart pricing, so the rows add up to the total.
+              const line = totals.linesById[String(item.id)] || {};
+              const itemTotal = line.lineTotal ?? item.price * item.quantity;
+              const hasPromoAdjustment = Boolean(line.promoAdjustment);
+              const isIncreasePromo = activeCart.appliedPromotion?.valueType === "INCREMENT";
+              const adjustedPrice = item.quantity ? itemTotal / item.quantity : item.price;
               const isRoomItem = isRoomProduct(item);
               const roomReservation = isRoomItem ? getRoomReservationDetails(item) : null;
               const roomDateRange = isRoomItem ? getRoomReservationDateRange(item) : "";
@@ -997,20 +993,16 @@ export default function CartPanel() {
                         <div className="text-xs sm:text-sm font-medium text-neutral-700 line-clamp-1">
                           {item.name}
                         </div>
-                        {(item.discount > 0 || hasPromoAdjustment) && (
+                        {(line.lineDiscount > 0 || hasPromoAdjustment) && (
                           <div className="text-xs text-purple-600 mt-0.5 font-semibold">
                             {hasPromoAdjustment && (
                               <span>
-                                {activeCart.appliedPromotion.valueType ===
-                                "INCREMENT"
-                                  ? "↑"
-                                  : "↓"}{" "}
-                                Promo
+                                {isIncreasePromo ? "+" : "-"}₦{Math.abs(line.promoAdjustment).toLocaleString()} promo
                               </span>
                             )}
-                            {item.discount > 0 && (
+                            {line.lineDiscount > 0 && (
                               <span className="ml-1">
-                                -₦{item.discount.toLocaleString()}
+                                -₦{line.lineDiscount.toLocaleString()} disc
                               </span>
                             )}
                           </div>
@@ -1025,13 +1017,13 @@ export default function CartPanel() {
                         {item.quantity}
                       </div>
                       <div className="col-span-2 text-right">
-                        {hasPromoAdjustment ? (
+                        {hasPromoAdjustment || line.lineDiscount > 0 ? (
                           <div>
                             <div className="text-xs text-gray-400 line-through">
                               ₦{Math.round(item.price).toLocaleString()}
                             </div>
                             <div
-                              className={`text-sm font-semibold ${activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-600" : "text-green-600"}`}
+                              className={`text-sm font-semibold ${isIncreasePromo ? "text-blue-600" : "text-green-600"}`}
                             >
                               ₦{Math.round(adjustedPrice).toLocaleString()}
                             </div>
@@ -1043,7 +1035,7 @@ export default function CartPanel() {
                           )}
                       </div>
                       <div
-                      className={`col-span-3 text-right text-sm sm:text-base font-semibold ${hasPromoAdjustment ? (activeCart.appliedPromotion.valueType === "INCREMENT" ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
+                      className={`col-span-3 text-right text-sm sm:text-base font-semibold ${hasPromoAdjustment || line.lineDiscount > 0 ? (isIncreasePromo && !line.lineDiscount ? "text-blue-700" : "text-green-700") : "text-neutral-900"}`}
                     >
                         ₦{Math.round(itemTotal).toLocaleString()}
                       </div>
@@ -1089,16 +1081,18 @@ export default function CartPanel() {
                             </div>
                           </div>
                         </div>
-                        {hasPromoAdjustment && (
+                        {(hasPromoAdjustment || line.lineDiscount > 0) && (
                           <div className="mt-2 text-xs text-blue-100 font-semibold">
-                            {activeCart.appliedPromotion.valueType === "INCREMENT"
-                              ? "↑ Price Increase"
-                              : "↓ Discount Applied"}
-                            {" "}({activeCart.appliedPromotion.discountValue}
-                            {activeCart.appliedPromotion.discountType === "PERCENTAGE"
-                              ? "%"
-                              : "₦"}
-                            )
+                            {hasPromoAdjustment && (
+                              <span>
+                                {activeCart.appliedPromotion?.name}: {describePromotion(activeCart.appliedPromotion)}
+                              </span>
+                            )}
+                            {line.lineDiscount > 0 && (
+                              <span className={hasPromoAdjustment ? "ml-2" : ""}>
+                                Item discount -₦{line.lineDiscount.toLocaleString()}
+                              </span>
+                            )}
                           </div>
                         )}
                         {hasRoomReservation && (
@@ -1198,10 +1192,7 @@ export default function CartPanel() {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              setItemDiscount(
-                                item.id,
-                                (item.discount || 0) + 100,
-                              );
+                              openDiscountEditor(item);
                             }}
                             className="flex flex-col items-center gap-0.5 px-2 py-1.5 bg-white text-primary-600 font-bold hover:opacity-80 transition-opacity rounded-lg text-xs"
                           >
@@ -1268,10 +1259,14 @@ export default function CartPanel() {
             {/* Customer Promotion Note */}
             {activeCart.appliedPromotion && (
               <div className="mb-2 pb-2 border-b border-neutral-200">
-                <div className="flex justify-between text-sm">
-                  <span className="text-purple-700 font-semibold flex items-center gap-1">
-                    {activeCart.appliedPromotion.name}
+                <div className="flex justify-between gap-2 text-sm">
+                  <span className="text-purple-700 font-semibold">
+                    {activeCart.customer?.name ? `${activeCart.customer.name} · ` : ""}
+                    {activeCart.appliedPromotion.name} ({describePromotion(activeCart.appliedPromotion)})
                   </span>
+                  {!totals.promotionApplied && (
+                    <span className="text-xs text-amber-700">No items in this cart qualify</span>
+                  )}
                 </div>
               </div>
             )}
@@ -1288,13 +1283,21 @@ export default function CartPanel() {
                   ₦{Math.round(totals.subtotal).toLocaleString()}
                 </span>
               </div>
-              {totals.discountAmount > 0 && (
+              {totals.itemDiscountTotal > 0 && (
+                <div className="flex justify-between col-span-2">
+                  <span className="font-semibold text-red-600">ITEM DISCOUNTS</span>
+                  <span className="font-bold text-base text-red-600">
+                    -₦{Math.round(totals.itemDiscountTotal).toLocaleString()}
+                  </span>
+                </div>
+              )}
+              {totals.promoDiscountTotal > 0 && (
                 <div className="flex justify-between col-span-2">
                   <span className="font-semibold text-red-600">
-                    {totals.discountName || "SAVINGS"}
+                    {activeCart.appliedPromotion?.name || "PROMOTION"}
                   </span>
                   <span className="font-bold text-base text-red-600">
-                    -₦{Math.round(totals.discountAmount).toLocaleString()}
+                    -₦{Math.round(totals.promoDiscountTotal).toLocaleString()}
                   </span>
                 </div>
               )}
@@ -1399,6 +1402,88 @@ export default function CartPanel() {
         isOpen={showAdjustFloatModal}
         onClose={() => setShowAdjustFloatModal(false)}
       />
+
+      {discountEditItem && (
+        <div className="absolute inset-0 z-40 bg-black/35 flex items-end" onClick={closeDiscountEditor}>
+          <div
+            className="w-full bg-gradient-to-b from-cyan-600 to-cyan-700 border-t border-cyan-300 rounded-t-2xl shadow-2xl p-3 space-y-3 max-h-[85%] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-white font-bold text-sm">Item discount</div>
+                <div className="text-cyan-100 text-xs">
+                  {discountEditItem.name} · line value ₦{getMaxLineDiscount(discountEditItem).toLocaleString()}
+                </div>
+              </div>
+              <button
+                onClick={closeDiscountEditor}
+                className="px-3 py-2 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-xs transition"
+              >
+                CLOSE
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { key: "amount", label: "₦ Amount" },
+                { key: "percent", label: "% Percent" },
+              ].map((option) => (
+                <button
+                  key={option.key}
+                  onClick={() => {
+                    setDiscountMode(option.key);
+                    setDiscountDraft("");
+                  }}
+                  className={`py-2 rounded-lg font-bold text-sm transition ${
+                    discountMode === option.key ? "bg-white text-cyan-700" : "bg-white/15 text-white hover:bg-white/25"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-white/10 border border-cyan-300 rounded-xl p-2">
+              <NumKeypad
+                value={discountDraft}
+                onChange={(next) => setDiscountDraft(String(next || "").replace(/[^0-9.]/g, ""))}
+                placeholder={discountMode === "percent" ? "%" : "₦"}
+              />
+            </div>
+
+            <div className="text-center text-sm font-semibold text-white">
+              Discount: ₦{getDraftDiscountAmount(discountEditItem).toLocaleString()}
+              {getDraftDiscountAmount(discountEditItem) >= getMaxLineDiscount(discountEditItem) &&
+                Number(discountDraft) > 0 && <span className="ml-1 text-amber-200">(capped at line value)</span>}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => {
+                  setItemDiscount(discountEditItem.id, 0);
+                  closeDiscountEditor();
+                }}
+                className="py-3 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-sm transition"
+              >
+                Remove
+              </button>
+              <button
+                onClick={closeDiscountEditor}
+                className="py-3 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-sm transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => applyDiscountDraft(discountEditItem)}
+                className="py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-bold text-sm transition"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {qtyEditItem && (
         <div className="absolute inset-0 z-40 bg-black/35 flex items-end" onClick={closeQtyEditor}>

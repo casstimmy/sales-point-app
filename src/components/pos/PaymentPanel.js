@@ -5,6 +5,7 @@
  */
 
 import React, { useState, useEffect } from "react";
+import { toSaleItems } from "../../lib/cartPricing";
 import Image from "next/image";
 import { useCart } from "../../context/CartContext";
 import { useStaff } from "../../context/StaffContext";
@@ -227,13 +228,10 @@ export default function PaymentPanel() {
       // Compute totals fresh to ensure promotion values are captured
       const freshTotals = calculateTotals();
 
+      // Lines keep the original price plus their discount and net total, so
+      // receipts, reprints and reports show exactly what the customer paid.
       const transaction = {
-        items: activeCart.items.map((item) => ({
-          productId: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+        items: toSaleItems(activeCart, freshTotals),
         // Every payment attempt gets its own id so a retried sync is recognised as the same payment.
         externalId: clientId,
         clientId,
@@ -248,11 +246,13 @@ export default function PaymentPanel() {
         subtotal: freshTotals.subtotal,
         tax: freshTotals.tax,
         discount: freshTotals.discountAmount || 0,
-        discountName: freshTotals.discountName || 'Discount',
+        discountName: freshTotals.discountName || '',
         incrementAmount: freshTotals.incrementAmount || 0,
-        incrementName: freshTotals.incrementName || 'Additional Charge',
+        incrementName: freshTotals.incrementName || '',
         promotionValueType: freshTotals.promotionValueType || null,
+        appliedPromotion: freshTotals.promotionApplied ? activeCart.appliedPromotion : null,
         customerType: activeCart.customer?.type || null,
+        customerId: activeCart.customer?._id || null,
         amountPaid: paymentDetails.amountPaid,
         change: paymentDetails.change,
         tenderType: paymentDetails.tenderType,

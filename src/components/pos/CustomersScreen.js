@@ -9,7 +9,7 @@
  * - Assign customer to current transaction with applicable promotions
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSearch,
@@ -24,6 +24,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { useCart } from '../../context/CartContext';
 import { showToast } from '../common/Toast';
+import { describePromotion, pickPromotionForCustomer } from '../../lib/promotionRules';
+
+const PROMOTIONS_CACHE_KEY = 'pos_promotions_cache';
 
 const CUSTOMER_TYPES = ['REGULAR', 'VIP', 'NEW', 'INACTIVE', 'BULK_BUYER', 'ONLINE', 'CREDIT'];
 
@@ -56,11 +59,12 @@ export default function CustomersScreen({ onNavigateToMenu }) {
     creditNotes: '',
   });
   const [adding, setAdding] = useState(false);
+  const promotionsRequestRef = useRef(null);
 
   // Fetch customers and promotions on mount
   useEffect(() => {
     fetchCustomers();
-    fetchPromotions();
+    loadPromotions();
   }, []);
 
   const fetchCustomers = async () => {
@@ -81,63 +85,55 @@ export default function CustomersScreen({ onNavigateToMenu }) {
     }
   };
 
-  const fetchPromotions = async () => {
-    try {
-      const response = await fetch('/api/promotions');
-      if (response.ok) {
+  // Promotions are loaded once, kept for offline use, and awaited before a customer
+  // is applied, so tapping a customer straight away still gets their discount.
+  const loadPromotions = () => {
+    if (promotionsRequestRef.current) return promotionsRequestRef.current;
+
+    promotionsRequestRef.current = (async () => {
+      try {
+        const response = await fetch('/api/promotions');
+        if (!response.ok) throw new Error(`Promotions request failed: ${response.status}`);
         const data = await response.json();
-        console.log('📢 Promotions API response:', data);
         const promoList = data.data || data.promotions || [];
-        console.log('📢 Promotions loaded:', promoList.length, promoList);
         setPromotions(promoList);
-      } else {
-        console.error('❌ Failed to fetch promotions:', response.status);
+        try {
+          localStorage.setItem(PROMOTIONS_CACHE_KEY, JSON.stringify(promoList));
+        } catch {
+          // Cache is optional.
+        }
+        return promoList;
+      } catch (error) {
+        console.error('Failed to fetch promotions, using saved copy:', error);
+        let cached = [];
+        try {
+          cached = JSON.parse(localStorage.getItem(PROMOTIONS_CACHE_KEY) || '[]');
+        } catch {
+          cached = [];
+        }
+        setPromotions(cached);
+        promotionsRequestRef.current = null; // allow a retry next time
+        return cached;
       }
-    } catch (error) {
-      console.error('Failed to fetch promotions:', error);
-    }
+    })();
+
+    return promotionsRequestRef.current;
   };
 
-  // Find applicable promotion for a customer type
-  const findApplicablePromotion = (customerType) => {
-    console.log('🔍 Finding promotion for customer type:', customerType);
-    console.log('🔍 Available promotions:', promotions);
-    
-    if (!promotions || promotions.length === 0) {
-      console.log('⚠️ No promotions available');
-      return null;
-    }
-
-    // Find active promotions that target this customer type
-    const applicablePromos = promotions.filter(promo => {
-      console.log('🔍 Checking promo:', promo.name, 'active:', promo.active, 'targets:', promo.targetCustomerTypes);
-      if (!promo.active) return false;
-      if (!promo.targetCustomerTypes?.includes(customerType)) return false;
-      
-      // Check if promotion is within date range (if not indefinite)
-      if (!promo.indefinite) {
-        const now = new Date();
-        const start = new Date(promo.startDate);
-        const end = new Date(promo.endDate);
-        if (now < start || now > end) return false;
-      }
-      
-      return true;
-    });
-
-    console.log('✅ Applicable promotions:', applicablePromos);
-    // Return highest priority (lowest number) or first match
-    if (applicablePromos.length === 0) return null;
-    return applicablePromos.sort((a, b) => (a.priority || 0) - (b.priority || 0))[0];
-  };
+  // Highest-priority promotion that is running today for this customer type.
+  const findApplicablePromotion = (customerType, promotionList = promotions) =>
+    pickPromotionForCustomer(promotionList, { type: customerType });
 
   // Handle customer selection
-  const handleSelectCustomer = (customer) => {
-    const promotion = findApplicablePromotion(customer.type);
+  const handleSelectCustomer = async (customer) => {
+    const promotionList = promotions.length ? promotions : await loadPromotions();
+    const promotion = findApplicablePromotion(customer.type, promotionList);
     setCustomer(customer, promotion);
-    
+
     if (promotion) {
-      console.log(`✅ Applied promotion "${promotion.name}" for ${customer.type} customer`);
+      showToast(`${customer.name}: ${promotion.name} (${describePromotion(promotion)}) applied`, 'success');
+    } else {
+      showToast(`${customer.name} added. No promotion is running for ${customer.type || 'this'} customers.`, 'info');
     }
     // Auto-navigate back to menu after selecting a customer
     if (onNavigateToMenu) onNavigateToMenu();
@@ -367,15 +363,9 @@ export default function CustomersScreen({ onNavigateToMenu }) {
               {activeCart.appliedPromotion && (
                 <span className="ml-3 bg-white/20 px-2 py-1 rounded text-sm">
                   <FontAwesomeIcon icon={faPercent} className="w-3 h-3 mr-1" />
-                  {activeCart.appliedPromotion.name}: 
-                  {activeCart.appliedPromotion.valueType === 'INCREMENT'
-                    ? activeCart.appliedPromotion.discountType === 'PERCENTAGE'
-                      ? ` ${activeCart.appliedPromotion.discountValue}% increase`
-                      : ` ₦${activeCart.appliedPromotion.discountValue} added`
-                    : activeCart.appliedPromotion.discountType === 'PERCENTAGE'
-                      ? ` ${activeCart.appliedPromotion.discountValue}% off`
-                      : ` ₦${activeCart.appliedPromotion.discountValue} off`
-                  }
+                  {activeCart.appliedPromotion.name}: {describePromotion(activeCart.appliedPromotion)}
+                  {activeCart.appliedPromotion.applicationType === 'CATEGORY' && ' (selected categories)'}
+                  {activeCart.appliedPromotion.applicationType === 'ONE_PRODUCT' && ' (selected products)'}
                 </span>
               )}
             </div>
@@ -460,11 +450,7 @@ export default function CustomersScreen({ onNavigateToMenu }) {
                         <span className="text-sm font-semibold">{applicablePromo.name}</span>
                       </div>
                       <div className="text-xs text-purple-600 mt-1">
-                        {applicablePromo.valueType === 'DISCOUNT' ? '🔽' : '🔼'}
-                        {applicablePromo.discountType === 'PERCENTAGE' 
-                          ? ` ${applicablePromo.discountValue}%`
-                          : ` ₦${applicablePromo.discountValue}`
-                        } {applicablePromo.valueType === 'DISCOUNT' ? 'discount' : 'INCREMENT'}
+                        {describePromotion(applicablePromo)}
                       </div>
                     </div>
                   )}

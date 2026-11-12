@@ -22,6 +22,7 @@ const HELD_FIELDS = [
   '_id', 'externalId', 'items', 'total', 'subtotal', 'tax', 'discount', 'customerName',
   'customerId', 'tableName', 'staffName', 'heldByStaffName', 'heldByStaffId', 'location',
   'locationId', 'createdAt', 'heldAt', 'updatedAt', 'tillId', 'device',
+  'customerType', 'appliedPromotion', 'discountName', 'incrementAmount', 'incrementName', 'promotionValueType',
 ].join(' ');
 
 const findHeldTransaction = (transactionId) => {
